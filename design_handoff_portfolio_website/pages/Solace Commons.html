@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Solace Commons — Adolfo Valencia</title>
+<meta name="description" content="Solace Commons — a 335-unit LIHTC affordable community in Naranja, FL. Massing, feasibility, and financing by Adolfo Valencia." />
+<meta name="author" content="Adolfo Valencia" />
+<meta name="theme-color" content="#e7e1d4" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Solace Commons — Adolfo Valencia" />
+<meta property="og:description" content="335-unit LIHTC affordable community in Naranja, FL. Massing, feasibility, and financing." />
+<meta property="og:image" content="assets/solace/aerial.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Solace Commons — Adolfo Valencia" />
+<meta name="twitter:description" content="335-unit LIHTC affordable community in Naranja, FL." />
+<meta name="twitter:image" content="assets/solace/aerial.png" />
+<!-- SETUP: create a free GA4 property at https://analytics.google.com, then replace G-XXXXXXXXXX below with your Measurement ID -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-XXXXXXXXXX');
+</script>
+<script>document.documentElement.classList.add('js');</script>
+<style>
+  @font-face { font-family: 'Phantom'; src: url('assets/fonts/PHANTOM.ttf') format('truetype'); font-weight: 700; font-display: swap; }
+  @font-face { font-family: 'Archivo Black'; src: url('assets/fonts/ArchivoBlack-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+  @font-face { font-family: 'Space Mono'; src: url('assets/fonts/SpaceMono-Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'Space Mono'; src: url('assets/fonts/SpaceMono-Bold.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+
+  :root {
+    --concrete-base: #e7e1d4; --concrete-light: #f1ebdf; --concrete-dark: #b0a48d;
+    --ink: #1f1d18; --cream: #e5e0d2; --orange: #f47321; --green: #5d7048;
+    --line: rgba(31,29,24,0.16); --muted: #1f1d18; --faint: #1f1d18;
+    --font-phantom: 'Phantom', 'Arial Black', sans-serif;
+    --font-display: 'Archivo Black', 'Arial Black', sans-serif;
+    --font-mono: 'Space Mono', 'Courier New', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background-color: var(--concrete-base);
+    background-image: linear-gradient(rgba(231,225,212,0.20), rgba(231,225,212,0.20)), url('assets/tex/holefree.jpg'); background-repeat: repeat; background-size: 100% 100%, 1672px 1882px; background-position: top left, center 95px;
+    color: var(--ink); font-family: var(--font-mono); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  main { max-width: 1480px; margin: 0 auto; }
+  .frame { position: relative; }
+  a { color: inherit; text-decoration: none; }
+  img { display: block; max-width: 100%; }
+  a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
+  .skip-link { position: absolute; left: 12px; top: -60px; z-index: 100; background: var(--ink); color: var(--cream); padding: 12px 18px; font-family: var(--font-mono); font-weight: 700; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; transition: top 160ms ease; }
+  .skip-link:focus { top: 12px; }
+  .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+  .accent { color: var(--orange); } .green { color: var(--green); }
+
+  header.top { position: sticky; top: 0; z-index: 40; background-color: var(--concrete-base); background-image: linear-gradient(rgba(231,225,212,0.33), rgba(231,225,212,0.33)), url('assets/tex/holefree.jpg'); background-repeat: repeat; background-size: 100% 100%, 1672px 1882px; background-position: top left, center 95px; border-bottom: 2px solid var(--ink); box-shadow: 0 10px 22px -6px rgba(31,29,24,0.28); }
+  .top-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 56px; max-width: 1480px; margin: 0 auto; }
+  .top-left { display: flex; align-items: center; gap: 18px; }
+  .top-brand { display: flex; align-items: center; gap: 11px; }
+  .mark { display: block; height: 58px; width: auto; object-fit: cover; }
+  .top-name { font-size: 15px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; }
+  .top-nav { display: flex; gap: 34px; }
+  .top-nav a { font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink); transition: color 140ms ease; }
+  .top-nav a:hover { color: var(--ink); }
+  .nav-contact { color: var(--orange) !important; }
+  .coords { display: none; }
+  .nav-toggle { display: none; align-items: center; justify-content: center; width: 42px; height: 42px; border: 2px solid var(--ink); background: var(--cream); cursor: pointer; padding: 0; flex: none; }
+  .nav-toggle .bars { position: relative; width: 20px; height: 14px; }
+  .nav-toggle .bars span { position: absolute; left: 0; right: 0; height: 2px; background: var(--ink); transition: transform 220ms cubic-bezier(0.22,1,0.36,1), opacity 160ms ease, top 220ms cubic-bezier(0.22,1,0.36,1); }
+  .nav-toggle .bars span:nth-child(1) { top: 0; }
+  .nav-toggle .bars span:nth-child(2) { top: 6px; }
+  .nav-toggle .bars span:nth-child(3) { top: 12px; }
+  .nav-toggle[aria-expanded="true"] .bars span:nth-child(1) { top: 6px; transform: rotate(45deg); }
+  .nav-toggle[aria-expanded="true"] .bars span:nth-child(2) { opacity: 0; }
+  .nav-toggle[aria-expanded="true"] .bars span:nth-child(3) { top: 6px; transform: rotate(-45deg); }
+  .mobile-nav { display: none; flex-direction: column; position: absolute; top: 100%; left: 0; right: 0; z-index: 39;
+    background-color: var(--concrete-base, var(--paper)); background-image: linear-gradient(rgba(231,225,212,0.33), rgba(231,225,212,0.33)), url('assets/tex/holefree.jpg');
+    background-repeat: repeat; background-size: 100% 100%, 1672px 1882px; background-position: top left, center 95px;
+    border-bottom: 2px solid var(--ink); box-shadow: 0 14px 24px -8px rgba(31,29,24,0.3); }
+  .mobile-nav.open { display: flex; }
+  .mobile-nav a { padding: 17px 22px; min-height: 44px; display: flex; align-items: center; font-size: 15px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); border-top: 1px solid var(--line); transition: color 140ms ease, background 140ms ease; }
+  .mobile-nav a:hover, .mobile-nav a:active { color: var(--orange); background: rgba(244,115,33,0.06); }
+  .mobile-nav a.nav-contact { color: var(--orange) !important; }
+  @media (max-width: 720px) { .top-nav { display: none; } .nav-toggle { display: inline-flex; } }
+  @media (max-width: 640px) { .top-in { padding: 14px 22px; } .top-nav { gap: 20px; } }
+
+  .crumb { display: flex; align-items: center; gap: 10px; padding: 22px 56px; border-bottom: 1px solid var(--line); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+  .crumb a:hover { color: var(--orange); } .crumb .sep { opacity: 0.45; } .crumb .cur { opacity: 0.6; }
+
+  /* SLIDESHOW HERO */
+  .mhero { position: relative; overflow: hidden; border-bottom: 1px solid var(--line);
+    min-height: clamp(460px, 68vh, 740px); display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 70px 56px 40px; background: var(--concrete-dark); }
+  .shero-slides { position: absolute; inset: 0; z-index: 0; }
+  .shero-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 900ms ease; }
+  .shero-slide.on { opacity: 1; }
+  .shero-slide img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+  .mhero::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: linear-gradient(to top, rgba(20,18,14,0.9) 0%, rgba(20,18,14,0.5) 26%, rgba(20,18,14,0.04) 54%, rgba(20,18,14,0.42) 100%); }
+  /* nav arrows */
+  .shero-nav { position: absolute; top: 50%; transform: translateY(-50%); z-index: 4; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;
+    background: rgba(229,224,210,0.9); color: var(--ink); border: none; cursor: pointer; font-size: 20px; line-height: 1; transition: background 140ms ease, transform 140ms ease; }
+  .shero-nav:hover { background: var(--orange); color: #fff; }
+  .shero-nav.prev { left: 0; } .shero-nav.next { right: 0; }
+  /* 3D massing button (top-left) */
+  .mhero-chip { position: absolute; top: 22px; left: 56px; z-index: 4; display: inline-flex; align-items: center; gap: 9px; background: var(--cream); color: var(--ink); border: none; padding: 10px 15px; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; box-shadow: 3px 3px 0 rgba(31,29,24,0.28); transition: background 140ms ease, color 140ms ease; }
+  .mhero-chip:hover { background: var(--orange); color: #fff; }
+  .mhero-chip .play { color: var(--orange); font-size: 12px; }
+  .mhero-chip:hover .play { color: #fff; }
+  /* counter (top-right) */
+  .shero-counter { position: absolute; top: 22px; right: 56px; z-index: 4; font-family: var(--font-mono); font-size: 12px; font-weight: 700; letter-spacing: 0.16em; color: var(--cream); font-variant-numeric: tabular-nums; text-shadow: 0 1px 8px rgba(0,0,0,0.5); }
+  .shero-counter b { color: var(--orange); }
+  /* body */
+  .mhero-body { position: relative; z-index: 3; color: var(--cream); }
+  .mhero-eyebrow { color: var(--orange); margin-bottom: 13px; }
+  .mhero-name { font-family: var(--font-phantom); font-weight: 700; text-transform: uppercase; line-height: 0.9; font-size: clamp(42px, 7.5vw, 104px); margin: 0; letter-spacing: 0.01em; color: #f3efe3; text-shadow: 0 3px 22px rgba(0,0,0,0.4); }
+  .mhero-loc { margin-top: 14px; font-size: 13px; letter-spacing: 0.05em; max-width: 660px; line-height: 1.55; opacity: 0.92; }
+  /* dot indicators */
+  .shero-dots { position: relative; z-index: 3; display: flex; gap: 9px; margin-top: 26px; }
+  .shero-dots button { width: 34px; height: 4px; padding: 0; border: none; background: rgba(229,224,210,0.4); cursor: pointer; transition: background 160ms ease; }
+  .shero-dots button.on { background: var(--orange); }
+  .js .rise { opacity: 0; transform: translateY(22px); animation: rise 720ms cubic-bezier(0.22,1,0.36,1) forwards; }
+  .js .rise.d1 { animation-delay: 130ms; } .js .rise.d2 { animation-delay: 270ms; } .js .rise.d3 { animation-delay: 410ms; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+
+  /* THUMBNAIL GALLERY STRIP */
+  .gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-bottom: 1px solid var(--line); }
+  .gallery button { position: relative; padding: 0; border: none; border-right: 1px solid var(--line); cursor: pointer; overflow: hidden; aspect-ratio: 3 / 2; background: var(--concrete-dark); display: block; }
+  .gallery button:last-child { border-right: none; }
+  .gallery img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 500ms cubic-bezier(0.22,1,0.36,1), opacity 200ms ease; opacity: 0.78; }
+  .gallery button:hover img { transform: scale(1.06); opacity: 1; }
+  .gallery button.on img { opacity: 1; }
+  .gallery button.on::after { content: ''; position: absolute; inset: 0; border: 3px solid var(--orange); pointer-events: none; }
+  .gallery .gnum { position: absolute; left: 8px; bottom: 7px; z-index: 2; font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--cream); text-shadow: 0 1px 6px rgba(0,0,0,0.7); }
+
+  /* LIGHTBOX */
+  .lightbox { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 40px; background: rgba(16,14,11,0.94); opacity: 0; visibility: hidden; transition: opacity 220ms ease, visibility 0s linear 220ms; }
+  .lightbox.open { opacity: 1; visibility: visible; transition: opacity 220ms ease; }
+  .lightbox-img { max-width: 92vw; max-height: 84vh; object-fit: contain; border: 1px solid rgba(229,224,210,0.2); }
+  .lb-close { position: absolute; top: 22px; right: 28px; background: none; border: none; color: var(--cream); font-size: 30px; cursor: pointer; line-height: 1; }
+  .lb-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(229,224,210,0.14); color: var(--cream); border: none; width: 54px; height: 54px; font-size: 24px; cursor: pointer; transition: background 140ms ease; }
+  .lb-nav:hover { background: var(--orange); color: #fff; }
+  .lb-nav.prev { left: 24px; } .lb-nav.next { right: 24px; }
+  .lb-counter { position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.16em; color: var(--cream); font-variant-numeric: tabular-nums; }
+  .lb-counter b { color: var(--orange); }
+  @media (max-width: 640px) {
+    .mhero { padding: 60px 22px 32px; } .mhero-chip { left: 22px; } .shero-counter { right: 22px; }
+    .shero-nav { width: 40px; height: 40px; }
+  }
+
+  .spec { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); }
+  .spec-cell { padding: 30px 28px; border-right: 1px solid var(--line); } .spec-cell:last-child { border-right: none; }
+  .spec-k { font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.6; }
+  .spec-v { font-family: var(--font-display); font-size: clamp(14px, 1.5vw, 18px); margin-top: 7px; line-height: 1.05; }
+
+  .sec { padding: 64px 56px; border-bottom: 1px solid var(--line); }
+  .sec-eyebrow { color: var(--orange); margin-bottom: 14px; display: flex; align-items: center; gap: 9px; }
+  .sec-eyebrow .sq { width: 9px; height: 9px; background: var(--orange); flex: none; }
+  .sec-title { font-family: var(--font-display); font-size: clamp(24px, 3.2vw, 38px); text-transform: uppercase; letter-spacing: -0.01em; line-height: 0.98; margin: 0 0 34px; }
+
+  .overview { display: grid; grid-template-columns: 1.5fr 1fr; gap: 64px; align-items: start; }
+  .ov-text p { font-size: 15px; line-height: 1.8; margin: 0 0 18px; } .ov-text p:last-child { margin-bottom: 0; } .ov-text strong { color: var(--orange); }
+  .ov-aside { }
+  .ov-aside .row { display: flex; justify-content: space-between; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); font-size: 13px; } .ov-aside .row:first-child { border-top: 1px solid var(--line); } .ov-aside .row:last-child { border-bottom: none; }
+  .ov-aside .k { opacity: 0.7; } .ov-aside .v { font-weight: 700; text-align: right; } .ov-aside .v.hot { color: var(--orange); }
+
+  .mgroup + .mgroup { margin-top: 44px; }
+  .mgroup-h { display: flex; align-items: center; gap: 9px; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 6px; color: var(--muted); } .mgroup-h .sq { width: 8px; height: 8px; flex: none; }
+  .mgrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 28px 24px; border-top: 1px solid var(--line); padding-top: 26px; }
+  .mcell { padding: 0; }
+  .mcell .n { font-family: var(--font-display); font-size: clamp(17px, 1.9vw, 24px); line-height: 1; } .mcell .n.hot { color: var(--green); }
+  .mcell .k { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.7; margin-top: 8px; } .mcell .u { font-size: 9px; opacity: 0.5; margin-top: 2px; }
+
+  /* Capital-stack band */
+  .mixband .mix-sub { margin-left: auto; font-weight: 400; letter-spacing: 0.08em; opacity: 0.6; }
+  .mixband-wrap { border-top: 1px solid var(--line); padding-top: 26px; }
+  .mixbar { display: flex; width: 100%; height: 62px; border: 1px solid var(--ink); overflow: hidden; }
+  .mix-seg { position: relative; flex: 0 0 var(--w); height: 100%; border-right: 2px solid var(--cream); overflow: hidden; }
+  .mix-seg:last-child { border-right: none; }
+  .mix-fill { position: absolute; inset: 0; transform-origin: left; }
+  .mix-seg.res .mix-fill { background: var(--ink); }
+  .mix-seg.off .mix-fill { background: var(--orange); }
+  .mix-seg.ret .mix-fill { background: var(--green); }
+  .js .mix-fill { transform: scaleX(0); transition: transform 1000ms cubic-bezier(0.22,1,0.36,1); }
+  .js .reveal.in .mix-fill { transform: scaleX(1); }
+  .mix-seg.off .mix-fill { transition-delay: 120ms; } .mix-seg.ret .mix-fill { transition-delay: 240ms; }
+  .mix-label { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); z-index: 1; pointer-events: none; }
+  .js .mix-label { opacity: 0; transition: opacity 500ms ease; } .js .reveal.in .mix-label { opacity: 1; transition-delay: 520ms; }
+  .mix-name { display: block; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--cream); }
+  .mix-pct { display: block; margin-top: 4px; font-family: var(--font-display); font-size: clamp(15px, 1.7vw, 21px); line-height: 1; color: var(--cream); }
+  .mix-seg.off .mix-name, .mix-seg.off .mix-pct { color: var(--ink); }
+  .mix-legend { display: flex; flex-wrap: wrap; gap: 9px 28px; margin-top: 16px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+  .mix-legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .mix-legend i { width: 9px; height: 9px; flex: none; }
+  .mix-legend em { font-style: normal; font-weight: 400; opacity: 0.55; letter-spacing: 0.04em; margin-left: 5px; }
+
+  /* UNDERWRITING / market */
+  .uw { display: grid; grid-template-columns: repeat(3, 1fr); gap: 44px; border-top: 1px solid var(--line); padding-top: 30px; }
+  .uw-cell { padding: 0; }
+  .uw-use { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--orange); }
+  .uw-rent { font-family: var(--font-display); font-size: 30px; margin: 9px 0 4px; } .uw-rent span { font-size: 13px; opacity: 0.6; }
+  .uw-note { font-size: 11.5px; line-height: 1.45; opacity: 0.72; }
+
+  .cta { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; padding: 64px 56px; }
+  .cta-t { font-family: var(--font-display); font-size: clamp(20px, 2.6vw, 30px); text-transform: uppercase; line-height: 0.98; margin: 0; }
+  .btn { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-mono); font-weight: 700; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; padding: 14px 20px; cursor: pointer; background: var(--orange); color: var(--ink); border: 2px solid var(--ink); transition: transform 120ms ease, box-shadow 120ms ease; }
+  .btn:hover { transform: translate(-2px,-2px); box-shadow: 4px 4px 0 rgba(31,29,24,0.5); } .btn.ghost { background: var(--cream); }
+  .btn .arr { transition: transform 160ms ease; } .btn:hover .arr { transform: translateX(4px); }
+
+  .foot { border-top: 2px solid var(--ink); }
+  .foot-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 32px 56px; max-width: 1480px; margin: 0 auto; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); }
+  .foot-in a:hover { color: var(--orange); }
+  .foot-main { display: grid; grid-template-columns: 1.6fr 1fr 1fr auto; gap: 24px; padding: 30px 28px; }
+  .foot-mark { display: flex; align-items: center; gap: 11px; } .foot-name { font-weight: 700; letter-spacing: 0.06em; font-size: 15px; }
+  .foot-tag { margin-top: 12px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.72; }
+  .foot-h { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 13px; opacity: 0.6; }
+  .foot-col a { display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 4px 0; transition: color 140ms ease; } .foot-col a:hover { color: var(--orange); }
+  .foot-top { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; align-self: start; border: 2px solid var(--ink); padding: 12px 14px; cursor: pointer; background: var(--cream); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; transition: background 90ms linear; } .foot-top:hover { background: var(--orange); }
+  .foot-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 13px 28px; border-top: 3px solid var(--ink); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.78; } .foot-bar .sep { opacity: 0.5; }
+
+  /* darken secondary text to ink */
+  .crumb .cur, .crumb .sep, .spec-k, .ov-aside .k, .mcell .k, .mcell .u,
+  .uw-rent span, .uw-note, .foot-tag, .foot-h, .foot-bar, .foot-bar .sep { opacity: 1; }
+
+  .js .reveal { opacity: 0; transform: translateY(28px); transition: opacity 720ms cubic-bezier(0.22,1,0.36,1), transform 720ms cubic-bezier(0.22,1,0.36,1); }
+  .js .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } .js .reveal, .js .rise { opacity: 1 !important; transform: none !important; } }
+
+  @media (max-width: 880px) {
+    .spec { grid-template-columns: 1fr 1fr; } .spec-cell:nth-child(2n) { border-right: none; } .spec-cell:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+    .mgrid { grid-template-columns: repeat(3, 1fr); gap: 24px 20px; } .overview { grid-template-columns: 1fr; }
+    .uw { grid-template-columns: 1fr; gap: 30px; }
+  }
+  @media (max-width: 540px) { main { padding: 8px; } .mgrid { grid-template-columns: repeat(2, 1fr); } .mhero, .sec, .crumb, .cta, .foot-main { padding-left: 18px; padding-right: 18px; } .foot-main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+    <a class="skip-link" href="#top">Skip to content</a>
+    <header class="top">
+      <div class="top-in">
+        <div class="top-left">
+          <a class="top-brand" href="Adolfo Valencia - Minimal.html" aria-label="Adolfo Valencia — home">
+            <img class="mark" src="assets/av-logo-cut.png" alt="AV monogram" />
+            <span class="top-name">ADOLFO&nbsp;VALENCIA</span>
+          </a>
+        </div>
+        <nav class="top-nav">
+          <a href="Adolfo Valencia - Minimal.html#work">Work</a>
+          <a href="Adolfo Valencia - Minimal.html#about">About</a>
+          <a href="Contact.html" class="nav-contact">Contact</a>
+        </nav>
+        <button class="nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="mobileNav" aria-label="Toggle menu"><span class="bars"><span></span><span></span><span></span></span></button>
+      </div>
+      <nav class="mobile-nav" id="mobileNav">
+        <a href="Adolfo Valencia - Minimal.html#work">Work</a>
+        <a href="Adolfo Valencia - Minimal.html#about">About</a>
+        <a href="Contact.html" class="nav-contact">Contact</a>
+      </nav>
+    </header>
+<main>
+  <div class="frame">
+
+
+    <div class="crumb">
+      <a href="Adolfo Valencia - Minimal.html#work">&larr; Selected Work</a>
+      <span class="sep">/</span>
+      <span class="cur">02 · Solace Commons</span>
+    </div>
+
+    <!-- SLIDESHOW HERO -->
+    <section class="mhero" id="top" data-screen-label="solace-hero">
+      <div class="shero-slides" id="sheroSlides">
+        <div class="shero-slide on"><img src="assets/solace/aerial.png" alt="Solace Commons — aerial view of the full mid-rise and courtyard parking" /></div>
+        <div class="shero-slide"><img src="assets/solace/front.png" alt="Solace Commons — street-facing front elevation" loading="lazy" decoding="async" /></div>
+        <div class="shero-slide"><img src="assets/solace/side.png" alt="Solace Commons — angled side view from the corner" loading="lazy" decoding="async" /></div>
+      </div>
+
+      <button class="mhero-chip" data-model="assets/models/solace.glb" data-title="Solace Commons" data-eyebrow="Naranja, FL · Affordable Mid-Rise" type="button" aria-label="Open interactive 3D massing"><span class="play">&#9654;</span> 3D Massing</button>
+      <div class="shero-counter"><b id="sheroNum">01</b> / 03</div>
+      <button class="shero-nav prev" id="sheroPrev" type="button" aria-label="Previous image">&#8249;</button>
+      <button class="shero-nav next" id="sheroNext" type="button" aria-label="Next image">&#8250;</button>
+
+      <div class="mhero-body">
+        <div class="mhero-eyebrow eyebrow rise d1">Naranja, FL · Affordable Mid-Rise · 2026</div>
+        <h1 class="mhero-name rise d2">Solace<br />Commons</h1>
+        <p class="mhero-loc rise d3">26598 SW 139th Ave — a 335-unit affordable mid-rise on a 2.05-acre parcel beside Naranja Park, modeled against real zoning, LIHTC financing, and south Miami-Dade context.</p>
+      </div>
+      <div class="shero-dots rise d3" id="sheroDots" aria-label="Slide selector"></div>
+    </section>
+
+    <!-- THUMBNAIL GALLERY -->
+    <div class="gallery" id="gallery" aria-label="Project gallery">
+      <button type="button" data-i="0"><img src="assets/solace/aerial.png" alt="Aerial view" loading="lazy" decoding="async" /><span class="gnum">01 · Aerial</span></button>
+      <button type="button" data-i="1"><img src="assets/solace/front.png" alt="Front elevation" loading="lazy" decoding="async" /><span class="gnum">02 · Front</span></button>
+      <button type="button" data-i="2"><img src="assets/solace/side.png" alt="Side view" loading="lazy" decoding="async" /><span class="gnum">03 · Side</span></button>
+    </div>
+
+    <div class="spec">
+      <div class="spec-cell"><div class="spec-k">Location</div><div class="spec-v">Naranja, FL</div></div>
+      <div class="spec-cell"><div class="spec-k">Program</div><div class="spec-v">Affordable Mid-Rise</div></div>
+      <div class="spec-cell"><div class="spec-k">Scale</div><div class="spec-v">8 Stories</div></div>
+      <div class="spec-cell"><div class="spec-k">Capital</div><div class="spec-v green">4% LIHTC</div></div>
+    </div>
+
+    <section class="sec" data-screen-label="overview">
+      <div class="sec-eyebrow eyebrow reveal"><span class="sq"></span> Overview</div>
+      <div class="overview">
+        <div class="ov-text reveal">
+          <p>A <strong>335-unit affordable mid-rise</strong> on a 2.05-acre parcel in Naranja, unincorporated south Miami-Dade, beside Naranja Park and the Miami Douglas MacArthur South high school.</p>
+          <p>The TestFit study stacks <strong>eight residential floors</strong> (80 ft, FAR 3.44, 163.8 du/ac) over a 401-stall structured-parking podium, with a unit mix of 37% one-bed, 48% two-bed, and 14% three-bed at an average 754 SF — all restricted to 60% AMI.</p>
+          <p>The capital stack is a <strong>4% LIHTC structure</strong>: ~$54M of tax-credit equity and a ~$33M soft-capital stack (FHFC SAIL, Naranja Lakes CRA, HOME, NHTF, SHIP) against a $138.6M total development cost.</p>
+        </div>
+        <div class="ov-aside reveal">
+          <div class="row"><span class="k">Residential Units</span><span class="v">335</span></div>
+          <div class="row"><span class="k">Avg Unit Size</span><span class="v">754 SF</span></div>
+          <div class="row"><span class="k">Site Area</span><span class="v">2.05 ac</span></div>
+          <div class="row"><span class="k">Parking</span><span class="v">401 stalls</span></div>
+          <div class="row"><span class="k">Total Dev. Cost</span><span class="v">$138.6M</span></div>
+          <div class="row"><span class="k">Cost / Unit</span><span class="v hot">$414K</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" data-screen-label="numbers">
+      <div class="sec-eyebrow eyebrow reveal"><span class="sq"></span> By the Numbers</div>
+      <h2 class="sec-title reveal">Development Metrics</h2>
+
+      <div class="mgroup reveal">
+        <div class="mgroup-h"><span class="sq" style="background:var(--ink)"></span> Architecture</div>
+        <div class="mgrid">
+          <div class="mcell"><div class="n">89,298</div><div class="k">Site Area</div><div class="u">SF · 2.05 ac</div></div>
+          <div class="mcell"><div class="n">455,916</div><div class="k">GFA</div><div class="u">SF gross</div></div>
+          <div class="mcell"><div class="n">3.44</div><div class="k">FAR</div><div class="u">built</div></div>
+          <div class="mcell"><div class="n">80</div><div class="k">Height</div><div class="u">FT · 8 stories</div></div>
+          <div class="mcell"><div class="n">62%</div><div class="k">Coverage</div><div class="u">building</div></div>
+          <div class="mcell"><div class="n">401</div><div class="k">Parking</div><div class="u">structured podium</div></div>
+        </div>
+      </div>
+
+      <div class="mgroup reveal">
+        <div class="mgroup-h"><span class="sq" style="background:var(--orange)"></span> Program</div>
+        <div class="mgrid">
+          <div class="mcell"><div class="n">335</div><div class="k">Units</div><div class="u">all affordable</div></div>
+          <div class="mcell"><div class="n">754</div><div class="k">Avg Unit</div><div class="u">SF</div></div>
+          <div class="mcell"><div class="n">164</div><div class="k">Density</div><div class="u">du / acre</div></div>
+          <div class="mcell"><div class="n">60%</div><div class="k">AMI Cap</div><div class="u">restricted</div></div>
+          <div class="mcell"><div class="n">100%</div><div class="k">Residential</div><div class="u">of program</div></div>
+          <div class="mcell"><div class="n">1.20</div><div class="k">Parking Ratio</div><div class="u">per unit</div></div>
+        </div>
+      </div>
+
+      <div class="mgroup mixband reveal">
+        <div class="mgroup-h"><span class="sq" style="background:var(--green)"></span> Sources of Funds <span class="mix-sub">% of $138.6M TDC</span></div>
+        <div class="mixband-wrap">
+          <div class="mixbar">
+            <div class="mix-seg off" style="--w:39%">
+              <div class="mix-fill"></div>
+              <div class="mix-label"><span class="mix-name">LIHTC Equity</span><span class="mix-pct">39%</span></div>
+            </div>
+            <div class="mix-seg res" style="--w:37%">
+              <div class="mix-fill"></div>
+              <div class="mix-label"><span class="mix-name">Permanent Debt</span><span class="mix-pct">37%</span></div>
+            </div>
+            <div class="mix-seg ret" style="--w:24%">
+              <div class="mix-fill"></div>
+              <div class="mix-label"><span class="mix-name">Soft Capital</span><span class="mix-pct">24%</span></div>
+            </div>
+          </div>
+          <div class="mix-legend">
+            <span><i style="background:var(--orange)"></i>4% LIHTC Equity<em>~$54M · 39%</em></span>
+            <span><i style="background:var(--ink)"></i>Permanent Debt<em>~$51.6M · 37%</em></span>
+            <span><i style="background:var(--green)"></i>Soft Capital<em>~$33M · SAIL · CRA · HOME · 24%</em></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mgroup reveal">
+        <div class="mgroup-h"><span class="sq" style="background:var(--green)"></span> Financial</div>
+        <div class="mgrid">
+          <div class="mcell"><div class="n">$138.6M</div><div class="k">TDC</div><div class="u">total dev. cost</div></div>
+          <div class="mcell"><div class="n">$304</div><div class="k">Cost / GSF</div><div class="u">all-in</div></div>
+          <div class="mcell"><div class="n">$414K</div><div class="k">Cost / Unit</div><div class="u">per door</div></div>
+          <div class="mcell"><div class="n">2.3%</div><div class="k">Yield on Cost</div><div class="u">NOI / TDC</div></div>
+          <div class="mcell"><div class="n hot">~$54M</div><div class="k">Tax-Credit Equity</div><div class="u">4% LIHTC</div></div>
+          <div class="mcell"><div class="n">~$33M</div><div class="k">Soft Capital</div><div class="u">SAIL · CRA · HOME</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" data-screen-label="unit-mix">
+      <div class="sec-eyebrow eyebrow reveal"><span class="sq"></span> Unit Mix</div>
+      <h2 class="sec-title reveal">335 Units at 60% AMI</h2>
+      <div class="uw reveal">
+        <div class="uw-cell"><div class="uw-use">One-Bedroom</div><div class="uw-rent">37%<span> · ~124 units</span></div><div class="uw-note">Compact units for singles and couples.</div></div>
+        <div class="uw-cell"><div class="uw-use">Two-Bedroom</div><div class="uw-rent">48%<span> · ~161 units</span></div><div class="uw-note">The plurality of the program — small families.</div></div>
+        <div class="uw-cell"><div class="uw-use">Three-Bedroom</div><div class="uw-rent">14%<span> · ~47 units</span></div><div class="uw-note">Larger family units, all at 60% AMI.</div></div>
+      </div>
+    </section>
+
+    <div class="cta">
+      <h3 class="cta-t">See the rest of the work</h3>
+      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <a class="btn ghost" href="Sunnyvale Mixed-Use.html"><span class="arr">&larr;</span> Previous: Sunnyvale</a>
+        <a class="btn" href="Mirador Manor - Showcase.html">Next: Mirador <span class="arr">&rarr;</span></a>
+      </div>
+    </div>
+
+    <div class="sec" style="border-bottom:none; padding:18px 28px;">
+      <div class="eyebrow" style="opacity:1; color:#1f1d18; line-height:1.7; font-size:10px;">With Neal Hamilton &amp; Jake Weiss · MRED, University of Miami</div>
+    </div>
+
+  </div>
+</main>
+    <footer class="foot">
+      <div class="foot-in">
+        <span style="color: rgb(31, 29, 24)">&copy; 2026 Adolfo Valencia</span>
+        <a href="#top">&uarr; Top</a>
+      </div>
+    </footer>
+
+  <!-- LIGHTBOX -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer">
+    <button class="lb-close" id="lbClose" type="button" aria-label="Close">&times;</button>
+    <button class="lb-nav prev" id="lbPrev" type="button" aria-label="Previous">&#8249;</button>
+    <img class="lightbox-img" id="lbImg" src="assets/solace/front.png" alt="" />
+    <button class="lb-nav next" id="lbNext" type="button" aria-label="Next">&#8250;</button>
+    <div class="lb-counter"><b id="lbNum">01</b> / 03</div>
+  </div>
+
+<script>
+  (function () { var c = document.getElementById('coords'); if (!c) return; var raf = null, lx = 0, ly = 0;
+    window.addEventListener('mousemove', function (e) { lx = e.clientX; ly = e.clientY; if (raf) return;
+      raf = requestAnimationFrame(function () { raf = null; c.textContent = 'X:' + String(lx).padStart(3,'0') + ' Y:' + String(ly).padStart(3,'0'); }); }); })();
+  (function () { var els = [].slice.call(document.querySelectorAll('.reveal'));
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || !('IntersectionObserver' in window)) { els.forEach(function (e) { e.classList.add('in'); }); return; }
+    var io = new IntersectionObserver(function (en) { en.forEach(function (x) { if (x.isIntersecting) { x.target.classList.add('in'); io.unobserve(x.target); } }); }, { threshold: 0.14, rootMargin: '0px 0px -8% 0px' });
+    els.forEach(function (e) { io.observe(e); }); })();
+  document.querySelectorAll('a[href^="#"]').forEach(function (a) { a.addEventListener('click', function (e) { var id = a.getAttribute('href'); if (id.length < 2) return; var t = document.querySelector(id);
+    if (t) { e.preventDefault(); window.scrollTo({ top: t.getBoundingClientRect().top + window.scrollY - 70, behavior: 'smooth' }); } }); });
+
+  /* ---------- Slideshow + gallery + lightbox ---------- */
+  (function () {
+    var SRC = [
+      'assets/solace/aerial.png',
+      'assets/solace/front.png',
+      'assets/solace/side.png'
+    ];
+    var N = SRC.length;
+    var slides = [].slice.call(document.querySelectorAll('.shero-slide'));
+    var thumbs = [].slice.call(document.querySelectorAll('#gallery button'));
+    var dotsWrap = document.getElementById('sheroDots');
+    var numEl = document.getElementById('sheroNum');
+    var cur = 0, timer = null;
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    var dots = [];
+    for (var i = 0; i < N; i++) {
+      var d = document.createElement('button');
+      d.type = 'button';
+      d.setAttribute('aria-label', 'Go to image ' + (i + 1));
+      (function (idx) { d.addEventListener('click', function () { go(idx); restart(); }); })(i);
+      dotsWrap.appendChild(d); dots.push(d);
+    }
+
+    function pad(n) { return String(n).padStart(2, '0'); }
+    function go(n) {
+      cur = (n + N) % N;
+      slides.forEach(function (s, i) { s.classList.toggle('on', i === cur); });
+      dots.forEach(function (d, i) { d.classList.toggle('on', i === cur); });
+      thumbs.forEach(function (t, i) { t.classList.toggle('on', i === cur); });
+      if (numEl) numEl.textContent = pad(cur + 1);
+    }
+    function next() { go(cur + 1); }
+    function prev() { go(cur - 1); }
+    var paused = false;
+    function stopTimer() { if (timer) { clearInterval(timer); timer = null; } }
+    function restart() { stopTimer(); if (!reduce && !paused) timer = setInterval(next, 5000); }
+
+    document.getElementById('sheroNext').addEventListener('click', function () { next(); restart(); });
+    document.getElementById('sheroPrev').addEventListener('click', function () { prev(); restart(); });
+
+    var heroEl = document.querySelector('.mhero');
+    if (heroEl) {
+      heroEl.addEventListener('mouseenter', function () { paused = true; stopTimer(); });
+      heroEl.addEventListener('mouseleave', function () { paused = false; restart(); });
+    }
+
+    var lb = document.getElementById('lightbox');
+    var lbImg = document.getElementById('lbImg');
+    var lbNum = document.getElementById('lbNum');
+    var lbCur = 0;
+    function lbShow(n) { lbCur = (n + N) % N; lbImg.src = SRC[lbCur]; lbNum.textContent = pad(lbCur + 1); }
+    function lbOpen(n) { lbShow(n); lb.classList.add('open'); document.body.style.overflow = 'hidden'; stopTimer(); }
+    function lbClose() { lb.classList.remove('open'); document.body.style.overflow = ''; restart(); }
+    thumbs.forEach(function (t, i) {
+      t.addEventListener('click', function () { go(i); restart(); lbOpen(i); });
+    });
+    document.getElementById('lbClose').addEventListener('click', lbClose);
+    document.getElementById('lbNext').addEventListener('click', function () { lbShow(lbCur + 1); });
+    document.getElementById('lbPrev').addEventListener('click', function () { lbShow(lbCur - 1); });
+    lb.addEventListener('click', function (e) { if (e.target === lb) lbClose(); });
+    window.addEventListener('keydown', function (e) {
+      if (lb.classList.contains('open')) {
+        if (e.key === 'Escape') lbClose();
+        else if (e.key === 'ArrowRight') lbShow(lbCur + 1);
+        else if (e.key === 'ArrowLeft') lbShow(lbCur - 1);
+      }
+    });
+
+    go(0); restart();
+  })();
+</script>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module" src="assets/viewer.js"></script>
+<script>
+  (function () {
+    var btn = document.getElementById('navToggle');
+    var panel = document.getElementById('mobileNav');
+    if (!btn || !panel) return;
+    function close() { btn.setAttribute('aria-expanded', 'false'); panel.classList.remove('open'); }
+    function open() { btn.setAttribute('aria-expanded', 'true'); panel.classList.add('open'); }
+    btn.addEventListener('click', function (e) { e.stopPropagation(); panel.classList.contains('open') ? close() : open(); });
+    panel.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', close); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+    document.addEventListener('click', function (e) { if (panel.classList.contains('open') && !panel.contains(e.target) && e.target !== btn) close(); });
+    window.addEventListener('resize', function () { if (window.innerWidth > 720) close(); });
+  })();
+</script>
+</body>
+</html>
