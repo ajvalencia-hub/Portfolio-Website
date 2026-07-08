@@ -1,0 +1,6 @@
+# Local Claude Code machine config (not part of the site)
+.claude/settings.local.json
+
+# OS cruft
+.DS_Store
+Thumbs.db

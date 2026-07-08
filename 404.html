@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>404 — Off the Survey Grid · Adolfo Valencia</title>
+<meta name="robots" content="noindex" />
+<meta name="theme-color" content="#e7e1d4" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<style>
+  @font-face { font-family: 'Archivo Black'; src: url('assets/fonts/ArchivoBlack-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+  @font-face { font-family: 'Space Mono'; src: url('assets/fonts/SpaceMono-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+  @font-face { font-family: 'Space Mono'; src: url('assets/fonts/SpaceMono-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+  :root {
+    --paper: #e7e1d4; --ink: #1f1d18; --muted: #47432f; --orange: #f47321; --green: #5d7048;
+    --font-display: 'Archivo Black', 'Arial Black', sans-serif;
+    --font-mono: 'Space Mono', 'Courier New', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; color: var(--ink);
+    background-color: var(--paper);
+    background-image: linear-gradient(rgba(231,225,212,0.20), rgba(231,225,212,0.20)), url('assets/tex/holefree.jpg');
+    background-repeat: repeat; background-size: 100% 100%, 1672px 1882px;
+    font-family: var(--font-mono); font-size: 15px; line-height: 1.6;
+    display: flex; align-items: center; justify-content: center; padding: 40px 22px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .frame {
+    width: 100%; max-width: 720px; border: 3px solid var(--ink);
+    background: rgba(241,235,223,0.86); padding: 48px 40px;
+    box-shadow: 14px 16px 0 rgba(31,29,24,0.20);
+  }
+  .eyebrow { font-size: 11px; letter-spacing: 0.26em; text-transform: uppercase; color: var(--muted); margin: 0 0 18px; }
+  .eyebrow .tick { color: var(--orange); }
+  .code { font-family: var(--font-display); font-size: clamp(72px, 20vw, 160px); line-height: 0.9; margin: 0; letter-spacing: -0.02em; }
+  .code .c { color: var(--orange); }
+  h1 { font-family: var(--font-display); text-transform: uppercase; font-size: clamp(20px, 4vw, 30px); letter-spacing: -0.01em; margin: 20px 0 10px; }
+  p { max-width: 46ch; color: var(--muted); margin: 0 0 28px; }
+  .hud { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); border-top: 1px solid rgba(31,29,24,0.22); padding-top: 16px; margin-top: 30px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 14px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px; font-weight: 700; font-size: 12px;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); background: var(--orange);
+    border: 2px solid var(--ink); padding: 13px 18px; text-decoration: none;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+  .btn.ghost { background: transparent; }
+  .btn:hover { transform: translate(-2px,-2px); box-shadow: 4px 4px 0 rgba(31,29,24,0.45); }
+  .btn .arr { transition: transform 160ms ease; }
+  .btn:hover .arr { transform: translateX(3px); }
+  a:focus-visible, .btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
+</style>
+</head>
+<body>
+  <main class="frame">
+    <p class="eyebrow"><span class="tick">■</span> ERROR // FIG.404 &nbsp;·&nbsp; AZ 208.0° &nbsp;·&nbsp; RENDER_MODE: LOST</p>
+    <p class="code">4<span class="c">0</span>4</p>
+    <h1>Off the survey grid</h1>
+    <p>This parcel doesn't exist — the page you requested isn't on the plat. Let's route you back to solid ground.</p>
+    <div class="actions">
+      <a class="btn" href="index.html">Return home <span class="arr">&rarr;</span></a>
+      <a class="btn ghost" href="index.html#work">Selected work <span class="arr">&rarr;</span></a>
+      <a class="btn ghost" href="contact.html">Contact <span class="arr">&rarr;</span></a>
+    </div>
+    <p class="hud">Adolfo Valencia — Real Estate Development &amp; Urbanism</p>
+  </main>
+</body>
+</html>
