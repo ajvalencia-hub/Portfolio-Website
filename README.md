@@ -2,7 +2,7 @@
 
 Real-estate-development & urbanism portfolio for **Adolfo Valencia** (M.R.E.D.+U. candidate, University of Miami). A static, brutalist-survey-styled site — no build step, no framework.
 
-**Live:** https://ajvalencia-hub.github.io/Portfolio-Website/
+**Live:** https://ajvalencia.com/
 
 ## Pages
 | File | Purpose |

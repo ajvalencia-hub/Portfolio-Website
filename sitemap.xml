@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://ajvalencia-hub.github.io/Portfolio-Website/</loc>
+    <loc>https://ajvalencia.com/</loc>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://ajvalencia-hub.github.io/Portfolio-Website/sunnyvale-mixed-use.html</loc>
+    <loc>https://ajvalencia.com/sunnyvale-mixed-use.html</loc>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://ajvalencia-hub.github.io/Portfolio-Website/solace-commons.html</loc>
+    <loc>https://ajvalencia.com/solace-commons.html</loc>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://ajvalencia-hub.github.io/Portfolio-Website/mirador-manor.html</loc>
+    <loc>https://ajvalencia.com/mirador-manor.html</loc>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://ajvalencia-hub.github.io/Portfolio-Website/contact.html</loc>
+    <loc>https://ajvalencia.com/contact.html</loc>
     <priority>0.6</priority>
   </url>
 </urlset>
