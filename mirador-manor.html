@@ -18,7 +18,6 @@
 <meta name="twitter:title" content="Mirador Manor — Adolfo Valencia" />
 <meta name="twitter:description" content="126-unit LEED Gold workforce housing in Allapattah, Miami." />
 <meta name="twitter:image" content="https://ajvalencia.com/assets/mirador/hero.jpg" />
-<!-- Google Analytics 4 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-YJ4JNKEB8W"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -27,7 +26,20 @@
   gtag('config', 'G-YJ4JNKEB8W');
 </script>
 <script>document.documentElement.classList.add('js');</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f%5B%5D=satoshi@400,500,700&display=swap" />
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=switzer@400,500&display=swap" />
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@600&display=swap" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&display=swap" />
 <style>
+  @font-face { font-family: 'NHG Display'; src: url('assets/fonts/NeueHaasDisplayLight.ttf') format('truetype'); font-weight: 300; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Display'; src: url('assets/fonts/NeueHaasDisplayRoman.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Display'; src: url('assets/fonts/NeueHaasDisplayMedium.ttf') format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Display'; src: url('assets/fonts/NeueHaasDisplayBold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Text'; src: url('assets/fonts/NHGText-Roman.otf') format('opentype'); font-weight: 400; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Text'; src: url('assets/fonts/NHGText-Medium.otf') format('opentype'); font-weight: 500; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Text'; src: url('assets/fonts/NHGText-Bold.otf') format('opentype'); font-weight: 700; font-style: normal; font-display: swap; }
+
   /* ===================== FONTS ===================== */
   @font-face { font-family: 'Phantom'; src: url('assets/fonts/PHANTOM.ttf') format('truetype'); font-weight: 700; font-display: swap; }
   @font-face { font-family: 'Archivo Black'; src: url('assets/fonts/ArchivoBlack-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
@@ -40,7 +52,10 @@
     --line: rgba(31,29,24,0.16); --muted: #1f1d18; --faint: #1f1d18;
     --font-phantom: 'Phantom', 'Arial Black', sans-serif;
     --font-display: 'Archivo Black', 'Arial Black', sans-serif;
-    --font-mono: 'Space Mono', 'Courier New', ui-monospace, monospace;
+    --font-mono: 'Azeret Mono', 'Courier New', ui-monospace, monospace;
+    --font-text: 'Switzer', 'Helvetica Neue', Helvetica, sans-serif;
+    --font-ui: 'Satoshi', 'Helvetica Neue', Helvetica, sans-serif;
+    --font-title: 'Clash Display', 'Archivo Black', 'Arial Black', sans-serif;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background-color: var(--concrete-base);
@@ -55,16 +70,16 @@
   .skip-link:focus { top: 12px; }
   .div-b { border-bottom: 3px solid var(--ink); }
   .div-t { border-top: 3px solid var(--ink); }
-  .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
   .accent { color: var(--orange); } .green { color: var(--green); }
 
   /* HEADER */
   header.top { position: sticky; top: 0; z-index: 40; background-color: var(--concrete-base); background-image: linear-gradient(rgba(231,225,212,0.33), rgba(231,225,212,0.33)), url('assets/tex/holefree.jpg'); background-repeat: repeat; background-size: 100% 100%, 1672px 1882px; background-position: top left, center 95px; border-bottom: 2px solid var(--ink); box-shadow: 0 10px 22px -6px rgba(31,29,24,0.28); }
   .top-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 56px; max-width: 1480px; margin: 0 auto; }
   .top-left { display: flex; align-items: center; gap: 18px; }
-  .top-brand { display: flex; align-items: center; gap: 11px; }
-  .mark { display: block; height: 58px; width: auto; object-fit: cover; }
-  .top-name { font-size: 15px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; }
+  .top-brand { display: flex; align-items: center; gap: 13px; }
+  .mark { display: block; height: 58px; width: auto; flex: none; }
+  .top-name { font-size: 15px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; line-height: 1; margin-right: -0.22em; display: block; }
   .top-nav { display: flex; gap: 34px; }
   .top-nav a { font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink); transition: color 140ms ease; }
   .top-nav a:hover { color: var(--ink); }
@@ -102,7 +117,7 @@
   .shero-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 900ms ease; }
   .shero-slide.on { opacity: 1; }
   .shero-slide img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
-  .dhero-scrim { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(to top, rgba(20,18,14,0.92) 0%, rgba(20,18,14,0.5) 30%, rgba(20,18,14,0.04) 58%, rgba(20,18,14,0.14) 100%); }
+  .dhero-scrim { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(to top, rgba(20,18,14,0.94) 0%, rgba(20,18,14,0.88) 24%, rgba(20,18,14,0.76) 46%, rgba(20,18,14,0.6) 63%, rgba(20,18,14,0.12) 80%, rgba(20,18,14,0.44) 100%); }
   .dhero-body { position: relative; z-index: 3; padding: 0 56px 40px; color: var(--cream); }
   .dhero-eyebrow { color: var(--orange); margin-bottom: 13px; }
   .dhero-name { font-family: var(--font-phantom); font-weight: 700; text-transform: uppercase; line-height: 0.9; font-size: clamp(44px, 8vw, 110px); letter-spacing: 0.01em; margin: 0; color: #f3efe3; text-shadow: 0 3px 24px rgba(0,0,0,0.4); }
@@ -128,7 +143,7 @@
   .strip button:hover img { transform: scale(1.06); opacity: 1; }
   .strip button.on img { opacity: 1; }
   .strip button.on::after { content: ''; position: absolute; inset: 0; border: 3px solid var(--orange); pointer-events: none; }
-  .strip .gnum { position: absolute; left: 8px; bottom: 7px; z-index: 2; font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--cream); text-shadow: 0 1px 6px rgba(0,0,0,0.7); }
+  .strip .gnum { position: absolute; left: 8px; bottom: 7px; z-index: 2; font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--cream); text-shadow: 0 1px 6px rgba(0,0,0,0.7); }
 
   /* LIGHTBOX */
   .lightbox { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 40px; background: rgba(16,14,11,0.94); opacity: 0; visibility: hidden; transition: opacity 220ms ease, visibility 0s linear 220ms; }
@@ -145,7 +160,7 @@
   .spec { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); }
   .spec-cell { padding: 30px 28px; border-right: 1px solid var(--line); }
   .spec-cell:last-child { border-right: none; }
-  .spec-k { font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.6; }
+  .spec-k { font-size: 11px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase; opacity: 0.6; }
   .spec-v { font-family: var(--font-display); font-size: clamp(14px, 1.5vw, 18px); margin-top: 7px; line-height: 1.05; }
 
   /* SECTION FRAME */
@@ -174,8 +189,8 @@
   .mcell { padding: 0; }
   .mcell .n { font-family: var(--font-display); font-size: clamp(18px, 2vw, 25px); line-height: 1; }
   .mcell .n.hot { color: var(--green); }
-  .mcell .k { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.7; margin-top: 8px; }
-  .mcell .u { font-size: 9px; opacity: 0.5; margin-top: 2px; }
+  .mcell .k { font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.7; margin-top: 8px; }
+  .mcell .u { font-size: 10.5px; opacity: 0.5; margin-top: 2px; }
 
   /* PROGRAM + MASSING */
   .pm { display: grid; grid-template-columns: 1fr 1.15fr; gap: 0; border: 1px solid var(--line); }
@@ -184,7 +199,7 @@
   .pm-img { position: relative; overflow: hidden; background: var(--concrete-dark); min-height: 170px; }
   .pm-img + .pm-img { border-top: 1px solid var(--line); }
   .pm-img img { width: 100%; height: 100%; object-fit: cover; }
-  .pm-cap { position: absolute; left: 0; bottom: 0; background: var(--ink); color: var(--cream); font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 10px; }
+  .pm-cap { position: absolute; left: 0; bottom: 0; background: var(--ink); color: var(--cream); font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 10px; }
   .bigbar { display: flex; height: 26px; border: 1px solid var(--ink); margin: 6px 0 12px; }
   .bigbar i { display: block; height: 100%; border-right: 1px solid var(--ink); }
   .bigbar i:last-child { border-right: none; }
@@ -219,7 +234,7 @@
   .srow-fill.equity { background: var(--orange); }
   .srow-fill.debt { background: var(--ink); }
   .srow-fill.soft { background: var(--green); }
-  .srow-sub { font-size: 10.5px; opacity: 0.66; margin-top: 5px; line-height: 1.4; }
+  .srow-sub { font-size: 12px; opacity: 0.66; margin-top: 5px; line-height: 1.4; }
   .uses { border: none; background: transparent; padding: 0; }
   .uses p { margin: 0 0 12px; font-size: 13px; line-height: 1.6; }
   .uses p:last-child { margin-bottom: 0; }
@@ -237,17 +252,20 @@
   /* FOOTER */
   .foot { border-top: 2px solid var(--ink); }
   .foot-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 32px 56px; max-width: 1480px; margin: 0 auto; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); }
+  .foot-in a { display: inline-flex; align-items: center; gap: 9px; line-height: 1; }
   .foot-in a:hover { color: var(--orange); }
+  .foot-in a .arr { display: block; height: 0.95em; width: auto; flex: none; transition: transform 200ms cubic-bezier(0.22,1,0.36,1); }
+  .foot-in a:hover .arr { transform: translateY(-3px); }
   .foot-main { display: grid; grid-template-columns: 1.6fr 1fr 1fr auto; gap: 24px; padding: 30px 28px; }
   .foot-mark { display: flex; align-items: center; gap: 11px; }
   .foot-name { font-weight: 700; letter-spacing: 0.06em; font-size: 15px; }
   .foot-tag { margin-top: 12px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.72; }
-  .foot-h { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 13px; opacity: 0.6; }
+  .foot-h { font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 13px; opacity: 0.6; }
   .foot-col a { display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 4px 0; transition: color 140ms ease; }
   .foot-col a:hover { color: var(--orange); }
   .foot-top { display: inline-flex; flex-direction: column; align-items: center; gap: 6px; align-self: start; border: 2px solid var(--ink); padding: 12px 14px; cursor: pointer; background: var(--cream); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; transition: background 90ms linear; }
   .foot-top:hover { background: var(--orange); }
-  .foot-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 13px 28px; border-top: 3px solid var(--ink); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.78; }
+  .foot-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 13px 28px; border-top: 3px solid var(--ink); font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.78; }
   .foot-bar .sep { opacity: 0.5; }
 
   /* darken secondary text to ink */
@@ -257,6 +275,48 @@
   /* reveal */
   .js .reveal { opacity: 0; transform: translateY(28px); transition: opacity 720ms cubic-bezier(0.22,1,0.36,1), transform 720ms cubic-bezier(0.22,1,0.36,1); }
   .js .reveal.in { opacity: 1; transform: none; }
+
+  /* reading text — Switzer (Fontshare); labels/HUD/stats stay mono */
+  .ov-text p, .mhero-loc, .dhero-loc, .uses p { font-family: var(--font-text); letter-spacing: 0; }
+  .dhero-loc { font-size: 14px; line-height: 1.6; }
+  .uses p { font-size: 15px; line-height: 1.7; }
+  .ov-text p { font-size: 16px; line-height: 1.75; }
+  .mhero-loc { font-size: 14px; line-height: 1.6; }
+
+  /* ---- SYSTEM A · Swiss / Industrial ----
+     header+footer: Satoshi · section titles: Clash Display · reading text: Switzer
+     Untouched: Phantom hero names, per-project card-name faces, Azeret Mono labels/stats. */
+  .top-name, .top-nav a, .mobile-nav a, .foot-in, .foot-name, .foot-tag, .foot-h, .foot-col a, .foot-top, .foot-bar { font-family: var(--font-ui); font-weight: 500; }
+  .work-head h2, .sec-title, .cta-t { font-family: var(--font-title); font-weight: 600; letter-spacing: -0.01em; }
+
+  /* ================= NEUE HAAS GROTESK =================
+     Display → section titles · Text → reading text, nav, footer.
+     NHG ships no monospace, so labels/HUD/stats stay on Azeret Mono.
+     NOTE: supplied files are TRIAL cuts, PERSONAL USE ONLY
+     (uploads/.../Befonts-License.txt) — a commercial web licence from
+     Monotype is required before this goes live.
+     ===================================================== */
+  :root {
+    --nhg-display: 'NHG Display', 'Helvetica Neue', Helvetica, sans-serif;
+    --nhg-text: 'NHG Text', 'Helvetica Neue', Helvetica, sans-serif;
+    --font-title: var(--nhg-display);
+    --font-ui: var(--nhg-text);
+    --font-text: var(--nhg-text);
+  }
+  .work-head h2, .about-head h2, .cta-t, .sec-title { font-weight: 700; letter-spacing: -0.025em; }
+  .top-name, .top-nav a, .mobile-nav a, .foot-in { font-weight: 500; }
+  .hero-line, .about-bio, .about-block li, .ov-text p, .mhero-loc, .dhero-loc, .chero-sub, .now-v, .form-note { font-weight: 400; letter-spacing: -0.005em; }
+  /* hero name matches this project's card face on the home page */
+  .dhero-name { font-family: 'Playfair Display', Georgia, serif; font-weight: 900; text-transform: uppercase; letter-spacing: -0.005em; line-height: 0.98; }
+
+  /* Hero text protection — scoped, not global.
+     The hero-wide scrim has a deliberate transparent window mid-frame so the
+     render reads; the orange eyebrow and the slide counter are anchored inside
+     it, so they get their own local backdrops instead of a darker global scrim. */
+  .shero-counter { background: var(--ink); color: var(--orange); padding: 7px 11px; }
+  /* eyebrow is the topmost line, so it sits in the backdrop's fade — chip it
+     instead, matching the .rt-tag / HUD chip vocabulary and the counter fix. */
+  .dhero-eyebrow { display: inline-flex; align-items: center; background: var(--ink); color: var(--orange); padding: 6px 10px; }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -293,7 +353,7 @@
         <div class="top-left">
           <a class="top-brand" href="home" aria-label="Adolfo Valencia — home">
             <img class="mark" src="assets/av-logo-cut.png" alt="AV monogram" />
-            <span class="top-name">ADOLFO&nbsp;VALENCIA</span>
+            <span class="top-name">Adolfo&nbsp;Valencia</span>
           </a>
         </div>
         <nav class="top-nav">
@@ -489,7 +549,7 @@
     <footer class="foot">
       <div class="foot-in">
         <span>&copy; 2026 Adolfo Valencia</span>
-        <a href="#top">&uarr; Top</a>
+        <a href="#top"><svg class="arr" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 16V2M2.5 7.5 8 2l5.5 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>Top</a>
       </div>
     </footer>
 

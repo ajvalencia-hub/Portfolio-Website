@@ -20,7 +20,6 @@
 <meta name="twitter:title" content="Contact — Adolfo Valencia" />
 <meta name="twitter:description" content="Real estate development, acquisitions, and feasibility. Miami, FL — open to relocate." />
 <meta name="twitter:image" content="https://ajvalencia.com/assets/og-card.png" />
-<!-- Google Analytics 4 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-YJ4JNKEB8W"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -29,7 +28,19 @@
   gtag('config', 'G-YJ4JNKEB8W');
 </script>
 <script>document.documentElement.classList.add('js');</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f%5B%5D=satoshi@400,500,700&display=swap" />
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=switzer@400,500&display=swap" />
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@600&display=swap" />
 <style>
+  @font-face { font-family: 'NHG Display'; src: url('assets/fonts/NeueHaasDisplayLight.ttf') format('truetype'); font-weight: 300; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Display'; src: url('assets/fonts/NeueHaasDisplayRoman.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Display'; src: url('assets/fonts/NeueHaasDisplayMedium.ttf') format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Display'; src: url('assets/fonts/NeueHaasDisplayBold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Text'; src: url('assets/fonts/NHGText-Roman.otf') format('opentype'); font-weight: 400; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Text'; src: url('assets/fonts/NHGText-Medium.otf') format('opentype'); font-weight: 500; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Text'; src: url('assets/fonts/NHGText-Bold.otf') format('opentype'); font-weight: 700; font-style: normal; font-display: swap; }
+
   @font-face { font-family: 'Phantom'; src: url('assets/fonts/PHANTOM.ttf') format('truetype'); font-weight: 700; font-display: swap; }
   @font-face { font-family: 'Archivo Black'; src: url('assets/fonts/ArchivoBlack-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
   @font-face { font-family: 'Space Mono'; src: url('assets/fonts/SpaceMono-Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
@@ -41,7 +52,10 @@
     --line: rgba(31,29,24,0.16); --muted: #1f1d18; --faint: #1f1d18;
     --font-phantom: 'Phantom', 'Arial Black', sans-serif;
     --font-display: 'Archivo Black', 'Arial Black', sans-serif;
-    --font-mono: 'Space Mono', 'Courier New', ui-monospace, monospace;
+    --font-mono: 'Azeret Mono', 'Courier New', ui-monospace, monospace;
+    --font-text: 'Switzer', 'Helvetica Neue', Helvetica, sans-serif;
+    --font-ui: 'Satoshi', 'Helvetica Neue', Helvetica, sans-serif;
+    --font-title: 'Clash Display', 'Archivo Black', 'Arial Black', sans-serif;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background-color: var(--concrete-base);
@@ -59,9 +73,9 @@
   header.top { position: sticky; top: 0; z-index: 40; background-color: var(--concrete-base); background-image: linear-gradient(rgba(231,225,212,0.33), rgba(231,225,212,0.33)), url('assets/tex/holefree.jpg'); background-repeat: repeat; background-size: 100% 100%, 1672px 1882px; background-position: top left, center 95px; border-bottom: 2px solid var(--ink); box-shadow: 0 10px 22px -6px rgba(31,29,24,0.28); }
   .top-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 56px; max-width: 1480px; margin: 0 auto; }
   .top-left { display: flex; align-items: center; gap: 18px; }
-  .top-brand { display: flex; align-items: center; gap: 11px; }
-  .mark { display: block; height: 58px; width: auto; object-fit: cover; }
-  .top-name { font-size: 15px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; }
+  .top-brand { display: flex; align-items: center; gap: 13px; }
+  .mark { display: block; height: 58px; width: auto; flex: none; }
+  .top-name { font-size: 15px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; line-height: 1; margin-right: -0.22em; display: block; }
   .top-nav { display: flex; gap: 34px; }
   .top-nav a { font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink); transition: color 140ms ease; }
   .top-nav a:hover { color: var(--ink); }
@@ -89,16 +103,23 @@
   /* HERO */
   .chero { position: relative; padding: 64px 34px 44px; border-bottom: 3px solid var(--ink); overflow: hidden; }
 
-  .status { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--green); border: 2px solid var(--green); padding: 7px 12px; margin-bottom: 22px; position: relative; z-index: 1; }
-  .status .dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; animation: blink 2.4s ease-in-out infinite; }
-  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  /* availability chip — matches the homepage About chip: solid fill in the
+     .fig-tag / HUD chip vocabulary rather than an outline box. width:fit-content
+     keeps it chip-width even though .rise/flow context resolves display to flex. */
+  .status { display: inline-flex; width: fit-content; align-self: flex-start; align-items: center; gap: 10px; margin-top: 26px; padding: 9px 14px 9px 12px;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--cream); background: var(--green); box-shadow: 4px 4px 0 rgba(31,29,24,0.16); position: relative; z-index: 1; }
+  .status .dot { position: relative; width: 7px; height: 7px; border-radius: 50%; background: var(--cream); flex: none; }
+  .status .dot::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 1.5px solid var(--cream); opacity: 0; animation: availPulse 2.6s cubic-bezier(0.22,1,0.36,1) infinite; }
+  @keyframes availPulse { 0% { transform: scale(0.6); opacity: 0.9; } 70%, 100% { transform: scale(1.5); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .status .dot::after { animation: none; opacity: 0.5; transform: none; } }
   .chero-name { position: relative; z-index: 1; font-family: var(--font-phantom); font-weight: 700; text-transform: uppercase; line-height: 0.88; font-size: clamp(54px, 11vw, 150px); margin: 0; letter-spacing: 0.01em; }
   .chero-name .l2 { color: var(--orange); }
   .chero-sub { position: relative; z-index: 1; margin-top: 22px; max-width: 560px; font-size: 14px; line-height: 1.65; }
   /* visible end-state governed by .in (added by JS + safety net) so the hero can't get stuck blank */
   .js .rise { opacity: 0; transform: translateY(22px); transition: opacity 720ms cubic-bezier(0.22,1,0.36,1), transform 720ms cubic-bezier(0.22,1,0.36,1); }
   .js .rise.in { opacity: 1; transform: none; }
-  .js .rise.d1 { transition-delay: 120ms; } .js .rise.d2 { transition-delay: 260ms; } .js .rise.d3 { transition-delay: 400ms; }
+  .js .rise.d1 { transition-delay: 120ms; } .js .rise.d2 { transition-delay: 260ms; } .js .rise.d3 { transition-delay: 400ms; } .js .rise.d4 { transition-delay: 540ms; }
 
   /* HERO + FORM ROW */
   .lead-row { display: grid; grid-template-columns: 1.05fr 1fr; border-bottom: 3px solid var(--ink); }
@@ -149,8 +170,8 @@
   .field textarea { resize: vertical; min-height: 150px; line-height: 1.55; }
   .send-btn { display: inline-flex; align-self: flex-start; align-items: center; gap: 12px; font-family: var(--font-mono); font-weight: 700; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); background: var(--orange); border: 2px solid var(--ink); padding: 16px 26px; margin-top: 28px; cursor: pointer; transition: transform 120ms ease, box-shadow 120ms ease; }
   .send-btn:hover { transform: translate(-2px,-2px); box-shadow: 4px 4px 0 rgba(31,29,24,0.45); }
-  .send-btn .arr { transition: transform 160ms ease; }
-  .send-btn:hover .arr { transform: translateX(4px); }
+  .send-btn .arr { display: block; height: 0.72em; width: auto; flex: none; transition: transform 280ms cubic-bezier(0.22,1,0.36,1); }
+  .send-btn:hover .arr { transform: translateX(5px); }
   .form-note { margin-top: 22px; font-size: 11.5px; line-height: 1.5; color: rgba(31,29,24,0.6); max-width: 560px; }
   .form-status { display: none; margin-top: 22px; padding: 14px 16px; border: 2px solid var(--ink); font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em; line-height: 1.5; max-width: 560px; }
   .form-status.show { display: block; }
@@ -164,13 +185,46 @@
   /* FOOTER */
   .foot { border-top: 2px solid var(--ink); }
   .foot-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 32px 56px; max-width: 1480px; margin: 0 auto; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); }
+  .foot-in a { display: inline-flex; align-items: center; gap: 9px; line-height: 1; }
   .foot-in a:hover { color: var(--orange); }
+  .foot-in a .arr { display: block; height: 0.95em; width: auto; flex: none; transition: transform 200ms cubic-bezier(0.22,1,0.36,1); }
+  .foot-in a:hover .arr { transform: translateY(-3px); }
   .foot-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 28px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.78; }
   .foot-bar .sep { opacity: 0.5; }
   /* darken secondary text to ink */
   .cgrid .cs, .now-k, .foot-bar { opacity: 1; }
   .foot-bar a:hover { color: var(--orange); }
   .foot-bar .right { margin-left: auto; display: flex; gap: 16px; }
+
+  /* reading text — Switzer (Fontshare); labels/HUD/stats stay mono */
+  .chero-sub, .now-v, .form-note { font-family: var(--font-text); letter-spacing: 0; }
+  .chero-sub { font-size: 15.5px; line-height: 1.7; }
+  .now-v { font-size: 14.5px; line-height: 1.65; }
+  .form-note { font-size: 12.5px; line-height: 1.55; }
+
+  /* ---- SYSTEM A · Swiss / Industrial ----
+     header+footer: Satoshi · section titles: Clash Display · reading text: Switzer
+     Untouched: Phantom hero names, per-project card-name faces, Azeret Mono labels/stats. */
+  .top-name, .top-nav a, .mobile-nav a, .foot-in, .foot-name, .foot-tag, .foot-h, .foot-col a, .foot-top, .foot-bar { font-family: var(--font-ui); font-weight: 500; }
+  .work-head h2, .sec-title, .cta-t { font-family: var(--font-title); font-weight: 600; letter-spacing: -0.01em; }
+
+  /* ================= NEUE HAAS GROTESK =================
+     Display → section titles · Text → reading text, nav, footer.
+     NHG ships no monospace, so labels/HUD/stats stay on Azeret Mono.
+     NOTE: supplied files are TRIAL cuts, PERSONAL USE ONLY
+     (uploads/.../Befonts-License.txt) — a commercial web licence from
+     Monotype is required before this goes live.
+     ===================================================== */
+  :root {
+    --nhg-display: 'NHG Display', 'Helvetica Neue', Helvetica, sans-serif;
+    --nhg-text: 'NHG Text', 'Helvetica Neue', Helvetica, sans-serif;
+    --font-title: var(--nhg-display);
+    --font-ui: var(--nhg-text);
+    --font-text: var(--nhg-text);
+  }
+  .work-head h2, .about-head h2, .cta-t, .sec-title { font-weight: 700; letter-spacing: -0.025em; }
+  .top-name, .top-nav a, .mobile-nav a, .foot-in { font-weight: 500; }
+  .hero-line, .about-bio, .about-block li, .ov-text p, .mhero-loc, .dhero-loc, .chero-sub, .now-v, .form-note { font-weight: 400; letter-spacing: -0.005em; }
 
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } .js .rise { opacity: 1; transform: none; } .js .anim { opacity: 1 !important; transform: none !important; transition: none !important; } }
 
@@ -195,7 +249,7 @@
         <div class="top-left">
           <a class="top-brand" href="home" aria-label="Adolfo Valencia — home">
             <img class="mark" src="assets/av-logo-cut.png" alt="AV monogram" />
-            <span class="top-name">ADOLFO&nbsp;VALENCIA</span>
+            <span class="top-name">Adolfo&nbsp;Valencia</span>
           </a>
         </div>
         <nav class="top-nav">
@@ -218,15 +272,14 @@
     <!-- HERO + MESSAGE -->
     <div class="lead-row">
       <section class="chero" id="top" data-screen-label="contact-hero">
-        <div class="status rise d1" style="border-width: 0px"><span class="dot"></span> Open to 2026 roles</div>
         <h1 class="chero-name"><span class="rise d1">Let&rsquo;s</span><br /><span class="l2 rise d2">Build.</span></h1>
         <p class="chero-sub rise d3">Master of Real Estate Development &amp; Urbanism candidate at the University of Miami, seeking development, acquisitions, and feasibility roles. Based in Miami — open to relocate. Reach out about projects, roles, or a conversation.</p>
+        <div class="status rise d4"><span class="dot"></span> Open to 2026 roles</div>
       </section>
 
       <!-- MESSAGE FORM -->
       <section class="form-sec" data-screen-label="contact-form">
         <div class="form-eyebrow anim">Send a message</div>
-        <!-- Formspree form endpoint (submissions emailed to you) -->
         <form class="cform" id="cform" action="https://formspree.io/f/xlgyyjkd" method="POST" novalidate>
           <input type="text" name="_gotcha" style="display:none" tabindex="-1" autocomplete="off" />
           <div class="field anim">
@@ -250,7 +303,7 @@
             <textarea id="f-message" name="message" placeholder="Tell me about your project, role, or question…" required></textarea>
           </div>
           <div class="field full anim">
-            <button type="submit" class="send-btn">Send Message <span class="arr">&rarr;</span></button>
+            <button type="submit" class="send-btn">Send Message <svg class="arr" viewBox="0 0 24 16" fill="none" aria-hidden="true"><path d="M0 8h21M14.5 1.5 21 8l-6.5 6.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></svg></button>
             <p class="form-note">Sends directly to adolfojvalencia@gmail.com. Prefer email? Reach out at <a href="mailto:adolfojvalencia@gmail.com" style="text-decoration:underline">adolfojvalencia@gmail.com</a>.</p>
             <div class="form-status" id="formStatus" role="status" aria-live="polite"></div>
           </div>
@@ -309,7 +362,7 @@
     <footer class="foot">
       <div class="foot-in">
         <span>&copy; 2026 Adolfo Valencia</span>
-        <a href="#top">&uarr; Top</a>
+        <a href="#top"><svg class="arr" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 16V2M2.5 7.5 8 2l5.5 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>Top</a>
       </div>
     </footer>
 

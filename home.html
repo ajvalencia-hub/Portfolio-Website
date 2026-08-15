@@ -20,7 +20,6 @@
 <meta name="twitter:title" content="Adolfo Valencia — Real Estate Development &amp; Urbanism" />
 <meta name="twitter:description" content="Feasibility-stage massing studies paired with the finance, market, and placemaking work behind them." />
 <meta name="twitter:image" content="https://ajvalencia.com/assets/og-card.png" />
-<!-- Google Analytics 4 -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-YJ4JNKEB8W"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -29,7 +28,17 @@
   gtag('config', 'G-YJ4JNKEB8W');
 </script>
 <script>document.documentElement.classList.add('js');</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://api.fontshare.com/v2/css?f%5B%5D=satoshi@400,500,700&display=swap" rel="stylesheet" /><link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@900&family=Azeret+Mono:wght@400;700&family=Big+Shoulders+Display:wght@800&family=Chakra+Petch:wght@700&family=Cinzel:wght@700&family=Manrope:wght@800&family=Playfair+Display:wght@900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=switzer@400,500&display=swap" />
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@600&display=swap" />
 <style>
+  @font-face { font-family: 'NHG Display'; src: url('assets/fonts/NeueHaasDisplayLight.ttf') format('truetype'); font-weight: 300; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Display'; src: url('assets/fonts/NeueHaasDisplayRoman.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Display'; src: url('assets/fonts/NeueHaasDisplayMedium.ttf') format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Display'; src: url('assets/fonts/NeueHaasDisplayBold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Text'; src: url('assets/fonts/NHGText-Roman.otf') format('opentype'); font-weight: 400; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Text'; src: url('assets/fonts/NHGText-Medium.otf') format('opentype'); font-weight: 500; font-style: normal; font-display: swap; }
+  @font-face { font-family: 'NHG Text'; src: url('assets/fonts/NHGText-Bold.otf') format('opentype'); font-weight: 700; font-style: normal; font-display: swap; }
   @font-face { font-family: 'Phantom'; src: url('assets/fonts/PHANTOM.ttf') format('truetype'); font-weight: 700; font-display: swap; }
   @font-face { font-family: 'Archivo Black'; src: url('assets/fonts/ArchivoBlack-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
   @font-face { font-family: 'Space Mono'; src: url('assets/fonts/SpaceMono-Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
@@ -48,7 +57,10 @@
     --green: #5d7048;
     --font-phantom: 'Phantom', 'Arial Black', sans-serif;
     --font-display: 'Archivo Black', 'Arial Black', sans-serif;
-    --font-mono: 'Space Mono', 'Courier New', ui-monospace, monospace;
+    --font-mono: 'Azeret Mono', 'Courier New', ui-monospace, monospace;
+    --font-text: 'Switzer', 'Helvetica Neue', Helvetica, sans-serif;
+    --font-ui: 'Satoshi', 'Helvetica Neue', Helvetica, sans-serif;
+    --font-title: 'Clash Display', 'Archivo Black', 'Arial Black', sans-serif;
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
@@ -82,9 +94,13 @@
   }
   .top-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 56px; max-width: 1480px; margin: 0 auto; }
   .top-left { display: flex; align-items: center; gap: 18px; }
-  .top-brand { display: flex; align-items: center; gap: 11px; }
-  .mark { display: block; height: 58px; width: auto; object-fit: cover; }
-  .top-name { font-size: 15px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; }
+  /* the monogram PNG is ~86% transparent padding, so align to its optical
+     centre: line-height 1 makes flex centring true to cap height, and the
+     trailing letter-space of the tracked name is trimmed so the pair reads
+     evenly spaced rather than drifting right. */
+  .top-brand { display: flex; align-items: center; gap: 13px; }
+  .mark { display: block; height: 58px; width: auto; flex: none; }
+  .top-name { font-size: 15px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; line-height: 1; margin-right: -0.22em; display: block; }
   @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.35;} }
   .top-nav { display: flex; gap: 34px; }
   .top-nav a { font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); transition: color 140ms ease; }
@@ -111,22 +127,23 @@
   @media (max-width: 640px) { .top-in { padding: 14px 22px; } .top-nav { gap: 20px; } }
 
   /* ---------- hero ---------- */
-  .hero { padding: 9vh 0 10vh; }
-  .hero-grid { display: grid; grid-template-columns: 0.78fr 1.22fr; gap: 52px; align-items: center; }
+  .hero { padding: 14vh 0; }
+  .hero-copy { container-type: inline-size; }
+  .hero-grid { display: grid; grid-template-columns: minmax(min-content, 0.78fr) minmax(0, 1.22fr); gap: 72px; align-items: center; }
   @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; gap: 44px; } }
   /* visible end-state is governed by the .in class (added by JS, with a safety-net timeout),
      so the hero can never get stuck blank if the animation clock is throttled/paused. */
-  .js .fade { opacity: 0; transform: translateY(20px); transition: opacity 900ms cubic-bezier(0.22,1,0.36,1), transform 900ms cubic-bezier(0.22,1,0.36,1); }
+  .js .fade { opacity: 0; transform: translateY(20px); transition: opacity 1100ms cubic-bezier(0.22,1,0.36,1), transform 1100ms cubic-bezier(0.22,1,0.36,1); }
   .js .fade.in { opacity: 1; transform: none; }
-  .js .fade.d1 { transition-delay: 120ms; } .js .fade.d2 { transition-delay: 280ms; }
-  .js .fade.d3 { transition-delay: 440ms; } .js .fade.d4 { transition-delay: 600ms; }
+  .js .fade.d1 { transition-delay: 150ms; } .js .fade.d2 { transition-delay: 350ms; }
+  .js .fade.d3 { transition-delay: 550ms; } .js .fade.d4 { transition-delay: 750ms; }
 
   /* scroll-reveal load-in for Selected Work + About */
-  .js .anim { opacity: 0; transform: translateY(32px); transition: opacity 820ms cubic-bezier(0.22,1,0.36,1), transform 820ms cubic-bezier(0.22,1,0.36,1); }
+  .js .anim { opacity: 0; transform: translateY(32px); transition: opacity 1000ms cubic-bezier(0.22,1,0.36,1), transform 1000ms cubic-bezier(0.22,1,0.36,1); }
   .js .anim.in { opacity: 1; transform: none; }
 
   /* Selected Work — per-card scroll reveal (card rises, inner content cascades) */
-  .js .card-reveal { opacity: 0; transform: translateY(52px); transition: opacity 780ms cubic-bezier(0.22,1,0.36,1), transform 780ms cubic-bezier(0.22,1,0.36,1); will-change: opacity, transform; }
+  .js .card-reveal { opacity: 0; transform: translateY(52px); transition: opacity 950ms cubic-bezier(0.22,1,0.36,1), transform 950ms cubic-bezier(0.22,1,0.36,1); will-change: opacity, transform; }
   .js .card-reveal.in { opacity: 1; transform: none; }
   .js .card-reveal .card-media { opacity: 0; transition: opacity 900ms ease; }
   .js .card-reveal.in .card-media { opacity: 1; }
@@ -134,7 +151,7 @@
   .js .card-reveal .card-name,
   .js .card-reveal .card-loc,
   .js .card-reveal .card-stats,
-  .js .card-reveal .card-cta { opacity: 0; transform: translateY(20px); transition: opacity 640ms cubic-bezier(0.22,1,0.36,1), transform 640ms cubic-bezier(0.22,1,0.36,1); }
+  .js .card-reveal .card-cta { opacity: 0; transform: translateY(20px); transition: opacity 780ms cubic-bezier(0.22,1,0.36,1), transform 780ms cubic-bezier(0.22,1,0.36,1); }
   .js .card-reveal.in .card-kick { transition-delay: 160ms; }
   .js .card-reveal.in .card-name { transition-delay: 240ms; }
   .js .card-reveal.in .card-loc { transition-delay: 320ms; }
@@ -146,39 +163,47 @@
   .js .card-reveal.in .card-stats,
   .js .card-reveal.in .card-cta { opacity: 1; transform: none; }
 
-  .hero .eyebrow { margin-bottom: 22px; }
+  .hero .eyebrow { margin-bottom: 28px; }
   .hero h1 {
     font-family: var(--font-phantom); font-weight: 700; text-transform: uppercase;
     margin: 0; line-height: 0.92; letter-spacing: 0.01em;
-    font-size: clamp(56px, 12.5vw, 150px);
+    font-size: clamp(56px, min(12.5vw, 26cqw), 150px);
   }
   .hero h1 .amp { color: var(--orange); }
-  .hero-line { margin-top: 26px; max-width: 520px; font-size: 15px; line-height: 1.65; color: var(--ink); }
-  .hero-meta { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); max-width: 520px; display: flex; gap: 14px 30px; flex-wrap: wrap; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .hero-line { margin-top: 32px; max-width: 520px; font-size: 15px; line-height: 1.75; color: var(--ink); }
+  .hero-meta { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); max-width: 520px; display: flex; align-items: baseline; gap: 10px 12px; flex-wrap: wrap; font-size: 11.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
   .hero-meta span { white-space: nowrap; }
   .hero-meta .dot { color: var(--faint); }
   /* hero feature image (right column) */
   .hero-fig { position: relative; }
+  @media (max-width: 1500px) { .hero-fig { margin-left: 0; margin-right: 0; } }
   .hero-fig .fig-frame { position: relative; overflow: hidden; border: 2px solid var(--ink); aspect-ratio: 16 / 10; }
   .hero-fig .fig-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 900ms ease; }
   .hero-fig .fig-slide.on { opacity: 1; }
   .hero-fig img { width: 100%; height: 100%; object-fit: cover; object-position: center center; display: block; }
   .hero-fig .fig-tag { position: absolute; left: 0; bottom: 0; z-index: 2; background: var(--ink); color: var(--cream); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; padding: 7px 12px; }
-  .hero-fig .fig-cap { margin-top: 22px; line-height: 1.55; display: flex; justify-content: space-between; gap: 14px; font-size: 12px; letter-spacing: 0.06em; color: var(--muted); }
+  .hero-fig .fig-cap { margin-top: 22px; line-height: 1.55; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 14px; font-size: 12px; letter-spacing: 0.06em; color: var(--muted); }
+  .hero-fig .fig-cap > span#figCap { flex: 1 1 100%; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 9px; }
+  .fig-cap .cseg { white-space: nowrap; }
+  .fig-cap .csep { color: var(--faint); }
   .hero-fig .fig-cap b { color: var(--ink); font-weight: 700; }
-  .hero-fig .fig-dots { display: flex; gap: 8px; align-items: center; flex: none; }
-  .fig-dot { -webkit-appearance: none; appearance: none; background: transparent; border: 0; margin: 0; padding: 11px 3px; cursor: pointer; display: block; line-height: 0; }
-  .fig-dot i { display: block; width: 22px; height: 6px; border: 2px solid var(--ink); background: transparent; transition: background 220ms ease, width 220ms ease, border-color 220ms ease; }
-  .fig-dot:hover i { background: var(--ink); }
-  .fig-dot[aria-selected="true"] i { background: var(--orange); border-color: var(--orange); width: 32px; }
+  /* progress rule: ONE continuous fill across the whole track — it advances
+     through each third without resetting between slides, like a scale bar. */
+  .hero-fig .fig-dots { display: flex; gap: 0; align-items: stretch; flex: 1 1 100%; margin-top: 8px; border-top: 1px solid var(--ink); position: relative; }
+  .fig-fill { position: absolute; left: 0; top: -2px; height: 3px; width: 0; background: var(--orange); pointer-events: none; z-index: 2; }
+  .fig-fill.run { transition: width 4000ms linear; }
+  .fig-dot { -webkit-appearance: none; appearance: none; background: transparent; border: 0; margin: 0; padding: 0; cursor: pointer; display: block; flex: 1 1 0; height: 16px; position: relative; }
+  .fig-dot i { position: absolute; left: 0; right: 0; top: -2px; height: 3px; background: var(--ink); opacity: 0; transition: opacity 200ms ease; }
+  .fig-dot:hover i { opacity: 0.28; }
+  @media (min-width: 1500px) { .hero-fig .fig-cap > span#figCap { flex: 1 1 auto; } .hero-fig .fig-dots { flex: 1 1 100%; } }
 
   /* ---------- work index ---------- */
-  .work { padding: 6vh 0 8vh; }
+  .work { padding: 10vh 0 12vh; }
   #top, #work, #about { scroll-margin-top: 112px; }
   .work-head { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding-bottom: 30px; border-bottom: 1px solid var(--line); }
-  .work-head h2 { font-family: var(--font-display); font-weight: 400; text-transform: uppercase; letter-spacing: -0.01em; font-size: clamp(20px, 2.8vw, 30px); margin: 0; transform: translateY(10px); }
+  .work-head h2 { font-family: var(--font-display); font-weight: 400; text-transform: uppercase; letter-spacing: -0.01em; font-size: clamp(30px, 4.2vw, 46px); margin: 0; transform: translateY(10px); }
 
-  .work-grid { display: flex; flex-direction: column; gap: 40px; margin-top: 48px; }
+  .work-grid { display: flex; flex-direction: column; gap: 72px; margin-top: 64px; }
 
   .card {
     display: grid; grid-template-columns: 1.25fr 1fr; min-height: 460px;
@@ -207,15 +232,15 @@
   .card-kick { font-size: 10px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--faint); margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
   .card-kick::before { content: ''; width: 26px; height: 2px; background: var(--orange); }
   .card-name { margin: 0; font-family: var(--font-display); font-weight: 400; text-transform: uppercase; letter-spacing: -0.01em; line-height: 0.95; font-size: clamp(40px, 4.8vw, 70px); }
-  .card-loc { margin-top: 18px; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
+  .card-loc { margin-top: 18px; font-size: 11.5px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
   .card-stats { margin-top: 36px; padding-top: 28px; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px 16px; font-variant-numeric: tabular-nums; }
   .card-stats .st { display: flex; flex-direction: column; gap: 6px; }
   .card-stats .st .v { font-family: var(--font-display); font-size: clamp(26px, 2.6vw, 36px); color: var(--ink); line-height: 1; }
-  .card-stats .st .k { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-  .card-cta { margin-top: 36px; display: inline-flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
-  .card-cta .ln { width: 32px; height: 2px; background: var(--ink); transition: width 280ms cubic-bezier(0.22,1,0.36,1), background 280ms ease; }
+  .card-stats .st .k { font-size: 11.5px; letter-spacing: 0.11em; text-transform: uppercase; color: var(--muted); }
+  .card-cta { margin-top: 36px; display: inline-flex; align-items: center; gap: 11px; font-size: 14px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; line-height: 1; }
+  .card-cta .arr { display: block; height: 0.72em; width: auto; flex: none; transition: transform 280ms cubic-bezier(0.22,1,0.36,1); }
   .card:hover .card-cta { color: var(--orange); }
-  .card:hover .card-cta .ln { width: 54px; background: var(--orange); }
+  .card:hover .card-cta .arr { transform: translateX(6px); }
 
   @media (max-width: 860px) {
     .card { grid-template-columns: 1fr; min-height: 0; }
@@ -229,20 +254,19 @@
   }
 
   /* ---------- about ---------- */
-  .about { padding: 11vh 0; border-top: 2px solid var(--ink); }
-  .about-eyebrow { display: flex; align-items: center; gap: 12px; font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--faint); margin-bottom: 44px; }
-  .about-eyebrow::before { content: ''; width: 30px; height: 2px; background: var(--orange); }
-  .about-eyebrow .n { margin-left: auto; letter-spacing: 0.14em; }
+  .about { padding: 15vh 0; border-top: 2px solid var(--ink); }
+  .about-head { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding-bottom: 30px; border-bottom: 1px solid var(--line); margin-bottom: 64px; }
+  .about-head h2 { font-family: var(--font-title); font-weight: 600; text-transform: uppercase; letter-spacing: -0.01em; font-size: clamp(30px, 4.2vw, 46px); margin: 0; transform: translateY(10px); }
   .about-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 56px; align-items: start; }
   .about-bio { font-size: 20px; line-height: 1.7; margin: 0; max-width: 30ch; }
   .about-bio strong { color: var(--orange); font-weight: 700; }
-  .about-block .label { margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid var(--ink); }
+  .about-block .label { margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid var(--ink); font-size: 14px; letter-spacing: 0.2em; }
   .about-block ul { list-style: none; margin: 0; padding: 0; }
-  .about-block li { font-size: 14px; line-height: 1.5; padding: 10px 0; color: var(--ink); border-bottom: 1px solid var(--line); }
+  .about-block li { font-size: 16.5px; line-height: 1.5; padding: 11px 0; color: var(--ink); border-bottom: 1px solid var(--line); }
   .about-block li:last-child { border-bottom: none; }
-  .about-block li span { display: block; font-size: 11.5px; color: var(--muted); letter-spacing: 0.04em; margin-top: 4px; }
+  .about-block li span { display: block; font-size: 13.5px; color: var(--muted); letter-spacing: 0.04em; margin-top: 5px; }
   .about-contact { display: flex; flex-direction: column; }
-  .about-contact a { font-size: 13.5px; letter-spacing: 0.02em; padding: 10px 0; color: var(--ink); border-bottom: 1px solid var(--line); transition: color 160ms ease, padding-left 200ms cubic-bezier(0.22,1,0.36,1); display: flex; align-items: center; gap: 9px; }
+  .about-contact a { font-size: 15.5px; letter-spacing: 0.02em; padding: 11px 0; color: var(--ink); border-bottom: 1px solid var(--line); transition: color 160ms ease, padding-left 200ms cubic-bezier(0.22,1,0.36,1); display: flex; align-items: center; gap: 9px; }
   .about-contact a:last-child { border-bottom: none; }
   .about-contact a::before { content: ''; width: 6px; height: 6px; background: var(--orange); flex: none; opacity: 0; transition: opacity 160ms ease; }
   .about-contact a:hover { color: var(--orange); padding-left: 6px; }
@@ -254,8 +278,15 @@
   .about-biocol .portrait .cnr { position: absolute; width: 12px; height: 12px; border: 2px solid var(--ink); }
   .about-biocol .portrait .cnr.tl { top: 7px; left: 7px; border-right: none; border-bottom: none; }
   .about-biocol .portrait .cnr.br { bottom: 7px; right: 7px; border-left: none; border-top: none; }
-  .about-avail { display: inline-flex; align-items: center; gap: 8px; margin-top: 24px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--green); border: 2px solid var(--green); padding: 7px 12px; }
-  .about-avail .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex: none; animation: blink 2.4s ease-in-out infinite; }
+  /* availability chip: solid fill matching the .fig-tag / HUD chip vocabulary
+     rather than an outline box — reads as a status stamp, not a form field. */
+  .about-avail { display: inline-flex; align-items: center; gap: 10px; margin-top: 26px; padding: 9px 14px 9px 12px;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--cream); background: var(--green); box-shadow: 4px 4px 0 rgba(31,29,24,0.16); }
+  .about-avail .dot { position: relative; width: 7px; height: 7px; border-radius: 50%; background: var(--cream); flex: none; animation: none; }
+  .about-avail .dot::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 1.5px solid var(--cream); opacity: 0; animation: availPulse 2.6s cubic-bezier(0.22,1,0.36,1) infinite; }
+  @keyframes availPulse { 0% { transform: scale(0.6); opacity: 0.9; } 70%, 100% { transform: scale(1.5); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .about-avail .dot::after { animation: none; opacity: 0.5; transform: none; } }
   .about-block.toolkit li { display: flex; flex-direction: column; }
   .about-block.toolkit .tk-meter { display: flex; gap: 3px; margin-top: 9px; }
   .about-block.toolkit .tk-meter i { width: 15px; height: 8px; border: 1.5px solid var(--ink); display: block; }
@@ -263,9 +294,8 @@
   .about-col-stack { display: flex; flex-direction: column; gap: 34px; }
   .resume-dl { display: inline-flex; align-items: center; gap: 10px; margin-top: 4px; font-family: var(--font-mono); font-weight: 700; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); background: var(--orange); border: 2px solid var(--ink); padding: 12px 16px; transition: transform 120ms ease, box-shadow 120ms ease; }
   .resume-dl:hover { transform: translate(-2px,-2px); box-shadow: 4px 4px 0 rgba(31,29,24,0.4); }
-  .resume-dl .arr { transition: transform 160ms ease; }
-  .resume-dl:hover .arr { transform: translateX(3px); }
-  .resume-meta { margin-top: 12px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .resume-dl .arr { display: block; height: 0.9em; width: auto; flex: none; transition: transform 200ms cubic-bezier(0.22,1,0.36,1); }
+  .resume-dl:hover .arr { transform: translateY(2px); }
   @media (max-width: 900px) { .about-grid { grid-template-columns: 1fr 1fr; gap: 40px 48px; } .about-biocol { grid-column: 1 / -1; } .about-bio { max-width: 46ch; } }
   @media (max-width: 600px) { .about-grid { grid-template-columns: 1fr; gap: 34px; } }
 
@@ -273,9 +303,53 @@
   footer.foot { border-top: 2px solid var(--ink); }
   .foot-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 32px 56px; max-width: 1480px; margin: 0 auto; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); }
   @media (max-width: 640px) { .foot-in { padding: 26px 22px; } }
+  .foot-in a { display: inline-flex; align-items: center; gap: 9px; line-height: 1; }
   .foot-in a:hover { color: var(--orange); }
+  .foot-in a .arr { display: block; height: 0.95em; width: auto; flex: none; transition: transform 200ms cubic-bezier(0.22,1,0.36,1); }
+  .foot-in a:hover .arr { transform: translateY(-3px); }
 
   /* scroll cue */
+
+  /* ---- per-project display fonts (hero name stays Phantom) ---- */
+  .card-name-sunnyvale { font-family: 'Chakra Petch', var(--font-display); font-weight: 700; letter-spacing: -0.01em; }
+  .card-name-solace { font-family: 'Manrope', var(--font-display); font-weight: 800; letter-spacing: -0.025em; }
+  .card-name-mirador { font-family: 'Playfair Display', Georgia, serif; font-weight: 900; letter-spacing: -0.005em; }
+
+  /* regular reading text — Switzer (Fontshare); labels/HUD/stats stay mono */
+  .hero-line, .about-bio, .about-block li { font-family: var(--font-text); }
+  .hero-line { font-size: 16.5px; line-height: 1.7; letter-spacing: 0; }
+  .about-bio { letter-spacing: 0; }
+  .about-block li { letter-spacing: 0.01em; }
+
+  /* ---- SYSTEM A · Swiss / Industrial ----
+     header+footer: Satoshi · section titles: Clash Display · reading text: Switzer
+     Untouched: Phantom hero names, per-project card-name faces, Azeret Mono labels/stats. */
+  .top-name, .top-nav a, .mobile-nav a, .foot-in, .foot-name, .foot-tag, .foot-h, .foot-col a, .foot-top, .foot-bar { font-family: var(--font-ui); font-weight: 500; }
+  .work-head h2, .sec-title, .cta-t { font-family: var(--font-title); font-weight: 600; letter-spacing: -0.01em; }
+
+  /* ================= NEUE HAAS GROTESK PREVIEW =================
+     Running on the REAL Neue Haas Grotesk files supplied by the user, split
+     the way the family is meant to be used:
+       Display (assets/fonts/NeueHaasDisplay*.ttf)  → section titles
+       Text    (assets/fonts/NHGText-*.otf)         → reading text, nav, footer
+     NOTE: the supplied files are TRIAL cuts licensed for PERSONAL USE ONLY
+     (see uploads/.../Befonts-License.txt). A commercial web licence from
+     Monotype is required before this goes live.
+     NHG ships no monospace, so the instrument role stays on Azeret Mono.
+     Scope: header/footer, section titles, reading text.
+     UNTOUCHED — Phantom hero name and the three per-project card faces
+     (Chakra Petch / Manrope / Playfair Display).
+     ============================================================= */
+  :root {
+    --nhg-display: 'NHG Display', 'Helvetica Neue', Helvetica, sans-serif;
+    --nhg-text: 'NHG Text', 'Helvetica Neue', Helvetica, sans-serif;
+    --font-title: var(--nhg-display);
+    --font-ui: var(--nhg-text);
+    --font-text: var(--nhg-text);
+  }
+  .work-head h2, .about-head h2, .cta-t, .sec-title { font-weight: 700; letter-spacing: -0.025em; }
+  .top-name, .top-nav a, .mobile-nav a, .foot-in { font-weight: 500; }
+  .hero-line, .about-bio, .about-block li { font-weight: 400; letter-spacing: -0.005em; }
 
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } .js .fade { opacity: 1; transform: none; } .js .anim { opacity: 1 !important; transform: none !important; transition: none !important; } .js .card-reveal, .js .card-reveal .card-media, .js .card-reveal .card-kick, .js .card-reveal .card-name, .js .card-reveal .card-loc, .js .card-reveal .card-stats, .js .card-reveal .card-cta { opacity: 1 !important; transform: none !important; transition: none !important; } }
 </style>
@@ -294,7 +368,7 @@
   <header class="top">
     <div class="top-in">
       <div class="top-left">
-        <a class="top-brand" href="#top">
+        <a class="top-brand" href="#top" aria-label="Adolfo Valencia — home">
           <img class="mark" src="assets/av-logo-cut.png" alt="AV monogram" />
           <span class="top-name">Adolfo&nbsp;Valencia</span>
         </a>
@@ -337,7 +411,7 @@
               <span class="fig-tag" id="figTag">Featured · Mixed-Use</span>
             </div>
             <figcaption class="fig-cap">
-              <span id="figCap"><b>Sunnyvale Mixed-Use</b> &nbsp;·&nbsp; Downtown Sunnyvale, CA &nbsp;·&nbsp; 2026</span>
+              <span id="figCap"><span class="cseg"><b>Sunnyvale Mixed-Use</b></span><span class="csep">·</span><span class="cseg">Downtown Sunnyvale, CA</span><span class="csep">·</span><span class="cseg">2026</span></span>
               <div class="fig-dots" role="tablist" aria-label="Featured projects"></div>
             </figcaption>
           </figure>
@@ -350,7 +424,6 @@
       <div class="wrap">
         <div class="work-head anim">
           <h2>Selected Work</h2>
-          <div class="label">Three Developments · 2026</div>
         </div>
 
         <div class="work-grid">
@@ -361,11 +434,10 @@
                 <span class="wh wh-tr">FRAME <span class="wh-fr">000000</span> &middot; AZ <span class="wh-az">124.0</span>&deg;</span>
                 <span class="wh wh-bl">RENDER_MODE: WIREFRAME_PRECISION</span>
               </div>
-              <span class="rt-tag">Massing 3D</span>
             </div>
             <div class="card-body">
               <div class="card-kick">Mixed-Use Infill</div>
-              <h3 class="card-name">Sunnyvale Mixed-Use</h3>
+              <h3 class="card-name card-name-sunnyvale">Sunnyvale Mixed-Use</h3>
               <div class="card-loc">Downtown Sunnyvale, CA</div>
               <div class="card-stats">
                 <div class="st"><span class="v">531</span><span class="k">Units</span></div>
@@ -373,7 +445,7 @@
                 <div class="st"><span class="v">$556M</span><span class="k">TDC</span></div>
                 <div class="st"><span class="v">12.6%</span><span class="k">IRR</span></div>
               </div>
-              <span class="card-cta">View project <span class="ln"></span> &rarr;</span>
+              <span class="card-cta">View project <svg class="arr" viewBox="0 0 24 16" fill="none" aria-hidden="true"><path d="M0 8h21M14.5 1.5 21 8l-6.5 6.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></svg></span>
             </div>
           </a>
 
@@ -384,11 +456,10 @@
                 <span class="wh wh-tr">FRAME <span class="wh-fr">000000</span> &middot; AZ <span class="wh-az">208.0</span>&deg;</span>
                 <span class="wh wh-bl">RENDER_MODE: WIREFRAME_PRECISION</span>
               </div>
-              <span class="rt-tag">Massing 3D</span>
             </div>
             <div class="card-body">
               <div class="card-kick">Affordable &middot; LIHTC</div>
-              <h3 class="card-name">Solace Commons</h3>
+              <h3 class="card-name card-name-solace">Solace Commons</h3>
               <div class="card-loc">Naranja, FL</div>
               <div class="card-stats">
                 <div class="st"><span class="v">335</span><span class="k">Units</span></div>
@@ -396,15 +467,15 @@
                 <div class="st"><span class="v">$138.6M</span><span class="k">TDC</span></div>
                 <div class="st"><span class="v">4%</span><span class="k">LIHTC</span></div>
               </div>
-              <span class="card-cta">View project <span class="ln"></span> &rarr;</span>
+              <span class="card-cta">View project <svg class="arr" viewBox="0 0 24 16" fill="none" aria-hidden="true"><path d="M0 8h21M14.5 1.5 21 8l-6.5 6.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></svg></span>
             </div>
           </a>
 
           <a class="card card-reveal" href="mirador-manor">
-            <div class="card-media"><img src="assets/mirador/card-aerial.png" alt="Mirador Manor aerial render" loading="lazy" decoding="async" /><span class="rt-tag">Showcase</span></div>
+            <div class="card-media"><img src="assets/mirador/card-aerial.png" alt="Mirador Manor aerial render" loading="lazy" decoding="async" /></div>
             <div class="card-body">
               <div class="card-kick">Workforce &middot; LEED Gold</div>
-              <h3 class="card-name">Mirador Manor</h3>
+              <h3 class="card-name card-name-mirador">Mirador Manor</h3>
               <div class="card-loc">Allapattah, Miami</div>
               <div class="card-stats">
                 <div class="st"><span class="v">126</span><span class="k">Units</span></div>
@@ -412,7 +483,7 @@
                 <div class="st"><span class="v">$49.9M</span><span class="k">TDC</span></div>
                 <div class="st"><span class="v">12.55%</span><span class="k">IRR</span></div>
               </div>
-              <span class="card-cta">View project <span class="ln"></span> &rarr;</span>
+              <span class="card-cta">View project <svg class="arr" viewBox="0 0 24 16" fill="none" aria-hidden="true"><path d="M0 8h21M14.5 1.5 21 8l-6.5 6.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></svg></span>
             </div>
           </a>
         </div>
@@ -422,7 +493,9 @@
     <!-- ABOUT -->
     <section class="about" id="about">
       <div class="wrap">
-        <div class="about-eyebrow anim">About <span class="n">Profile / 2026</span></div>
+        <div class="about-head anim">
+          <h2>About</h2>
+        </div>
         <div class="about-grid">
           <div class="about-biocol anim">
             <div class="portrait"><img src="assets/gradpic.jpg" alt="Adolfo Valencia at Scripps Pier, UC San Diego graduation" loading="lazy" decoding="async" /></div>
@@ -434,7 +507,7 @@
               <div class="label">Education</div>
               <ul>
                 <li>M.S. Real Estate Dev. &amp; Urbanism<span>University of Miami · 2026 · 3.7 GPA</span></li>
-                <li>B.S. Cognitive Science<span>UC San Diego · 2024 · ML &amp; Neural Comp.</span></li>
+                <li>B.S. Cognitive Science, Spec. Machine Learning &amp; Neural Computation<span>UC San Diego · 2024</span></li>
               </ul>
             </div>
             <div class="about-block">
@@ -451,10 +524,10 @@
           <div class="about-block toolkit anim">
             <div class="label">Toolkit</div>
             <ul>
-              <li>TestFit<span>Feasibility &amp; massing</span><span class="tk-meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></li>
-              <li>Argus Enterprise<span>Valuation &amp; DCF</span><span class="tk-meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></li>
-              <li>Excel / REFM<span>Underwriting</span><span class="tk-meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></li>
-              <li>Yardi · CoStar · ArcGIS<span>Ops &amp; market</span><span class="tk-meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></li>
+              <li>TestFit<span>Feasibility &amp; massing</span></li>
+              <li>Argus Enterprise<span>Valuation &amp; DCF</span></li>
+              <li>Excel / REFM<span>Underwriting</span></li>
+              <li>Yardi · CoStar · ArcGIS<span>Ops &amp; market</span></li>
             </ul>
           </div>
           <div class="about-col-stack anim">
@@ -468,8 +541,7 @@
             </div>
             <div class="about-block">
               <div class="label">Résumé</div>
-              <a class="resume-dl" href="uploads/adolfo-valencia-resume.pdf" download="Adolfo Valencia — Resume.pdf">Download PDF <span class="arr">&rarr;</span></a>
-              <div class="resume-meta">PDF · Updated 2026</div>
+              <a class="resume-dl" href="uploads/adolfo-valencia-resume.pdf" download="Adolfo Valencia — Resume.pdf">Download PDF <svg class="arr" viewBox="0 0 16 18" fill="none" aria-hidden="true"><path d="M8 0v12M2.5 7.5 8 13l5.5-5.5M1 17h14" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg></a>
             </div>
           </div>
         </div>
@@ -480,7 +552,7 @@
   <footer class="foot">
     <div class="foot-in">
       <span>&copy; 2026 Adolfo Valencia</span>
-      <a href="#top">&uarr; Top</a>
+      <a href="#top"><svg class="arr" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 16V2M2.5 7.5 8 2l5.5 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>Top</a>
     </div>
   </footer>
 
@@ -530,17 +602,28 @@
     var dotsWrap = document.querySelector('.fig-dots');
     if (slides.length < 2 || !tag || !cap) return;
     var data = [
-      ['Featured \u00b7 Mixed-Use', '<b>Sunnyvale Mixed-Use</b> &nbsp;\u00b7&nbsp; Downtown Sunnyvale, CA &nbsp;\u00b7&nbsp; 2026', 'Sunnyvale Mixed-Use'],
-      ['Featured \u00b7 Affordable', '<b>Solace Commons</b> &nbsp;\u00b7&nbsp; Naranja, FL &nbsp;\u00b7&nbsp; 2026', 'Solace Commons'],
-      ['Featured \u00b7 Capstone', '<b>Mirador Manor</b> &nbsp;\u00b7&nbsp; Allapattah, Miami &nbsp;\u00b7&nbsp; 2026', 'Mirador Manor']
+      // segment spans must be re-emitted here: show() overwrites the authored
+      // markup, so nowrap segments + separate separators have to live in the data.
+      ['Featured \u00b7 Mixed-Use', '<span class="cseg"><b>Sunnyvale Mixed-Use</b></span><span class="csep">\u00b7</span><span class="cseg">Downtown Sunnyvale, CA</span><span class="csep">\u00b7</span><span class="cseg">2026</span>', 'Sunnyvale Mixed-Use'],
+      ['Featured \u00b7 Affordable', '<span class="cseg"><b>Solace Commons</b></span><span class="csep">\u00b7</span><span class="cseg">Naranja, FL</span><span class="csep">\u00b7</span><span class="cseg">2026</span>', 'Solace Commons'],
+      ['Featured \u00b7 Capstone', '<span class="cseg"><b>Mirador Manor</b></span><span class="csep">\u00b7</span><span class="cseg">Allapattah, Miami</span><span class="csep">\u00b7</span><span class="cseg">2026</span>', 'Mirador Manor']
     ];
     var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var i = 0, timer = null, paused = false, dots = [];
+    var i = 0, timer = null, paused = false, dots = [], fill = null;
     function show(n) {
       i = n;
       slides.forEach(function (s, k) { s.classList.toggle('on', k === n); });
       tag.innerHTML = data[n][0]; cap.innerHTML = data[n][1];
       dots.forEach(function (d, k) { d.setAttribute('aria-selected', k === n ? 'true' : 'false'); });
+      if (fill) {
+        var span = 100 / slides.length;
+        // jumping back to the first slide is the only reset; otherwise the fill
+        // continues from where the previous slide left it.
+        if (n === 0) { fill.classList.remove('run'); fill.style.width = '0%'; void fill.offsetWidth; }
+        else { fill.style.width = (n * span) + '%'; }
+        if (reduce || paused) { fill.classList.remove('run'); fill.style.width = ((n + 1) * span) + '%'; }
+        else { requestAnimationFrame(function () { fill.classList.add('run'); fill.style.width = ((n + 1) * span) + '%'; }); }
+      }
     }
     function next() { show((i + 1) % slides.length); }
     function stop() { if (timer) { clearInterval(timer); timer = null; } }
@@ -555,11 +638,21 @@
         b.addEventListener('click', function () { show(n); restart(); });
         dotsWrap.appendChild(b); dots.push(b);
       });
+      fill = document.createElement('span');
+      fill.className = 'fig-fill';
+      dotsWrap.appendChild(fill);
     }
     show(0); start();
     if (frame) {
-      frame.addEventListener('mouseenter', function () { paused = true; stop(); });
-      frame.addEventListener('mouseleave', function () { paused = false; start(); });
+      frame.addEventListener('mouseenter', function () {
+        paused = true; stop();
+        if (fill) { var w = fill.getBoundingClientRect().width, tw = fill.parentNode.getBoundingClientRect().width; fill.classList.remove('run'); fill.style.width = (w / tw * 100) + '%'; }
+      });
+      frame.addEventListener('mouseleave', function () {
+        paused = false;
+        if (fill) { var span = 100 / slides.length; void fill.offsetWidth; fill.classList.add('run'); fill.style.width = ((i + 1) * span) + '%'; }
+        start();
+      });
     }
   })();
 
@@ -572,8 +665,8 @@
       return;
     }
     var groups = [
-      { el: document.querySelector('.work'), step: 120 },
-      { el: document.querySelector('.about'), step: 90 }
+      { el: document.querySelector('.work'), step: 160 },
+      { el: document.querySelector('.about'), step: 120 }
     ].filter(function (g) { return g.el; }).map(function (g) {
       g.items = [].slice.call(g.el.querySelectorAll('.anim'));
       g.done = false;
