@@ -103,8 +103,8 @@
   .top-name { font-size: 15px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; line-height: 1; margin-right: -0.22em; display: block; }
   @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.35;} }
   .top-nav { display: flex; gap: 34px; }
-  .top-nav a { font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); transition: color 140ms ease; }
-  .top-nav a:hover { color: var(--ink); }
+  .top-nav a { font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink); transition: color 140ms ease; }
+  .top-nav a:hover { color: var(--orange); }
   .nav-contact { color: var(--orange) !important; }
   .nav-toggle { display: none; align-items: center; justify-content: center; width: 42px; height: 42px; border: 2px solid var(--ink); background: var(--cream); cursor: pointer; padding: 0; flex: none; }
   .nav-toggle .bars { position: relative; width: 20px; height: 14px; }
@@ -296,6 +296,10 @@
   .resume-dl:hover { transform: translate(-2px,-2px); box-shadow: 4px 4px 0 rgba(31,29,24,0.4); }
   .resume-dl .arr { display: block; height: 0.9em; width: auto; flex: none; transition: transform 200ms cubic-bezier(0.22,1,0.36,1); }
   .resume-dl:hover .arr { transform: translateY(2px); }
+  .rdl-gate { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 12px; font-family: var(--font-mono); font-size: 12px; }
+  .rdl-gate[hidden] { display: none; }
+  .rdl-msg { font-size: 11px; color: var(--muted, #6f6a5e); }
+  .rdl-msg.ok { color: inherit; font-weight: 700; }
   @media (max-width: 900px) { .about-grid { grid-template-columns: 1fr 1fr; gap: 40px 48px; } .about-biocol { grid-column: 1 / -1; } .about-bio { max-width: 46ch; } }
   @media (max-width: 600px) { .about-grid { grid-template-columns: 1fr; gap: 34px; } }
 
@@ -534,14 +538,13 @@
             <div class="about-block">
               <div class="label">Connect</div>
               <div class="about-contact">
-                <a href="mailto:adolfojvalencia@gmail.com">Email</a>
                 <a href="https://www.linkedin.com/in/adolfojvalencia/" target="_blank" rel="noreferrer">LinkedIn</a>
-                <a href="tel:+19548045435">954-804-5435</a>
               </div>
             </div>
             <div class="about-block">
               <div class="label">Résumé</div>
-              <a class="resume-dl" href="uploads/adolfo-valencia-resume.pdf" download="Adolfo Valencia — Resume.pdf">Download PDF <svg class="arr" viewBox="0 0 16 18" fill="none" aria-hidden="true"><path d="M8 0v12M2.5 7.5 8 13l5.5-5.5M1 17h14" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg></a>
+              <a class="resume-dl" href="#" role="button" id="resumeDl" aria-expanded="false" data-pdf="uploads/Adolfo%20Valencia%20Resume.pdf" data-name="Adolfo Valencia — Resume.pdf">Download PDF <svg class="arr" viewBox="0 0 16 18" fill="none" aria-hidden="true"><path d="M8 0v12M2.5 7.5 8 13l5.5-5.5M1 17h14" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg></a>
+              <div class="rdl-gate" id="rdlGate" hidden><div id="rdlWidget"></div><span class="rdl-msg" id="rdlMsg" role="status" aria-live="polite"></span></div>
             </div>
           </div>
         </div>
@@ -736,5 +739,54 @@
   })();
 </script>
 
+<script>
+/* resume download: Cloudflare Turnstile gate.
+   Live sitekey from the Cloudflare Turnstile dashboard. */
+(function () {
+  var btn = document.getElementById('resumeDl');
+  var gate = document.getElementById('rdlGate');
+  if (!btn || !gate) return;
+  var msg = document.getElementById('rdlMsg');
+  var SITEKEY = '0x4AAAAAAEaWOmZDOhqdYqfd';
+  var ok = false, loading = false, rendered = false;
+  function go() {
+    var t = document.createElement('a');
+    t.href = btn.getAttribute('data-pdf');
+    t.download = btn.getAttribute('data-name') || '';
+    document.body.appendChild(t); t.click(); t.remove();
+  }
+  function render() {
+    if (rendered || !window.turnstile) return;
+    rendered = true;
+    window.turnstile.render('#rdlWidget', {
+      sitekey: SITEKEY,
+      theme: 'light',
+      callback: function () {
+        ok = true;
+        msg.textContent = 'Verified \u2014 downloading\u2026'; msg.className = 'rdl-msg ok';
+        go();
+        setTimeout(function () { gate.hidden = true; btn.setAttribute('aria-expanded', 'false'); msg.textContent = ''; }, 1800);
+      },
+      'error-callback': function () { msg.textContent = 'Verification failed \u2014 please try again.'; msg.className = 'rdl-msg'; }
+    });
+  }
+  function load() {
+    if (window.turnstile) { render(); return; }
+    if (loading) return;
+    loading = true;
+    window.__rdlTs = render;
+    var s = document.createElement('script');
+    s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=__rdlTs';
+    s.async = true;
+    document.head.appendChild(s);
+  }
+  btn.addEventListener('click', function (e) {
+    e.preventDefault();
+    if (ok) { go(); return; }
+    if (gate.hidden) { gate.hidden = false; btn.setAttribute('aria-expanded', 'true'); msg.textContent = ''; load(); }
+    else { gate.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+  });
+})();
+</script>
 </body>
 </html>

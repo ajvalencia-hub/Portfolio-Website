@@ -78,7 +78,7 @@
   .top-name { font-size: 15px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; line-height: 1; margin-right: -0.22em; display: block; }
   .top-nav { display: flex; gap: 34px; }
   .top-nav a { font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink); transition: color 140ms ease; }
-  .top-nav a:hover { color: var(--ink); }
+  .top-nav a:hover { color: var(--orange); }
   .nav-contact { color: var(--orange) !important; }
   .nav-toggle { display: none; align-items: center; justify-content: center; width: 42px; height: 42px; border: 2px solid var(--ink); background: var(--cream); cursor: pointer; padding: 0; flex: none; }
   .nav-toggle .bars { position: relative; width: 20px; height: 14px; }
@@ -241,6 +241,7 @@
   }
   @media (max-width: 540px) { main { padding: 8px; } .chero { padding: 44px 18px 30px; } .foot-bar { padding-left: 18px; padding-right: 18px; } }
 </style>
+<style>.ct-widget{margin-bottom:14px}.ct-widget[hidden]{display:none}</style>
 </head>
 <body>
     <a class="skip-link" href="#top">Skip to content</a>
@@ -303,8 +304,8 @@
             <textarea id="f-message" name="message" placeholder="Tell me about your project, role, or question…" required></textarea>
           </div>
           <div class="field full anim">
+            <div id="ctWidget" class="ct-widget" hidden></div>
             <button type="submit" class="send-btn">Send Message <svg class="arr" viewBox="0 0 24 16" fill="none" aria-hidden="true"><path d="M0 8h21M14.5 1.5 21 8l-6.5 6.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></svg></button>
-            <p class="form-note">Sends directly to adolfojvalencia@gmail.com. Prefer email? Reach out at <a href="mailto:adolfojvalencia@gmail.com" style="text-decoration:underline">adolfojvalencia@gmail.com</a>.</p>
             <div class="form-status" id="formStatus" role="status" aria-live="polite"></div>
           </div>
         </form>
@@ -313,26 +314,14 @@
 
     <!-- CONTACT GRID -->
     <div class="cgrid">
-      <a class="anim" href="mailto:adolfojvalencia@gmail.com">
-        <span class="idx" aria-hidden="true">01</span>
-        <span class="ck"><span class="gl">&#9993;</span> Email</span>
-        <span class="cv">adolfojvalencia@gmail.com</span>
-        <span class="cs">Best for projects, roles &amp; intros</span>
-      </a>
       <a class="anim" href="https://www.linkedin.com/in/adolfojvalencia/" target="_blank" rel="noreferrer">
-        <span class="idx" aria-hidden="true">02</span>
+        <span class="idx" aria-hidden="true">01</span>
         <span class="ck"><span class="gl">in</span> LinkedIn</span>
         <span class="cv">/in/adolfojvalencia</span>
         <span class="cs">Background, network &amp; recommendations</span>
       </a>
-      <a class="anim" href="tel:+19548045435">
-        <span class="idx" aria-hidden="true">03</span>
-        <span class="ck"><span class="gl">&#9742;</span> Phone</span>
-        <span class="cv">954-804-5435</span>
-        <span class="cs">Call or text</span>
-      </a>
       <a class="anim" href="https://maps.google.com/?q=Miami,FL" target="_blank" rel="noreferrer">
-        <span class="idx" aria-hidden="true">04</span>
+        <span class="idx" aria-hidden="true">02</span>
         <span class="ck"><span class="gl">&#9678;</span> Location</span>
         <span class="cv">Miami, FL</span>
         <span class="cs">Open to relocate</span>
@@ -379,12 +368,36 @@
     window.addEventListener('pageshow', reveal);
   })();
 
-  /* ---------- Contact form → real submission via Formspree (falls back to mailto on failure) ---------- */
+  /* ---------- Contact form → real submission via Formspree  ---------- */
   (function () {
     var form = document.getElementById('cform');
     var statusBox = document.getElementById('formStatus');
     var btn = form ? form.querySelector('.send-btn') : null;
     if (!form) return;
+    var tsToken = '', tsLoading = false, tsRendered = false, tsId = null;
+    var tsBox = document.getElementById('ctWidget');
+    function tsRender() {
+      if (tsRendered || !window.turnstile || !tsBox) return;
+      tsRendered = true;
+      tsId = window.turnstile.render('#ctWidget', {
+        sitekey: '0x4AAAAAAEaWOmZDOhqdYqfd',
+        theme: 'light',
+        callback: function (t) { tsToken = t; if (form.requestSubmit) form.requestSubmit(); },
+        'expired-callback': function () { tsToken = ''; },
+        'error-callback': function () { setStatus('error', 'Human check failed \u2014 please try again.'); }
+      });
+    }
+    function tsShow() {
+      if (tsBox) tsBox.hidden = false;
+      if (window.turnstile) { tsRender(); return; }
+      if (tsLoading) return;
+      tsLoading = true;
+      window.__ctTs = tsRender;
+      var s = document.createElement('script');
+      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=__ctTs';
+      s.async = true;
+      document.head.appendChild(s);
+    }
 
     function setStatus(kind, html) {
       if (!statusBox) return;
@@ -409,12 +422,14 @@
 
       var actionUrl = form.getAttribute('action') || '';
       if (!actionUrl || actionUrl.indexOf('YOUR_FORM_ID') !== -1) {
-        // Form backend not configured yet — fall back to a pre-filled email so nothing is lost.
-        var subj = (form.subject.value.trim()) || ('Portfolio inquiry \u2014 ' + name);
-        var lines = ['Name: ' + name, 'Email: ' + email];
-        if (form.phone.value.trim()) lines.push('Phone: ' + form.phone.value.trim());
-        lines.push('', message);
-        window.location.href = 'mailto:adolfojvalencia@gmail.com?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(lines.join('\n'));
+        // Form backend not configured yet.
+        setStatus('error', 'The form isn\u2019t configured \u2014 please reach out via LinkedIn instead.');
+        return;
+      }
+
+      if (!tsToken) {
+        setStatus('', 'One quick check \u2014 verifying you\u2019re human\u2026');
+        tsShow();
         return;
       }
 
@@ -427,6 +442,8 @@
           if (res.ok) {
             setStatus('success', 'Message sent \u2014 thanks! I\u2019ll reply within a day or two.');
             form.reset();
+            tsToken = '';
+            if (window.turnstile && tsId !== null) window.turnstile.reset(tsId);
           } else {
             return res.json().catch(function () { return null; }).then(function (data) {
               var msg = data && data.errors ? data.errors.map(function (x) { return x.message; }).join(', ') : '';
@@ -435,7 +452,7 @@
           }
         })
         .catch(function () {
-          setStatus('error', 'Couldn\u2019t send automatically \u2014 please email me directly at <a href="mailto:adolfojvalencia@gmail.com">adolfojvalencia@gmail.com</a>.');
+          setStatus('error', 'Couldn\u2019t send automatically \u2014 please try again shortly, or reach me on <a href="https://www.linkedin.com/in/adolfojvalencia/" target="_blank" rel="noreferrer">LinkedIn</a>.');
         })
         .finally(function () {
           if (btn) { btn.disabled = false; btn.innerHTML = btn.dataset.label; }
