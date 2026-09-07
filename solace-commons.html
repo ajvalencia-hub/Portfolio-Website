@@ -4,8 +4,6 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Solace Commons — Adolfo Valencia</title>
-<link rel="canonical" href="https://ajvalencia.com/solace-commons" />
-<meta property="og:url" content="https://ajvalencia.com/solace-commons" />
 <meta name="description" content="Solace Commons — a 335-unit LIHTC affordable community in Naranja, FL. Massing, feasibility, and financing by Adolfo Valencia." />
 <meta name="author" content="Adolfo Valencia" />
 <meta name="theme-color" content="#e7e1d4" />
@@ -13,11 +11,11 @@
 <meta property="og:type" content="article" />
 <meta property="og:title" content="Solace Commons — Adolfo Valencia" />
 <meta property="og:description" content="335-unit LIHTC affordable community in Naranja, FL. Massing, feasibility, and financing." />
-<meta property="og:image" content="https://ajvalencia.com/assets/solace/aerial.png" />
+<meta property="og:image" content="assets/solace/aerial.png" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Solace Commons — Adolfo Valencia" />
 <meta name="twitter:description" content="335-unit LIHTC affordable community in Naranja, FL." />
-<meta name="twitter:image" content="https://ajvalencia.com/assets/solace/aerial.png" />
+<meta name="twitter:image" content="assets/solace/aerial.png" />
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-YJ4JNKEB8W"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -116,19 +114,22 @@
     background: linear-gradient(to top, rgba(20,18,14,0.94) 0%, rgba(20,18,14,0.88) 24%, rgba(20,18,14,0.76) 46%, rgba(20,18,14,0.6) 63%, rgba(20,18,14,0.12) 80%, rgba(20,18,14,0.44) 100%); }
   /* nav arrows */
   .shero-nav { position: absolute; top: 50%; transform: translateY(-50%); z-index: 4; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;
-    background: rgba(229,224,210,0.9); color: var(--ink); border: none; cursor: pointer; font-size: 20px; line-height: 1; transition: background 140ms ease, transform 140ms ease; }
-  .shero-nav:hover { background: var(--orange); color: #fff; }
-  .shero-nav.prev { left: 0; } .shero-nav.next { right: 0; }
-  /* 3D massing button (top-left) */
-  .mhero-chip { position: absolute; top: 22px; left: 56px; z-index: 4; display: inline-flex; align-items: center; gap: 9px; background: var(--cream); color: var(--ink); border: none; padding: 10px 15px; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; box-shadow: 3px 3px 0 rgba(31,29,24,0.28); transition: background 140ms ease, color 140ms ease; }
+    background: none; color: #fff; border: none; cursor: pointer; font-size: 64px; line-height: 1; padding: 0; text-shadow: 0 2px 14px rgba(0,0,0,0.45); transition: color 140ms ease, transform 140ms ease; }
+  .shero-nav { font-family: var(--font-mono); font-weight: 700; width: 74px; height: 90px; }
+  .shero-nav:hover { color: var(--orange); }
+  .shero-nav.prev { left: 10px; } .shero-nav.next { right: 10px; }
+  /* 3D massing button (bottom-right) */
+  .mhero-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; flex-wrap: wrap; margin-top: 14px; }
+  .mhero-foot .mhero-loc { margin-top: 0; flex: 1 1 420px; }
+  .mhero-chip { flex: none; display: inline-flex; align-items: center; gap: 9px; background: var(--cream); color: var(--ink); border: none; padding: 15px 24px; font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; box-shadow: 3px 3px 0 rgba(31,29,24,0.28); transition: background 140ms ease, color 140ms ease; }
   .mhero-chip:hover { background: var(--orange); color: #fff; }
-  .mhero-chip .play { color: var(--orange); font-size: 12px; }
+  .mhero-chip .play { color: var(--orange); font-size: 16px; }
   .mhero-chip:hover .play { color: #fff; }
   /* counter (top-right) */
   .shero-counter { position: absolute; top: 22px; right: 56px; z-index: 4; font-family: var(--font-mono); font-size: 12px; font-weight: 700; letter-spacing: 0.16em; color: var(--cream); font-variant-numeric: tabular-nums; text-shadow: 0 1px 8px rgba(0,0,0,0.5); }
   .shero-counter b { color: var(--orange); }
   /* body */
-  .mhero-body { position: relative; z-index: 3; color: var(--cream); }
+  .mhero-body { position: relative; z-index: 3; color: var(--cream); padding: 0 40px; }
   .mhero-eyebrow { color: var(--orange); margin-bottom: 13px; }
   .mhero-name { font-family: var(--font-phantom); font-weight: 700; text-transform: uppercase; line-height: 0.9; font-size: clamp(42px, 7.5vw, 104px); margin: 0; letter-spacing: 0.01em; color: #f3efe3; text-shadow: 0 3px 22px rgba(0,0,0,0.4); }
   .mhero-loc { margin-top: 14px; font-size: 13px; letter-spacing: 0.05em; max-width: 660px; line-height: 1.55; opacity: 0.92; }
@@ -156,13 +157,14 @@
   .lightbox-img { max-width: 92vw; max-height: 84vh; object-fit: contain; border: 1px solid rgba(229,224,210,0.2); }
   .lb-close { position: absolute; top: 22px; right: 28px; background: none; border: none; color: var(--cream); font-size: 30px; cursor: pointer; line-height: 1; }
   .lb-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(229,224,210,0.14); color: var(--cream); border: none; width: 54px; height: 54px; font-size: 24px; cursor: pointer; transition: background 140ms ease; }
+  .lb-nav { font-family: var(--font-mono); font-weight: 700; }
   .lb-nav:hover { background: var(--orange); color: #fff; }
   .lb-nav.prev { left: 24px; } .lb-nav.next { right: 24px; }
   .lb-counter { position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.16em; color: var(--cream); font-variant-numeric: tabular-nums; }
   .lb-counter b { color: var(--orange); }
   @media (max-width: 640px) {
-    .mhero { padding: 60px 22px 32px; } .mhero-chip { left: 22px; } .shero-counter { right: 22px; }
-    .shero-nav { width: 40px; height: 40px; }
+    .mhero { padding: 60px 22px 32px; } .mhero-body { padding: 0 44px; } .mhero-chip { padding: 12px 18px; font-size: 11px; } .shero-counter { right: 22px; }
+    .shero-nav { width: 48px; height: 64px; font-size: 44px; }
   }
 
   .spec { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); }
@@ -299,22 +301,22 @@
     <header class="top">
       <div class="top-in">
         <div class="top-left">
-          <a class="top-brand" href="home" aria-label="Adolfo Valencia — home">
+          <a class="top-brand" href="home.html" aria-label="Adolfo Valencia — home">
             <img class="mark" src="assets/av-logo-cut.png" alt="AV monogram" />
             <span class="top-name">Adolfo&nbsp;Valencia</span>
           </a>
         </div>
         <nav class="top-nav">
-          <a href="home#work">Work</a>
-          <a href="home#about">About</a>
-          <a href="contact" class="nav-contact">Contact</a>
+          <a href="home.html#work">Work</a>
+          <a href="home.html#about">About</a>
+          <a href="contact.html" class="nav-contact">Contact</a>
         </nav>
         <button class="nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="mobileNav" aria-label="Toggle menu"><span class="bars"><span></span><span></span><span></span></span></button>
       </div>
       <nav class="mobile-nav" id="mobileNav">
-        <a href="home#work">Work</a>
-        <a href="home#about">About</a>
-        <a href="contact" class="nav-contact">Contact</a>
+        <a href="home.html#work">Work</a>
+        <a href="home.html#about">About</a>
+        <a href="contact.html" class="nav-contact">Contact</a>
       </nav>
     </header>
 <main>
@@ -322,7 +324,7 @@
 
 
     <div class="crumb">
-      <a href="home#work">&larr; Selected Work</a>
+      <a href="home.html#work">&larr; Selected Work</a>
       <span class="sep">/</span>
       <span class="cur">02 · Solace Commons</span>
     </div>
@@ -335,7 +337,6 @@
         <div class="shero-slide"><img src="assets/solace/side.png" alt="Solace Commons — angled side view from the corner" loading="lazy" decoding="async" /></div>
       </div>
 
-      <button class="mhero-chip" data-model="assets/models/solace.glb" data-title="Solace Commons" data-eyebrow="Naranja, FL · Affordable Mid-Rise" type="button" aria-label="Open interactive 3D massing"><span class="play">&#9654;</span> 3D Massing</button>
       <div class="shero-counter"><b id="sheroNum">01</b> / 03</div>
       <button class="shero-nav prev" id="sheroPrev" type="button" aria-label="Previous image">&#8249;</button>
       <button class="shero-nav next" id="sheroNext" type="button" aria-label="Next image">&#8250;</button>
@@ -343,7 +344,10 @@
       <div class="mhero-body">
         <div class="mhero-eyebrow eyebrow rise d1">Naranja, FL · Affordable Mid-Rise · 2026</div>
         <h1 class="mhero-name rise d2">Solace<br />Commons</h1>
-        <p class="mhero-loc rise d3">26598 SW 139th Ave — a 335-unit affordable mid-rise on a 2.05-acre parcel beside Naranja Park, modeled against real zoning, LIHTC financing, and south Miami-Dade context.</p>
+        <div class="mhero-foot">
+          <p class="mhero-loc rise d3">26598 SW 139th Ave — a 335-unit affordable mid-rise on a 2.05-acre parcel beside Naranja Park, modeled against real zoning, LIHTC financing, and south Miami-Dade context.</p>
+          <button class="mhero-chip" data-model="assets/models/solace.glb" data-title="Solace Commons" data-eyebrow="Naranja, FL · Affordable Mid-Rise" type="button" aria-label="Open interactive 3D massing"><span class="play">&#9654;</span> 3D Massing</button>
+        </div>
       </div>
       <div class="shero-dots rise d3" id="sheroDots" aria-label="Slide selector"></div>
     </section>
@@ -460,8 +464,8 @@
     <div class="cta">
       <h3 class="cta-t">See the rest of the work</h3>
       <div style="display:flex; gap:12px; flex-wrap:wrap;">
-        <a class="btn ghost" href="sunnyvale-mixed-use"><span class="arr">&larr;</span> Previous: Sunnyvale</a>
-        <a class="btn" href="mirador-manor">Next: Mirador <span class="arr">&rarr;</span></a>
+        <a class="btn ghost" href="sunnyvale-mixed-use.html"><span class="arr">&larr;</span> Previous: Sunnyvale</a>
+        <a class="btn" href="mirador-manor.html">Next: Mirador <span class="arr">&rarr;</span></a>
       </div>
     </div>
 

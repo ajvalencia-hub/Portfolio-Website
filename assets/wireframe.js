@@ -102,7 +102,7 @@ export function mountWire(el) {
   let az = azStart * Math.PI / 180;
   function loop() {
     requestAnimationFrame(loop);
-    if (!reduce) { az += 0.0042; group.rotation.y = az; }
+    if (!reduce) { az += 0.0021; group.rotation.y = az; }
     renderer.render(scene, camera);
   }
   size();
@@ -114,7 +114,7 @@ export function mountWire(el) {
   const frEl = el.querySelector('.wh-fr');
   let fr = 0, deg = azStart;
   setInterval(() => {
-    deg = (deg + 1.6) % 360; fr += 1;
+    deg = (deg + 0.8) % 360; fr += 1;
     if (azEl) azEl.textContent = deg.toFixed(1).padStart(5, '0');
     if (frEl) frEl.textContent = String(fr).padStart(6, '0');
   }, 200);

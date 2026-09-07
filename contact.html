@@ -4,8 +4,6 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Contact — Adolfo Valencia</title>
-<link rel="canonical" href="https://ajvalencia.com/contact" />
-<meta property="og:url" content="https://ajvalencia.com/contact" />
 <meta name="description" content="Get in touch with Adolfo Valencia — real estate development, acquisitions, and feasibility roles. Based in Miami, FL and open to relocate." />
 <meta name="author" content="Adolfo Valencia" />
 <meta name="theme-color" content="#e7e1d4" />
@@ -13,13 +11,13 @@
 <meta property="og:type" content="website" />
 <meta property="og:title" content="Contact — Adolfo Valencia" />
 <meta property="og:description" content="Real estate development, acquisitions, and feasibility. Based in Miami, FL and open to relocate." />
-<meta property="og:image" content="https://ajvalencia.com/assets/og-card.png" />
+<meta property="og:image" content="assets/og-card.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Contact — Adolfo Valencia" />
 <meta name="twitter:description" content="Real estate development, acquisitions, and feasibility. Miami, FL — open to relocate." />
-<meta name="twitter:image" content="https://ajvalencia.com/assets/og-card.png" />
+<meta name="twitter:image" content="assets/og-card.png" />
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-YJ4JNKEB8W"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -248,22 +246,22 @@
     <header class="top">
       <div class="top-in">
         <div class="top-left">
-          <a class="top-brand" href="home" aria-label="Adolfo Valencia — home">
+          <a class="top-brand" href="home.html" aria-label="Adolfo Valencia — home">
             <img class="mark" src="assets/av-logo-cut.png" alt="AV monogram" />
             <span class="top-name">Adolfo&nbsp;Valencia</span>
           </a>
         </div>
         <nav class="top-nav">
-          <a href="home#work">Work</a>
-          <a href="home#about">About</a>
-          <a href="contact" class="nav-contact">Contact</a>
+          <a href="home.html#work">Work</a>
+          <a href="home.html#about">About</a>
+          <a href="contact.html" class="nav-contact">Contact</a>
         </nav>
         <button class="nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="mobileNav" aria-label="Toggle menu"><span class="bars"><span></span><span></span><span></span></span></button>
       </div>
       <nav class="mobile-nav" id="mobileNav">
-        <a href="home#work">Work</a>
-        <a href="home#about">About</a>
-        <a href="contact" class="nav-contact">Contact</a>
+        <a href="home.html#work">Work</a>
+        <a href="home.html#about">About</a>
+        <a href="contact.html" class="nav-contact">Contact</a>
       </nav>
     </header>
 <main>
@@ -336,7 +334,7 @@
       </div>
       <div class="now-cell anim">
         <div class="now-k">Studying</div>
-        <div class="now-v">M.S. Real Estate Dev. &amp; Urbanism, University of Miami — <strong>Dec 2026</strong>.</div>
+        <div class="now-v">M.S. Real Estate Dev. &amp; Urbanism, University of Miami — <strong style="white-space:nowrap">Dec&nbsp;2026</strong>.</div>
       </div>
       <div class="now-cell anim">
         <div class="now-k">Toolkit</div>
@@ -380,7 +378,7 @@
       if (tsRendered || !window.turnstile || !tsBox) return;
       tsRendered = true;
       tsId = window.turnstile.render('#ctWidget', {
-        sitekey: '0x4AAAAAAEaWOmZD0hqdYqfd',
+        sitekey: '0x4AAAAAAEaWOmZDOhqdYqfd',
         theme: 'light',
         callback: function (t) { tsToken = t; if (form.requestSubmit) form.requestSubmit(); },
         'expired-callback': function () { tsToken = ''; },
