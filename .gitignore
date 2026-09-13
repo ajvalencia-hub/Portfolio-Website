@@ -1,6 +1,9 @@
 # Local Claude Code machine config (not part of the site)
 .claude/settings.local.json
 
+# /generate skill working outputs (only promoted files go into assets/)
+generations/
+
 # OS cruft
 .DS_Store
 Thumbs.db

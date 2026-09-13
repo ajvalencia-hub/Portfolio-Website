@@ -25,7 +25,24 @@
   gtag('js', new Date());
   gtag('config', 'G-YJ4JNKEB8W');
 </script>
-<script>document.documentElement.classList.add('js');</script>
+<script>
+  document.documentElement.classList.add('js');
+  /* Hero mode, decided before first paint so the layout never shifts:
+     motion = scroll-driven 3D massing study · reduced = static 3D composition ·
+     fallback = the original image hero (no modules/WebGL, save-data, low-end devices). */
+  (function () {
+    var d = document.documentElement, mode = 'motion';
+    try {
+      var q = location.search, c = navigator.connection;
+      if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) mode = 'reduced';
+      if (!('noModule' in HTMLScriptElement.prototype) || !window.WebGLRenderingContext) mode = 'fallback';
+      if ((c && c.saveData) || (navigator.deviceMemory && navigator.deviceMemory <= 2) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2)) mode = 'fallback';
+      if (/[?&]hero3d=force/.test(q) && mode === 'fallback') mode = 'motion';
+      if (/[?&]hero3d=off/.test(q)) mode = 'fallback';
+    } catch (e) { mode = 'fallback'; }
+    d.setAttribute('data-hero', mode);
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://api.fontshare.com/v2/css?f%5B%5D=satoshi@400,500,700&display=swap" rel="stylesheet" /><link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@900&family=Azeret+Mono:wght@400;700&family=Big+Shoulders+Display:wght@800&family=Chakra+Petch:wght@700&family=Cinzel:wght@700&family=Manrope:wght@800&family=Playfair+Display:wght@900&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=switzer@400,500&display=swap" />
 <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@600&display=swap" />
@@ -195,6 +212,52 @@
   .fig-dot:hover i { opacity: 0.28; }
   @media (min-width: 1500px) { .hero-fig .fig-cap > span#figCap { flex: 1 1 auto; } .hero-fig .fig-dots { flex: 1 1 100%; } }
 
+  /* ---------- hero · 3D massing study (assets/hero3d) ----------
+     html[data-hero] is set in <head>: motion = sticky stage + scroll track,
+     reduced = static final composition, fallback = the image hero above. */
+  :root { --hdr: 92px; --hero-track: 118vh; }
+  @media (max-width: 640px) { :root { --hdr: 88px; } }
+  @media (max-width: 820px) { :root { --hero-track: 84vh; } }
+  .hero-canvas { display: none; }
+  html[data-hero="motion"] .hero, html[data-hero="reduced"] .hero { padding: 0; position: relative; }
+  html[data-hero="motion"] .hero { height: calc(100vh - var(--hdr) + var(--hero-track)); height: calc(100svh - var(--hdr) + var(--hero-track)); }
+  html[data-hero="motion"] .hero-stage, html[data-hero="reduced"] .hero-stage {
+    position: relative; display: flex; align-items: center; overflow: hidden; min-height: 520px;
+    height: calc(100vh - var(--hdr)); height: calc(100svh - var(--hdr));
+  }
+  html[data-hero="motion"] .hero-stage { position: sticky; top: var(--hdr); }
+  html[data-hero="motion"] .hero-fig, html[data-hero="reduced"] .hero-fig { display: none; }
+  html[data-hero="motion"] .hero-canvas, html[data-hero="reduced"] .hero-canvas { display: block; }
+  html[data-hero="motion"] .hero h1, html[data-hero="reduced"] .hero h1 { font-size: clamp(52px, min(12.5vw, 26cqw, 17vh), 150px); }
+  .hero-stage > .wrap { position: relative; z-index: 2; width: 100%; }
+  /* the model sits beside the type; a soft mask keeps lines quiet under the copy */
+  .hero-canvas { position: absolute; inset: 0; z-index: 0; will-change: transform, opacity;
+    /* side fade under the copy × bottom fade into the page, intersected */
+    -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.22) 30%, #000 56%),
+                        linear-gradient(180deg, #000 0%, #000 64%, rgba(0,0,0,0.22) 86%, rgba(0,0,0,0) 100%);
+    -webkit-mask-composite: source-in;
+            mask-image: linear-gradient(90deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.22) 30%, #000 56%),
+                        linear-gradient(180deg, #000 0%, #000 64%, rgba(0,0,0,0.22) 86%, rgba(0,0,0,0) 100%);
+            mask-composite: intersect; }
+  .hero-canvas canvas { display: block; width: 100%; height: 100%; }
+  /* click-and-hold rotates the model; the copy keeps a normal cursor and selection */
+  .hero-stage.is-rotatable { cursor: grab; touch-action: pan-y; }
+  .hero-stage.is-rotatable.is-dragging { cursor: grabbing; user-select: none; }
+  .hero-stage.is-rotatable .hero-copy { cursor: auto; }
+
+  @media (max-width: 899px) {
+    html[data-hero="motion"] .hero-stage, html[data-hero="reduced"] .hero-stage { align-items: flex-start; }
+    html[data-hero="motion"] .hero-stage > .wrap, html[data-hero="reduced"] .hero-stage > .wrap { padding-top: 5vh; }
+    .hero-canvas { -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.12) 36%, #000 60%, #000 76%, rgba(0,0,0,0.22) 90%, rgba(0,0,0,0) 100%);
+                           mask-image: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.12) 36%, #000 60%, #000 76%, rgba(0,0,0,0.22) 90%, rgba(0,0,0,0) 100%);
+                   -webkit-mask-composite: source-over; mask-composite: add; }
+  }
+  /* short landscape screens: no sticky track, static composition */
+  @media (max-height: 560px) and (orientation: landscape) {
+    html[data-hero="motion"] .hero { height: auto; }
+    html[data-hero="motion"] .hero-stage { position: relative; top: auto; height: auto; min-height: calc(100vh - var(--hdr)); padding: 8vh 0; }
+  }
+
   /* ---------- work index ---------- */
   .work { padding: 10vh 0 12vh; }
   #top, #work, #about { scroll-margin-top: 112px; }
@@ -355,6 +418,7 @@
 
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } .js .fade { opacity: 1; transform: none; } .js .anim { opacity: 1 !important; transform: none !important; transition: none !important; } .js .card-reveal, .js .card-reveal .card-media, .js .card-reveal .card-kick, .js .card-reveal .card-name, .js .card-reveal .card-loc, .js .card-reveal .card-stats, .js .card-reveal .card-cta { opacity: 1 !important; transform: none !important; transition: none !important; } }
 </style>
+<link rel="stylesheet" href="assets/concrete-background.css">
 </head>
 <body>
   <a class="skip-link" href="#top">Skip to content</a>
@@ -391,8 +455,11 @@
 
   <main id="top">
 
-    <!-- HERO -->
-    <section class="hero">
+    <!-- HERO — the stage hosts the 3D massing study (assets/hero3d). Copy stays in
+         normal HTML above the canvas; the image figure is the no-WebGL fallback. -->
+    <section class="hero" data-hero3d>
+      <div class="hero-stage">
+      <div class="hero-canvas" aria-hidden="true"></div>
       <div class="wrap">
         <div class="hero-grid">
           <div class="hero-copy">
@@ -407,7 +474,7 @@
           </div>
           <figure class="hero-fig fade d3">
             <div class="fig-frame">
-              <div class="fig-slide on"><img src="assets/sunnyvale/aerial.png" alt="Sunnyvale Mixed-Use — aerial render" /></div>
+              <div class="fig-slide on"><img src="assets/sunnyvale/aerial.png" alt="Sunnyvale Mixed-Use — aerial render" loading="lazy" decoding="async" /></div>
               <div class="fig-slide"><img src="assets/solace/aerial.png" alt="Solace Commons — aerial render" loading="lazy" decoding="async" /></div>
               <div class="fig-slide"><img src="assets/mirador/hero.jpg" alt="Mirador Manor — street-level architectural rendering" loading="lazy" decoding="async" /></div>
               <span class="fig-tag" id="figTag">Featured · Mixed-Use</span>
@@ -419,6 +486,7 @@
           </figure>
         </div>
       </div>
+      </div>
     </section>
 
     <!-- WORK INDEX -->
@@ -426,6 +494,7 @@
       <div class="wrap">
         <div class="work-head anim">
           <h2>Selected Work</h2>
+          <span class="label">Three Developments &middot; 2026</span>
         </div>
 
         <div class="work-grid">
@@ -556,8 +625,9 @@
   </footer>
 
 <script type="importmap">
-{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
 </script>
+<script type="module" src="assets/hero3d/boot.js"></script>
 <script type="module">
   /* lazy-load three.js + the GLB massing only when a card scrolls near view */
   window.__wireLazy = true;
@@ -594,7 +664,20 @@
     window.addEventListener('pageshow', reveal);
   })();
 
+  /* 3D hero safety net: if the module never boots (blocked script, very old
+     browser), fall back to the image hero instead of an empty stage. */
   (function () {
+    var d = document.documentElement;
+    if (d.getAttribute('data-hero') === 'fallback') return;
+    setTimeout(function () {
+      if (window.__hero3dBooted) return;
+      d.setAttribute('data-hero', 'fallback');
+      window.dispatchEvent(new Event('hero3d:fallback'));
+    }, 6000);
+  })();
+
+  /* image hero carousel — runs only when the 3D stage isn't in use */
+  function initHeroCarousel() {
     var frame = document.querySelector('.hero-fig');
     var slides = [].slice.call(document.querySelectorAll('.hero-fig .fig-slide'));
     var tag = document.getElementById('figTag'), cap = document.getElementById('figCap');
@@ -653,7 +736,9 @@
         start();
       });
     }
-  })();
+  }
+  if (document.documentElement.getAttribute('data-hero') === 'fallback') initHeroCarousel();
+  else window.addEventListener('hero3d:fallback', initHeroCarousel, { once: true });
 
   /* ---------- staggered scroll-reveal for Selected Work + About ---------- */
   (function () {

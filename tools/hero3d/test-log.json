@@ -1,0 +1,23 @@
+{
+  "environment": "Windows 11 Home (10.0.26200), 32 logical cores. In-app Chromium browser pane: ANGLE / NVIDIA GeForce RTX 5080 (D3D11). Headless Google Chrome 152.0.7977.83 with SwiftShader (software WebGL). Local static server (python http.server). Measured 2026-09-13.",
+  "tests": [
+    { "name": "Geometry + program audit (tools/hero3d/audit.mjs)", "settings": "desktop and mobile plan tiers", "result": "all scripted checks pass (see section 1); runtime < 1 s" },
+    { "name": "Desktop hero, real GPU (in-app browser)", "settings": "1350 × 910 CSS px, DPR 1, canvas 1335 × 818, shadows on, S = 0.92", "result": "102 draw calls per frame; median 5.0 ms, p95 5.1 ms per frame during pointer parallax (display-refresh limited); 0 draw calls over 2 s idle (render-on-demand pause holds); JS heap ≈ 50 MB; no console errors" },
+    { "name": "Mobile tier, emulated in the in-app browser", "settings": "375 × 812 CSS px emulation (device DPR 2, tier cap 1.25 → canvas 468 × 905), shadows off, settled wireframes dropped", "result": "72 draw calls per frame; median 5.0 ms, p95 5.2 ms during drag rotation — on the desktop GPU, so NOT representative of a phone; 0 idle draws; no horizontal overflow" },
+    { "name": "Animation states (headless)", "settings": "1440 × 900, S = 0.05, 0.22, 0.36, 0.44, 0.56, 0.72, 0.92, 1.00", "result": "grid → footprints → rising wireframes (towers rise as one stack per tower) → dithered materialise → landscape/pools/fountain → final composition → handoff; no missing or floating elements observed" },
+    { "name": "Live intro (headless, no frozen S)", "settings": "1440 × 900", "result": "intro drawing starts; hero initialises without errors" },
+    { "name": "Reduced motion (headless)", "settings": "--force-prefers-reduced-motion", "result": "static final composition rendered; no scroll-driven animation; water clock frozen" },
+    { "name": "No WebGL fallback (headless)", "settings": "--disable-3d-apis", "result": "image hero shown" },
+    { "name": "Mobile hero framing (headless)", "settings": "500 × 1084 CSS px (headless minimum width), mobile tier", "result": "model, resort pool and fountain visible below the hero text; no overlap with copy" },
+    { "name": "Hero-camera visibility (ray-marched, audit)", "settings": "desktop key frame S 0.92; mobile camera travel 0.55", "result": "see visibility table in section 1" },
+    { "name": "QA overlay", "settings": "?heroPlan=all", "result": "columns, cores, transfer rings, stalls, aisles, ramp, lifts, basin and hotel BOH rooms render over the model" }
+  ],
+  "notPerformed": [
+    "No physical phone or tablet was tested. Mobile results above come from desktop emulation and headless Chrome and are not device validation.",
+    "No low-end or integrated GPU was tested; SwiftShader renders confirm correctness only, not performance.",
+    "No Safari / iOS WebKit or Firefox testing.",
+    "No thermal, battery or long-session memory testing.",
+    "No accessibility audit of the page beyond reduced-motion behaviour.",
+    "Frame times are display-refresh limited on the test machine; GPU frame cost under load was not profiled."
+  ]
+}

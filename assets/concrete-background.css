@@ -1,0 +1,31 @@
+/* Load AFTER the page's existing styles. Paths resolve relative to this file. */
+:root {
+  --concrete-texture: url('./tex/holefree.jpg');
+  --concrete-tile-width: 1672px;
+}
+
+html,
+body,
+header.top,
+.mobile-nav {
+  --concrete-wash: 0.20;
+  background-color: #e7e1d4;
+  background-image:
+    linear-gradient(rgba(231, 225, 212, var(--concrete-wash)), rgba(231, 225, 212, var(--concrete-wash))),
+    var(--concrete-texture);
+  background-repeat: no-repeat, repeat;
+  background-size: 100% 100%, var(--concrete-tile-width) auto;
+  background-position: top left, center 95px;
+}
+
+header.top,
+.mobile-nav {
+  --concrete-wash: 0.33;
+}
+
+/* Show the full texture width on phones/tablets instead of a narrow crop.
+   The native 1672px image exceeds 3 image pixels per CSS pixel at 390-430px.
+   Keep tile height automatic so long pages never stretch the texture. */
+@media (max-width: 900px) {
+  :root { --concrete-tile-width: 100vw; }
+}

@@ -100,13 +100,21 @@ export function mountWire(el) {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const azStart = Number(el.getAttribute('data-az')) || 124;
   let az = azStart * Math.PI / 180;
+  group.rotation.y = az;
+  // only animate while the card is on screen and the tab is visible
+  let visible = false, raf = 0;
+  const running = () => visible && !document.hidden && !reduce;
   function loop() {
-    requestAnimationFrame(loop);
-    if (!reduce) { az += 0.0021; group.rotation.y = az; }
+    raf = 0;
+    if (!running()) return;
+    az += 0.0021; group.rotation.y = az;
     renderer.render(scene, camera);
+    raf = requestAnimationFrame(loop);
   }
+  const kick = () => { if (!raf && running()) raf = requestAnimationFrame(loop); };
+  new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; kick(); }, { rootMargin: '100px 0px' }).observe(el);
+  document.addEventListener('visibilitychange', kick);
   size();
-  loop();
   window.addEventListener('resize', size);
 
   // HUD: animate azimuth + frame counter
@@ -114,6 +122,7 @@ export function mountWire(el) {
   const frEl = el.querySelector('.wh-fr');
   let fr = 0, deg = azStart;
   setInterval(() => {
+    if (!running()) return;
     deg = (deg + 0.8) % 360; fr += 1;
     if (azEl) azEl.textContent = deg.toFixed(1).padStart(5, '0');
     if (frEl) frEl.textContent = String(fr).padStart(6, '0');

@@ -1,0 +1,468 @@
+// Hero model audit: geometric checks, program analysis, hero-camera visibility,
+// supporting plan diagrams (SVG) and the validation register (Markdown).
+//
+//   node tools/hero3d/audit.mjs
+//
+// Everything here checks the conceptual model's own geometry. It does not
+// establish structural adequacy, code, egress, accessibility or zoning compliance.
+import { pathToFileURL, fileURLToPath } from 'node:url';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const root = join(here, '..', '..');
+const hero = join(root, 'assets', 'hero3d');
+const load = (p) => import(pathToFileURL(join(hero, p)).href);
+const { buildSitePlan } = await load('site-plan.js');
+const core = await load('plan/core.js');
+const res = await load('plan/residential.js');
+const office = await load('plan/office.js');
+const hotel = await load('plan/hotel.js');
+const park = await load('plan/park.js');
+const { analyseSite, ASSUMPTIONS } = await load('plan/program.js');
+const { insidePlan, offsetPlan, polygonArea, inRect, rectOverlap, PODIUM_TOP, DECK_Y } = core;
+
+const TIERS = [
+  { name: 'desktop', cityRings: 2, neighbors: 'all', treeDensity: 1, cars: 16, crosswalks: true },
+  { name: 'mobile', cityRings: 1, neighbors: 'adjacent', treeDensity: 0.5, cars: 6, crosswalks: false },
+];
+
+const checks = [];   // { area, name, pass, detail }
+const check = (area, name, pass, detail = '') => checks.push({ area, name, pass: !!pass, detail });
+const round = (v, d = 1) => Math.round(v * 10 ** d) / 10 ** d;
+const rectOf = (b) => [b.x - b.w / 2, b.x + b.w / 2, b.z - b.d / 2, b.z + b.d / 2];
+const partRect = (q) => {
+  const c = Math.cos(q.rot || 0), s = Math.sin(q.rot || 0);
+  const pts = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => [q.x + (u * q.sx / 2) * c + (v * q.sz / 2) * s, q.z - (u * q.sx / 2) * s + (v * q.sz / 2) * c]);
+  const xs = pts.map((p) => p[0]), zs = pts.map((p) => p[1]);
+  return [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+};
+const corners = (r) => [[r[0], r[2]], [r[1], r[2]], [r[1], r[3]], [r[0], r[3]]];
+const partCorners = (q) => {
+  const c = Math.cos(q.rot || 0), s = Math.sin(q.rot || 0);
+  return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => [q.x + (u * q.sx / 2) * c + (v * q.sz / 2) * s, q.z - (u * q.sx / 2) * s + (v * q.sz / 2) * c]);
+};
+
+// ---------------------------------------------------------------------------
+// Palette
+// ---------------------------------------------------------------------------
+const configSrc = readFileSync(join(hero, 'config.js'), 'utf8');
+const hex = (key) => (configSrc.match(new RegExp(`\\b${key}: '(#[0-9a-f]{6})'`)) || [])[1];
+const chroma = (h) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255); return Math.max(r, g, b) - Math.min(r, g, b); };
+const WHITE_KEYS = ['concrete', 'stucco', 'podium', 'stone', 'terrazzo', 'glass', 'frame', 'slab', 'screen', 'metal', 'charcoal', 'void', 'canvas', 'cushion', 'paving', 'deck', 'walk', 'coping', 'drive'];
+for (const k of WHITE_KEYS) check('Palette', `${k} is a neutral white/grey`, hex(k) && chroma(hex(k)) < 0.035, hex(k));
+check('Palette', 'no bronze/copper/gold/sandy materials defined', !/(bronze|copper|gold|sandy|beige)\w*\s*:/i.test(configSrc));
+
+let desktopPlan = null, desktopAnalysis = null, mobilePlan = null;
+
+for (const tier of TIERS) {
+  const p = buildSitePlan(tier);
+  const a = analyseSite(p);
+  const T = `[${tier.name}]`;
+  if (tier.name === 'desktop') { desktopPlan = p; desktopAnalysis = a; } else mobilePlan = p;
+  const byName = Object.fromEntries(p.boxes.map((b) => [b.name, b]));
+  const cv = Object.fromEntries(p.curved.map((c) => [c.name, c]));
+  const cTop = p.meta.curveTop;
+  const cBase = (n) => (cv[n].parent ? cTop[cv[n].parent] : cv[n].y0);
+  const topOf = (n) => { const b = byName[n]; return (b.parent ? topOf(b.parent) : b.y0) + b.h; };
+
+  // --- model integrity -------------------------------------------------------
+  const badParents = p.boxes.filter((b, i) => b.parent && !(p.index[b.parent] < i)).length
+    + p.curved.filter((c, i) => c.parent && !(p.curved.findIndex((x) => x.name === c.parent) < i)).length;
+  check('Model', `${T} parents exist and precede children`, badParents === 0, `${badParents} bad`);
+  const late = p.curved.filter((c) => c.phase !== 'context' && c.start + c.dur > 0.5 + 1e-6).map((c) => c.name);
+  check('Model', `${T} all masses finish rising before the materialise phase`, late.length === 0, late.join(', '));
+  const vc = p.curved.filter((c) => (c.slabs && c.slabs.floors.some((f) => f.outer.length !== f.inner.length)) || (c.type === 'ring' && c.inner.length !== c.pts.length)).map((c) => c.name);
+  check('Model', `${T} slab and ring vertex counts match`, vc.length === 0, vc.join(', '));
+  const woodOutside = p.parts.filter((q) => String(q.color).startsWith('wood') && !(q.x > 20 && q.x < 76 && q.z > 12 && q.z < 54)).length;
+  check('Palette', `${T} timber accents only on the office`, woodOutside === 0, `${woodOutside} outside`);
+
+  // --- towers ------------------------------------------------------------------
+  for (const s of a.structure.towers) {
+    const t = p.meta.towers.find((x) => x.id === s.id);
+    check('Towers', `${T} ${s.id}: columns continuous and inside every floorplate; cores inside every floor and the upper penthouse; nothing in drive aisles`, s.issues.length === 0, s.issues.slice(0, 4).join('; '));
+    check('Towers', `${T} ${s.id}: slab cantilever beyond column line ≤ ${s.limit} m`, s.maxCantilever <= s.limit + 0.01, `${s.maxCantilever} m`);
+    check('Towers', `${T} ${s.id}: glass line moves ≤ 0.12 m floor to floor (covered by balcony slab inner edge)`, s.maxLeanStep <= 0.12, `${s.maxLeanStep} m`);
+    check('Towers', `${T} ${s.id}: minimum balcony depth ≥ 0.9 m`, s.minBalconyDepth >= 0.89, `${s.minBalconyDepth} m`);
+    const ph1 = cv[`${s.id}.ph1`], ph2 = cv[`${s.id}.ph2`], body = cv[t.body];
+    const top = body.floorPlans.at(-1);
+    check('Towers', `${T} ${s.id}: lower penthouse terrace ≥ 1.5 m`, ph1.pts.every(([x, z]) => insidePlan(x, z, offsetPlan(top, -1.5))));
+    check('Towers', `${T} ${s.id}: upper penthouse terrace ≥ 1.2 m`, ph2.pts.every(([x, z]) => insidePlan(x, z, offsetPlan(ph1.slabs.floors[0].outer, -1.2))));
+    const crown = cv[`${s.id}.halo`] || cv[`${s.id}.canopy`];
+    check('Towers', `${T} ${s.id}: crown bears on the upper penthouse and stays within the tower edge`, (crown.type === 'ring' ? crown.inner.every(([x, z]) => insidePlan(x, z, ph2.pts)) : crown.pts.some(([x, z]) => insidePlan(x, z, ph2.pts)) || ph2.pts.some(([x, z]) => insidePlan(x, z, crown.pts))) && crown.pts.every(([x, z]) => insidePlan(x, z, top)));
+    check('Towers', `${T} ${s.id}: guards sit on the roof slab and eave, ≥ 1.05 m`, cv[`${s.id}.guard0`].h >= 1.05 && cv[`${s.id}.guard1`].h >= 1.05 && cv[`${s.id}.guard0`].pts.every(([x, z]) => insidePlan(x, z, body.slabs.floors.at(-1).outer)));
+  }
+  const h1 = cTop['A.t1.screen'], h2 = cTop['A.t2.screen'];
+  check('Towers', `${T} towers keep contrasting heights`, h1 - h2 > 12, `${round(h1)} m / ${round(h2)} m`);
+  check('Towers', `${T} no rooftop pools on the towers`, !p.curved.some((c) => c.glaze === 3 && cBase(c.name) > PODIUM_TOP + 3));
+
+  // --- office ----------------------------------------------------------------
+  check('Office', `${T} blocks: continuous column lines (no transfers), cantilevers ≤ 3.0 m, projections ≤ 2.4 m, core inside every block`, a.structure.office.issues.length === 0, a.structure.office.issues.join('; '));
+  check('Office', `${T} office remains subordinate to tower 2`, office.OFFICE_BLOCK_TOPS.at(-1) + 3.2 < cTop['A.t2.ph2'] - 10);
+  for (const t of office.OFFICE_TERRACES) {
+    const host = t.host < 0 ? office.OFFICE_BASE_RECT : office.OFFICE_BLOCKS[t.host].rect;
+    const above = office.OFFICE_BLOCKS[t.host + 1];
+    const clear = !above || !rectOverlap(t.rect, [above.rect[0] - 0.5, above.rect[1] + 0.5, above.rect[2] - 0.5, above.rect[3] + 0.5], -0.05);
+    const onRoof = t.rect[0] >= host[0] - 0.01 && t.rect[1] <= host[1] + 0.01 && t.rect[2] >= host[2] - 0.01 && t.rect[3] <= host[3] + 0.01;
+    check('Office', `${T} ${t.name} lies on its roof and clear of the block above`, onRoof && clear);
+  }
+  const op = a.officePlanters;
+  check('Office', `${T} planters sit on terraces with ${op.access} m maintenance access`, op.issues.length === 0, op.issues.slice(0, 3).join('; '));
+  check('Office', `${T} hanging planting clear of entrances and limited to frame bands over glazing`, op.lowOverEntrance === 0 && op.longOverGlass === 0, `${op.lowOverEntrance} low over entrances, ${op.longOverGlass} long over glazing`);
+
+  // --- resort pool + deck ----------------------------------------------------------
+  const pool = p.meta.pool.outline;
+  const xs = pool.map((q) => q[0]), zs = pool.map((q) => q[1]);
+  const len = Math.max(...zs) - Math.min(...zs), wid = Math.max(...xs) - Math.min(...xs);
+  const hp = rectOf(byName['L.hpool']);
+  const hotelEW = (hp[1] - hp[0]) > (hp[3] - hp[2]);
+  check('Pool', `${T} pool long axis runs east–west (site x), matching the hotel pool, between the towers`, hotelEW && wid / len > 1.8 && Math.min(...zs) > -15 && Math.max(...zs) < 15, `${round(wid)} m long × ${round(len)} m wide`);
+  check('Pool', `${T} pool is wide (≥ 9.5 m across the swimming area)`, len >= 9.5, `${round(len)} m`);
+  const t1f = cv['A.t1.body'].floorPlans[0], t2f = cv['A.t2.body'].floorPlans[0];
+  check('Pool', `${T} pool terrace clear of tower enclosures`, !res.POOL.terrace.some(([x, z]) => insidePlan(x, z, t1f) || insidePlan(x, z, t2f)) && !t1f.some(([x, z]) => insidePlan(x, z, res.POOL.terrace)) && !t2f.some(([x, z]) => insidePlan(x, z, res.POOL.terrace)));
+  const rp = a.parking.residential.pool;
+  check('Pool', `${T} basin soffit leaves ≥ ${rp.required} m car clearance on ${rp.levelBelow} (with ${res.POOL.mepAllowance} m services allowance)`, rp.clearOk, `${rp.clearHeight} m`);
+  check('Pool', `${T} basin clear of tower columns, cores, ramp and stair cores`, rp.conflicts.length === 0, rp.conflicts.join(', '));
+  const inWater = p.parts.filter((q) => q.color === 'cushion' && Math.abs(q.y - res.POOL.waterY) < 0.005);
+  check('Pool', `${T} in-water loungers sit on the sun shelf`, inWater.length > 0 && inWater.every((q) => partCorners(q).every(([x, z]) => insidePlan(x, z, cv['A.poolShelf'].pts))), `${inWater.length}`);
+  const deckRoutes = a.deck.routes;
+  check('Deck', `${T} 1.5 m clear routes connect both tower lobbies, both podium stairs and every amenity zone`, deckRoutes.every((r) => r.reachable), deckRoutes.filter((r) => !r.reachable).map((r) => r.name).join(', '));
+  check('Deck', `${T} planters have a 0.9 m maintenance strip on at least one side`, a.deck.plantersWithoutAccess === 0, `${a.deck.plantersWithoutAccess} of ${a.deck.planters} ${JSON.stringify(a.deck.plantersWithoutAccessAt)}`);
+  const deckIn = offsetPlan(res.PODIUM_PLAN, -0.45);
+  const deckParts = p.parts.filter((q) => q.y - q.sy / 2 >= PODIUM_TOP - 0.01 && q.y - q.sy / 2 < PODIUM_TOP + 3 && insidePlan(q.x, q.z, res.PODIUM_PLAN));
+  const lowSlab = (id) => cv[`${id}.body`].slabs.floors[0].outer;
+  const offDeck = deckParts.filter((q) => !partCorners(q).every(([x, z]) => insidePlan(x, z, deckIn))).length;
+  const tallUnder = deckParts.filter((q) => q.y + q.sy / 2 > PODIUM_TOP + 3.2 - 0.36 - 0.05 && partCorners(q).some(([x, z]) => insidePlan(x, z, lowSlab('A.t1')) || insidePlan(x, z, lowSlab('A.t2')))).length;
+  const inTower = deckParts.filter((q) => partCorners(q).some(([x, z]) => insidePlan(x, z, t1f) || insidePlan(x, z, t2f))).length;
+  check('Deck', `${T} deck furniture and planters stay on the deck, outside towers, and low beneath balconies`, offDeck + tallUnder + inTower === 0, `${offDeck} off deck, ${tallUnder} tall under balconies, ${inTower} in towers`);
+  const deckPalms = [...p.palms.filter((q) => q.deck), ...p.trees.filter((q) => q.deck)];
+  const palmIssues = deckPalms.filter((q) => {
+    const planter = p.parts.some((b) => b.color === 'frame' && b.shape === 'box' && Math.abs(b.y + b.sy / 2 - q.y) < 0.02 && inRect(q.x, q.z, partRect(b), -0.3));
+    const reach = q.h ? q.r : q.r + 0.5;
+    const underSlab = insidePlan(q.x, q.z, offsetPlan(lowSlab('A.t1'), reach)) || insidePlan(q.x, q.z, offsetPlan(lowSlab('A.t2'), reach));
+    return !planter || underSlab || q.planterH < 0.9;
+  });
+  check('Deck', `${T} deck palms and trees stand in ≥ 0.9 m raised planters, clear of balcony overhangs`, palmIssues.length === 0, `${palmIssues.length} of ${deckPalms.length}`);
+  const spaT2 = insidePlan(res.SPA.x, res.SPA.z, offsetPlan(lowSlab('A.t2'), res.SPA.r + res.SPA.coping));
+  check('Deck', `${T} raised spa sits on the structural slab (no depression) and outside balcony overhangs`, res.SPA.raise + 0.0 >= res.SPA.depth - 0.5 && !spaT2);
+
+  // --- park -------------------------------------------------------------------------
+  check('Park', `${T} 1.5 m clear routes link retail arcade, hotel entrance, office lobby, street, paseo and fountain`, a.park.routes.every((r) => r.reachable), a.park.routes.filter((r) => !r.reachable).map((r) => r.name).join(', '));
+  check('Park', `${T} café seating kept off radial paths and the paseo`, a.park.cafePartsOnRoutes === 0, `${a.park.cafePartsOnRoutes}`);
+  const plaza = [-19.5, 19.5, 3, 53];
+  const parkTrees = p.trees.filter((t) => inRect(t.x, t.z, plaza, 1));
+  const treeOnPath = parkTrees.filter((t) => park.PARK_PATHS.some((q) => {
+    const L = Math.hypot(q.to[0] - q.from[0], q.to[1] - q.from[1]);
+    const u = ((t.x - q.from[0]) * (q.to[0] - q.from[0]) + (t.z - q.from[1]) * (q.to[1] - q.from[1])) / L;
+    const v = Math.abs(-(t.x - q.from[0]) * (q.to[1] - q.from[1]) + (t.z - q.from[1]) * (q.to[0] - q.from[0])) / L;
+    return u > -1 && u < L + 1 && v < q.width / 2 + 0.8;
+  }) || Math.hypot(t.x - park.FOUNTAIN.x, t.z - park.FOUNTAIN.z) < park.PLAZA_DISC).length;
+  check('Park', `${T} park trees clear of paths, the gathering circle and the fountain`, treeOnPath === 0, `${treeOnPath} of ${parkTrees.length}`);
+
+  // --- hotel ----------------------------------------------------------------------
+  const H = a.hotel;
+  check('Hotel', `${T} receiving reaches refuse, stores, staff entry, service lifts, housekeeping, staff areas, plant, kitchen and pool-bar pantry without crossing guest space`, H.serviceReach.every((x) => x.reachable) && H.serviceToGuestWithoutDoor.length === 0, H.serviceReach.filter((x) => !x.reachable).map((x) => x.name).concat(H.serviceToGuestWithoutDoor).join(', '));
+  check('Hotel', `${T} guest arrival reaches lobby, guest lifts, pool court, restaurant, café and fitness without service rooms`, H.guestReach.every((x) => x.reachable), H.guestReach.filter((x) => !x.reachable).map((x) => x.name).join(', '));
+  check('Hotel', `${T} program rooms do not overlap and sit inside the hotel footprint`, H.overlaps.length === 0 && H.outsideBuilding.length === 0, [...H.overlaps, ...H.outsideBuilding].join('; '));
+  check('Hotel', `${T} service doors face the north street; guest arrival on the east court`, H.serviceDoorsOnStreet.length === 3);
+  const hotelPlans = [hotel.HOTEL.front, hotel.HOTEL.centre, hotel.HOTEL.rear, hotel.HOTEL.link];
+  const officeGround = ['C.baseE', 'C.baseW', 'C.lobby'].map((n) => rectOf(byName[n]));
+  check('Hotel', `${T} hotel volumes clear of the podium and the office`, hotelPlans.every((pl) => !pl.some(([x, z]) => insidePlan(x, z, offsetPlan(res.PODIUM_PLAN, 2))) && !officeGround.some((r) => corners(r).some(([x, z]) => insidePlan(x, z, pl)))));
+
+  // --- service doors sit on a facade line ----------------------------------------------
+  const facades = [offsetPlan(res.PODIUM_PLAN, -core.ARCADE), ...hotelPlans, ...['B.svcLink', 'C.baseE', 'C.baseW', 'C.lobby'].map((n) => core.rect(...[rectOf(byName[n])].map((r) => [r[0], r[2], r[1], r[3]])[0]))];
+  const distToEdges = (x, z, poly) => { let best = Infinity; for (let i = 0; i < poly.length; i++) { const [ax, az] = poly[i], [bx, bz] = poly[(i + 1) % poly.length]; const ex = bx - ax, ez = bz - az; const t = Math.max(0, Math.min(1, ((x - ax) * ex + (z - az) * ez) / (ex * ex + ez * ez || 1))); best = Math.min(best, Math.hypot(x - ax - ex * t, z - az - ez * t)); } return best; };
+  const floatingDoors = p.parts.filter((q) => q.color === 'void' && !partCorners(q).every(([x, z]) => facades.some((f) => distToEdges(x, z, f) < 0.45))).map((q) => `(${round(q.x)}, ${round(q.z)})`);
+  check('Ground', `${T} service and garage doors sit on a facade (no floating door panels)`, floatingDoors.length === 0, floatingDoors.join(' '));
+
+  // --- ground: planting, cars, umbrellas clear of buildings -------------------------------
+  const inBuilding = (x, z, pad) => insidePlan(x, z, offsetPlan(res.PODIUM_PLAN, pad)) || hotelPlans.some((pl) => insidePlan(x, z, offsetPlan(pl, pad)))
+    || ['B.poolbar', 'B.svcLink', 'C.baseE', 'C.baseW', 'C.lobby'].some((n) => inRect(x, z, rectOf(byName[n]), pad));
+  const groundPlanting = [...p.trees, ...p.palms.filter((q) => !q.deck)];
+  const badPlanting = groundPlanting.filter((t) => t.y === 0 && inBuilding(t.x, t.z, 0.8)).length;
+  check('Ground', `${T} ground planting clear of buildings`, badPlanting === 0, `${badPlanting}`);
+  check('Ground', `${T} no trees on tower or hotel roofs`, [...p.trees, ...p.palms].every((t) => t.y === 0 || t.deck));
+  const badCars = p.cars.filter((c) => inBuilding(c.x, c.z, 0.5)).length;
+  check('Ground', `${T} cars clear of buildings`, badCars === 0, `${badCars}`);
+}
+
+// ---------------------------------------------------------------------------
+// Visibility from the hero cameras (ray-marched against boxes and prisms)
+// ---------------------------------------------------------------------------
+function visibility(p, cam) {
+  const byName = Object.fromEntries(p.boxes.map((b) => [b.name, b]));
+  const topOf = (n) => { const b = byName[n]; return (b.parent ? topOf(b.parent) : b.y0) + b.h; };
+  const cTop = p.meta.curveTop;
+  const cv = Object.fromEntries(p.curved.map((c) => [c.name, c]));
+  const cBase = (n) => (cv[n].parent ? cTop[cv[n].parent] : cv[n].y0);
+  const occBoxes = p.boxes.filter((b) => b.group !== 'L').map((b) => { const y0 = b.parent ? topOf(b.parent) : b.y0; return { r: rectOf(b), y0, y1: y0 + b.h }; });
+  const occPrisms = p.curved.filter((c) => c.type !== 'ring' && c.phase !== 'context').map((c) => {
+    const pts = c.pts; const xs = pts.map((q) => q[0]), zs = pts.map((q) => q[1]);
+    return { pts, bb: [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)], y0: cBase(c.name), y1: cTop[c.name] };
+  });
+  // balcony ribbons occlude too: approximate each tower's slab envelope as a prism
+  for (const t of p.meta.towers) {
+    const body = cv[t.body];
+    const env = body.slabs.floors[Math.floor(body.slabs.floors.length / 2)].outer;
+    const xs = env.map((q) => q[0]), zs = env.map((q) => q[1]);
+    occPrisms.push({ pts: env, bb: [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)], y0: PODIUM_TOP + 3.2, y1: PODIUM_TOP + t.floors * 3.2 });
+  }
+  const visible = ([x, y, z]) => {
+    const d = [cam[0] - x, cam[1] - y, cam[2] - z];
+    const L = Math.hypot(...d);
+    for (let s = 0.6; s < L; s += 0.5) {
+      const qx = x + d[0] * s / L, qy = y + d[1] * s / L, qz = z + d[2] * s / L;
+      if (qy > 100) return true;
+      for (const o of occBoxes) if (qy > o.y0 && qy < o.y1 && qx > o.r[0] && qx < o.r[1] && qz > o.r[2] && qz < o.r[3]) return false;
+      for (const o of occPrisms) if (qy > o.y0 && qy < o.y1 && qx > o.bb[0] && qx < o.bb[1] && qz > o.bb[2] && qz < o.bb[3] && insidePlan(qx, qz, o.pts)) return false;
+    }
+    return true;
+  };
+  const sampleIn = (poly, y, step = 1.5) => {
+    const xs = poly.map((q) => q[0]), zs = poly.map((q) => q[1]);
+    const out = [];
+    for (let x = Math.min(...xs); x <= Math.max(...xs); x += step) for (let z = Math.min(...zs); z <= Math.max(...zs); z += step) if (insidePlan(x, z, poly)) out.push([x, y, z]);
+    return out;
+  };
+  const frac = (pts) => (pts.length ? pts.filter(visible).length / pts.length : 0);
+  return {
+    'resort pool water': frac(sampleIn(p.meta.pool.outline, res.POOL.waterY + 0.05, 1.0)),
+    'pool terrace + loungers': frac(sampleIn(res.POOL.terrace, res.POOL.terraceY + 0.4)),
+    'wellness terrace + spa': frac(sampleIn(core.rect(-73, 36, -36, 47), DECK_Y + 0.6)),
+    'dining + lounge (between towers)': frac(sampleIn(core.rect(-47, -13.5, -38, 13.5), DECK_Y + 0.6)),
+    'park fountain': frac(sampleIn(core.circlePlan(park.FOUNTAIN.x, park.FOUNTAIN.z, park.FOUNTAIN.basin, 24), 0.5, 1.0)),
+  };
+}
+const DEG = Math.PI / 180;
+const camAt = ({ az, el, dist, tx, ty, tz }) => [tx + dist * Math.cos(el * DEG) * Math.sin(az * DEG), ty + dist * Math.sin(el * DEG), tz + dist * Math.cos(el * DEG) * Math.cos(az * DEG)];
+const rigSrc = readFileSync(join(hero, 'camera-rig.js'), 'utf8');
+const key = (s) => {
+  const m = rigSrc.match(new RegExp(`\\{ s: ${s.toFixed(2)}, az: (-?[\\d.]+), el: (-?[\\d.]+), dist: (-?[\\d.]+), tx: (-?[\\d.]+),\\s*ty: (-?[\\d.]+),\\s*tz: (-?[\\d.]+) \\}`));
+  return m ? { az: +m[1], el: +m[2], dist: +m[3], tx: +m[4], ty: +m[5], tz: +m[6] } : null;
+};
+const k92 = key(0.92), k80 = key(0.80);
+if (process.env.HERO_CAM) { const [az, el] = process.env.HERO_CAM.split(',').map(Number); Object.assign(k92, { az, el }); }
+const desktopCam = camAt(k92);
+const mobileCam = camAt({ ...k92, az: k80.az + (k92.az - k80.az) * 0.55, el: k80.el + (k92.el - k80.el) * 0.55, dist: k92.dist * 2.6 });
+const vis = { desktop: visibility(desktopPlan, desktopCam), mobile: visibility(mobilePlan, mobileCam) };
+check('Visibility', 'desktop hero view shows ≥ 60% of the resort pool', vis.desktop['resort pool water'] >= 0.6, `${Math.round(vis.desktop['resort pool water'] * 100)}%`);
+check('Visibility', 'desktop hero view shows ≥ 50% of at least one substantial amenity area', Math.max(vis.desktop['pool terrace + loungers'], vis.desktop['wellness terrace + spa']) >= 0.5);
+check('Visibility', 'mobile hero view shows ≥ 60% of the resort pool', vis.mobile['resort pool water'] >= 0.6, `${Math.round(vis.mobile['resort pool water'] * 100)}%`);
+
+// ---------------------------------------------------------------------------
+// SVG plan diagrams
+// ---------------------------------------------------------------------------
+const plansDir = join(here, 'plans');
+if (!existsSync(plansDir)) mkdirSync(plansDir, { recursive: true });
+function svg(name, bounds, draw, title) {
+  const [x0, x1, z0, z1] = bounds;
+  const S = 9, pad = 30;
+  const W = (x1 - x0) * S + pad * 2, Hh = (z1 - z0) * S + pad * 2 + 40;
+  const X = (x) => round((x - x0) * S + pad, 1), Z = (z) => round((z - z0) * S + pad + 40, 1);
+  const out = [];
+  const g = {
+    poly: (pts, st) => out.push(`<polygon points="${pts.map(([x, z]) => `${X(x)},${Z(z)}`).join(' ')}" ${st}/>`),
+    rect: (r, st) => out.push(`<rect x="${X(r[0])}" y="${Z(r[2])}" width="${round((r[1] - r[0]) * S, 1)}" height="${round((r[3] - r[2]) * S, 1)}" ${st}/>`),
+    circle: (x, z, r, st) => out.push(`<circle cx="${X(x)}" cy="${Z(z)}" r="${round(r * S, 1)}" ${st}/>`),
+    line: (a, b, st) => out.push(`<line x1="${X(a[0])}" y1="${Z(a[1])}" x2="${X(b[0])}" y2="${Z(b[1])}" ${st}/>`),
+    text: (x, z, s, size = 10, st = '') => out.push(`<text x="${X(x)}" y="${Z(z)}" font-size="${size}" font-family="Helvetica, Arial" ${st}>${s.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text>`),
+  };
+  draw(g);
+  writeFileSync(join(plansDir, name), `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${Hh}" viewBox="0 0 ${W} ${Hh}"><rect width="100%" height="100%" fill="#fbfaf7"/><text x="${pad}" y="22" font-size="14" font-family="Helvetica, Arial" font-weight="bold">${title}</text>${out.join('')}<text x="${pad}" y="38" font-size="10" font-family="Helvetica, Arial" fill="#777">north ↑ · 1 m = ${S} px · conceptual, not to be used for construction</text></svg>`);
+}
+const P = desktopPlan, A = desktopAnalysis;
+const rpk = A.parking.residential;
+
+svg('residential-parking-L3.svg', [-80, -20, -54, 52], (g) => {
+  g.poly(res.PODIUM_PLAN, 'fill="#f1efe9" stroke="#333" stroke-width="1.2"');
+  g.poly(offsetPlan(res.PODIUM_PLAN, -(0.6 + res.PODIUM_PARKING.linerDepth)), 'fill="none" stroke="#bbb" stroke-dasharray="4 3"');
+  for (const a of res.PODIUM_PARKING.aisles) g.rect(a.rect, 'fill="#e3e6ea" stroke="#9aa"');
+  g.rect(res.PODIUM_PARKING.ramp.rect, 'fill="#d8d0f0" stroke="#86a"');
+  g.text(-46.2, 0, 'ramp 30 m runs', 9);
+  for (const r of rpk.levels[1].stalls) g.rect(r, 'fill="#cfe6cf" stroke="#6a6" stroke-width="0.5"');
+  for (const t of P.meta.towers) { g.poly(t.core, 'fill="#999" stroke="#333"'); t.columns.forEach(([x, z]) => g.rect([x - 0.3, x + 0.3, z - 0.3, z + 0.3], 'fill="#c33"')); g.poly(t.columns, 'fill="none" stroke="#c33" stroke-dasharray="3 2"'); }
+  rpk.podiumColumns.forEach(([x, z]) => g.rect([x - 0.3, x + 0.3, z - 0.3, z + 0.3], 'fill="#555"'));
+  for (const c of res.PODIUM_PARKING.cores) g.rect(c.rect, 'fill="#777"');
+  g.poly(offsetPlan(P.meta.pool.outline, 0.35), 'fill="none" stroke="#2a8" stroke-width="1.5" stroke-dasharray="6 3"');
+  g.text(-78, 50, `P-L3 (floor 8.2 m): ${rpk.levels[1].count} stalls · pool basin soffit ${rpk.pool.basinSoffitY} m, clear ${rpk.pool.clearHeight} m (dashed green)`, 10);
+}, 'Residential podium parking — level P-L3 (P-L2 identical layout)');
+
+svg('podium-amenity-deck.svg', [-80, -20, -54, 52], (g) => {
+  g.poly(res.PODIUM_PLAN, 'fill="#eceee9" stroke="#333" stroke-width="1.2"');
+  g.poly(res.POOL.terrace, 'fill="#dfe2dd" stroke="#888"');
+  g.poly(offsetPlan(P.meta.pool.outline, 0.5), 'fill="#f7f7f4" stroke="#999"');
+  g.poly(P.meta.pool.outline, 'fill="#9fd8de" stroke="#39a"');
+  for (const t of P.meta.towers) g.poly(P.curved.find((c) => c.name === t.body).floorPlans[0], 'fill="#c9ced3" stroke="#555"');
+  g.circle(res.SPA.x, res.SPA.z, res.SPA.r, 'fill="#9fd8de" stroke="#39a"');
+  for (const q of P.parts.filter((q) => q.y > PODIUM_TOP && q.y < PODIUM_TOP + 4 && insidePlan(q.x, q.z, res.PODIUM_PLAN) && q.shape === 'box' && q.sy > 0.2)) {
+    const r = partRect(q);
+    g.rect(r, `fill="${q.color === 'frame' ? '#fff' : q.color === 'planter' ? '#7b5' : '#ddd'}" stroke="#aaa" stroke-width="0.4"`);
+  }
+  for (const pm of P.palms.filter((q) => q.deck)) g.circle(pm.x, pm.z, 0.9, 'fill="#5a3" stroke="none"');
+  g.text(-78, 50, `Routes (1.5 m clear): ${A.deck.routes.filter((r) => r.reachable).length}/${A.deck.routes.length} connected · planters ${A.deck.planters}`, 10);
+}, 'Podium amenity level — resort pool, dining, lounge, wellness terrace');
+
+svg('hotel-ground-boh.svg', [-6, 82, -56, 6], (g) => {
+  for (const pl of [hotel.HOTEL.rear, hotel.HOTEL.link, hotel.HOTEL.front, hotel.HOTEL.centre]) g.poly(pl, 'fill="#f3f2ee" stroke="#333" stroke-width="1.2"');
+  const fill = { service: '#f5d9c8', guest: '#d4e6f5', public: '#e2f0d6' };
+  for (const r of hotel.HOTEL_GROUND) {
+    g.rect(r.rect, `fill="${fill[r.zone]}" fill-opacity="${r.outdoor ? 0.45 : 0.9}" stroke="#666" stroke-width="0.6"`);
+    const w = r.rect[1] - r.rect[0];
+    g.text(r.rect[0] + 0.4, (r.rect[2] + r.rect[3]) / 2 + 0.4, r.name, w < 8 ? 6 : 8);
+  }
+  for (const [a, b] of hotel.HOTEL_DOORS) {
+    const ra = hotel.HOTEL_GROUND.find((r) => r.name === a).rect, rb = hotel.HOTEL_GROUND.find((r) => r.name === b).rect;
+    const x = (Math.max(ra[0], rb[0]) + Math.min(ra[1], rb[1])) / 2, z = (Math.max(ra[2], rb[2]) + Math.min(ra[3], rb[3])) / 2;
+    g.circle(x, z, 0.6, 'fill="#c30"');
+  }
+  g.text(-4, 4, 'orange = service · blue = guest · green = public · red dots = declared service ↔ guest doors', 10);
+}, 'Hotel ground floor — conceptual back-of-house plan');
+
+svg('office-parking-P1.svg', [18, 78, 10, 54], (g) => {
+  g.rect(office.OFFICE_BASE_RECT, 'fill="#f1efe9" stroke="#333" stroke-width="1.2"');
+  for (const b of office.OFFICE_BLOCKS) g.rect(b.rect, 'fill="none" stroke="#8a5a38" stroke-dasharray="5 3"');
+  for (const x of office.OFFICE_GRID.x) g.line([x, 12], [x, 52], 'stroke="#ddd" stroke-width="0.6"');
+  for (const z of office.OFFICE_GRID.z) g.line([20, z], [76, z], 'stroke="#ddd" stroke-width="0.6"');
+  for (const a of office.OFFICE_PARKING.aisles) g.rect(a.rect, 'fill="#e3e6ea" stroke="#9aa"');
+  g.rect(office.OFFICE_PARKING.lifts.rect, 'fill="#d8d0f0" stroke="#86a"');
+  for (const r of A.parking.office.levels[0].stalls) g.rect(r, 'fill="#cfe6cf" stroke="#6a6" stroke-width="0.5"');
+  A.structure.office.columns.forEach(([x, z]) => g.rect([x - 0.3, x + 0.3, z - 0.3, z + 0.3], 'fill="#555"'));
+  g.rect(office.OFFICE_CORE, 'fill="#999"');
+  g.text(20, 53, `P1: ${A.parking.office.levels[0].count} stalls · 2 car lifts · dashed = blocks above (b1, b2, b3)`, 10);
+}, 'Office parking P1 and structural grid (P2 identical)');
+
+svg('tower-structure.svg', [-80, -24, -54, 50], (g) => {
+  g.poly(res.PODIUM_PLAN, 'fill="none" stroke="#bbb"');
+  for (const t of P.meta.towers) {
+    const body = P.curved.find((c) => c.name === t.body);
+    body.slabs.floors.forEach((f, i) => { if (i % 3 === 0) g.poly(f.outer, 'fill="none" stroke="#9cc" stroke-width="0.4"'); });
+    g.poly(body.floorPlans[0], 'fill="none" stroke="#333" stroke-width="1"');
+    g.poly(t.columns, 'fill="none" stroke="#c33" stroke-dasharray="3 2"');
+    t.columns.forEach(([x, z]) => g.rect([x - 0.3, x + 0.3, z - 0.3, z + 0.3], 'fill="#c33"'));
+    g.poly(t.core, 'fill="#999"');
+    for (const tr of t.transfers) { g.poly(tr.inner, 'fill="none" stroke="#e80" stroke-width="1.5"'); }
+  }
+  g.text(-78, 48, 'black = occupied floorplate · red = continuous column ring · blue = balcony edges (every 3rd floor) · orange = upper-penthouse transfer line', 9);
+}, 'Residential towers — cores, columns, balcony cantilevers, declared transfer');
+
+// ---------------------------------------------------------------------------
+// Validation register
+// ---------------------------------------------------------------------------
+const tests = existsSync(join(here, 'test-log.json')) ? JSON.parse(readFileSync(join(here, 'test-log.json'), 'utf8')) : null;
+const pass = checks.filter((c) => c.pass).length;
+const prog = A.program;
+const demand = (() => {
+  const d = ASSUMPTIONS.demand;
+  const units = prog.residentialUnits, keys = prog.hotel.totalKeys, off = prog.office.nra / 100, ret = prog.retail.total / 100;
+  return {
+    residential: [units * d.residentialPerUnit[0], units * d.residentialPerUnit[1]],
+    hotel: [keys * d.hotelPerKey[0], keys * d.hotelPerKey[1]],
+    office: [off * d.officePer100m2[0], off * d.officePer100m2[1]],
+    retail: [ret * d.retailPer100m2[0], ret * d.retailPer100m2[1]],
+  };
+})();
+const rng2 = (r) => `${Math.round(r[0])}–${Math.round(r[1])}`;
+const md = [];
+md.push('# Hero development model — validation register', '');
+md.push(`Generated by \`node tools/hero3d/audit.mjs\` from the model source (\`assets/hero3d/\`). ${pass}/${checks.length} geometric checks pass.`, '');
+md.push('> **Scope.** This register separates (1) geometry verified by script against the model, (2) conceptual assumptions, (3) matters that need professional engineering, code or zoning review, and (4) tests performed and not performed. A passing geometric check means the modelled shapes satisfy the stated rule. It does **not** mean the design is structurally adequate, code-compliant, accessible or permitted.', '');
+
+md.push('## 1. Verified geometry (scripted checks)', '');
+const areas = [...new Set(checks.map((c) => c.area))];
+for (const ar of areas) {
+  const list = checks.filter((c) => c.area === ar);
+  md.push(`**${ar}** — ${list.filter((c) => c.pass).length}/${list.length}`, '');
+  for (const c of list) md.push(`- ${c.pass ? '✅' : '❌'} ${c.name}${c.detail ? ` — ${c.detail}` : ''}`);
+  md.push('');
+}
+md.push('### Visibility from the hero cameras (ray-marched fractions of sample points)', '', '| Area | Desktop (1440 × 900) | Mobile (375 × 812) |', '|---|---|---|');
+for (const k of Object.keys(vis.desktop)) md.push(`| ${k} | ${Math.round(vis.desktop[k] * 100)}% | ${Math.round(vis.mobile[k] * 100)}% |`);
+md.push('');
+
+md.push('### Structure measurements (geometric)', '', '| Tower | Floors | Columns | Max column spacing | Max slab cantilever (limit) | Max core → column span | Glass lean per floor | Long perimeter spans |', '|---|---|---|---|---|---|---|---|');
+for (const s of A.structure.towers) md.push(`| ${s.id === 'A.t1' ? 'Tower 1' : 'Tower 2'} | ${s.floors} + 2 PH | ${s.columns} × ${s.columnSize} m, ground → ${s.columnTopY} m | ${s.maxColumnSpacing} m | ${s.maxCantilever} m (${s.limit} m) | ${s.maxCoreToColumnSpan} m | ${s.maxLeanStep} m | ${s.longSpans.map((l) => `${l.span} m (${l.reason})`).join('; ') || '—'} |`);
+md.push('', '| Office block | Footprint (m) | Column lines | Max edge cantilever | Projection past block below | Transfer required |', '|---|---|---|---|---|---|');
+for (const b of A.structure.office.blocks) md.push(`| ${b.name} | ${round(b.rect[1] - b.rect[0])} × ${round(b.rect[3] - b.rect[2])} | ${b.columnLines} | ${b.maxCantilever} m | ${b.projection == null ? '— (first block)' : `${b.projection} m`} | ${b.continuous ? 'no' : 'yes'} |`);
+md.push('', '**Declared transfer zones**', '');
+for (const s of A.structure.towers) for (const tr of s.transfers) md.push(`- ${tr.name}: at +${round(tr.y)} m, ≈ ${tr.area} m² between the upper penthouse perimeter and the column ring; conceptual structural allowance ${tr.allowance} m within the eave / terrace build-up. ${tr.note}.`);
+md.push('- Office: none required by the geometry (every block uses column lines of the block below). The 2.4–3.0 m edge cantilevers still need design.', '');
+
+md.push('### Parking — modelled capacity (stalls generated along modelled aisles; rejected where columns, cores, ramp, liner units, cross aisles or level edges intervene)', '', '| Garage | Level | Valid stalls | Rejected candidates |', '|---|---|---|---|');
+for (const l of rpk.levels) md.push(`| Residential podium | ${l.name} (floor ${l.floor} m) | ${l.count} | ${Object.entries(l.rejected).map(([k, v]) => `${k} ${v}`).join(', ')} |`);
+for (const l of A.parking.office.levels) md.push(`| Office base | ${l.name} (floor ${l.floor} m) | ${l.count} | ${Object.entries(l.rejected).map(([k, v]) => `${k} ${v}`).join(', ')} |`);
+md.push(`| **Total** | | **${rpk.total + A.parking.office.total}** | |`, '');
+md.push(`- Residential circulation: aisle graph connected to the ramp (${rpk.aisleIssues.length ? rpk.aisleIssues.join('; ') : 'no obstructions or disconnected aisles'}); ground approach portal → ramp ${rpk.groundIssues.length ? rpk.groundIssues.join('; ') : 'connected'}.`);
+md.push(`- Ramp: stacked switchback, ${rpk.ramps.map((r) => `${r.from} → ${r.to} ${r.rise} m over ${r.runLength} m (${r.slope}%)`).join('; ')}; headroom between stacked runs ≈ ${rpk.rampHeadroom} m (floor-to-floor minus slab). Transition slopes, vertical curves and van clearance not designed.`);
+md.push(`- Office: two car lifts; aisles connected to the lifts (${A.parking.office.aisleIssues.length ? A.parking.office.aisleIssues.join('; ') : 'no obstructions'}). Lift cycle time and queuing not analysed.`);
+md.push('', '**Estimated demand (planning ratios below are assumptions, not code minimums)**', '', '| Use | Program basis | Ratio range | Estimated stalls |', '|---|---|---|---|');
+md.push(`| Residential | ${prog.residentialUnits} units | ${ASSUMPTIONS.demand.residentialPerUnit.join('–')} per unit | ${rng2(demand.residential)} |`);
+md.push(`| Hotel | ${prog.hotel.totalKeys} keys | ${ASSUMPTIONS.demand.hotelPerKey.join('–')} per key (valet) | ${rng2(demand.hotel)} |`);
+md.push(`| Office | ${prog.office.nra} m² NRA | ${ASSUMPTIONS.demand.officePer100m2.join('–')} per 100 m² | ${rng2(demand.office)} |`);
+md.push(`| Retail / F&B | ${prog.retail.total} m² | ${ASSUMPTIONS.demand.retailPer100m2.join('–')} per 100 m² | ${rng2(demand.retail)} |`);
+const dsum = [0, 1].map((i) => Object.values(demand).reduce((a, r) => a + r[i], 0));
+md.push(`| **All uses (no sharing)** | | | **${rng2(dsum)}** vs **${rpk.total + A.parking.office.total}** modelled |`, '');
+md.push('Modelled capacity is well below the estimated demand range. The model does not resolve parking supply; see section 3.', '');
+
+md.push('### Program, cores and elevators (conceptual allocations)', '', '| Building | Floors | Area / count basis | Estimate |', '|---|---|---|---|');
+for (const t of prog.towers) md.push(`| ${t.id === 'A.t1' ? 'Tower 1' : 'Tower 2'} | ${t.floors} + 2 penthouse levels over 3-level podium | typical plate ${t.typicalFloorplate} m², GFA ≈ ${t.gfa} m² | ${t.units} units |`);
+md.push(`| Hotel | front 7, centre 10, rear 6, link 6 | GFA ≈ ${prog.hotel.gfa} m² | ${prog.hotel.totalKeys} keys (${Object.entries(prog.hotel.keys).map(([k, v]) => `${k} ${v}`).join(', ')}) |`);
+md.push(`| Office | base 3 (incl. 2 parking) + 3 blocks × 3 | GFA ≈ ${prog.office.gfa} m² | NRA ≈ ${prog.office.nra} m² |`);
+md.push(`| Retail / F&B | ground floors | podium ${prog.retail.podium} + hotel ${prog.retail.hotelFnb} + office ${prog.retail.office} m² | ≈ ${prog.retail.total} m² |`, '');
+md.push('| Core | Stairs | Passenger lifts | Service lifts | Area | Geometric continuity |', '|---|---|---|---|---|---|');
+for (const c of A.cores) md.push(`| ${c.building} — ${c.name} | ${c.stairs} | ${c.passenger} | ${c.service} | ${c.area} m² | ${c.continuous} |`);
+md.push('', 'Stair and lift counts are allocations that fit the modelled core areas. No egress width, travel distance, fire separation or lift traffic analysis was done.', '');
+
+md.push('### Hotel back of house (conceptual ground-floor plan)', '');
+md.push(`- Service graph from receiving: ${A.hotel.serviceReach.map((x) => `${x.reachable ? '✅' : '❌'} ${x.name}`).join(' · ')}`);
+md.push(`- Guest graph from the porte-cochère: ${A.hotel.guestReach.map((x) => `${x.reachable ? '✅' : '❌'} ${x.name}`).join(' · ')}`);
+md.push(`- Declared service ↔ guest/public doors: ${A.hotel.interfaces.join('; ')}. Service rooms reachable from receiving without those doors: ${A.hotel.serviceToGuestWithoutDoor.length ? A.hotel.serviceToGuestWithoutDoor.join(', ') : 'no guest rooms'}.`);
+md.push('- Upper floors (assumed, not modelled): linen/pantry rooms at the service core on every floor; room service via the two service lifts.', '');
+
+md.push('## 2. Conceptual assumptions', '', '| Topic | Assumption used in the model |', '|---|---|');
+md.push(`| Site | Hypothetical 160 × 110.5 m block with a procedurally generated city context. Not an actual parcel. |`);
+md.push(`| Towers | One occupied floorplate per tower; glass line may lean ≤ ${res.TOWERS[0].perimeter} m with the twist. Continuous central core; ${A.structure.towers.map((s) => s.columns).join(' / ')} perimeter columns of ${A.structure.towers[0].columnSize} m from foundations to the lower-penthouse roof. Flat-plate floors with balcony slab cantilevers ≤ 3.5 m beyond the column line. |`);
+md.push('| Penthouses | Lower level inside the column ring (columns stand free on its terrace and carry the eave); upper level bears on the lower penthouse roof (declared transfer). |');
+md.push('| Office | Column grid set out from the parking module (lines listed in `plan/office.js`); slab-edge cantilevers 0.6 m typical, 2.4–3.0 m at offsets; 4.2 m floor-to-floor; 3 passenger + 1 service lifts. |');
+md.push(`| Office planting | Planter rim ${office.PLANTER.rim} m, soil ${office.PLANTER.soil} m, drainage layer ${office.PLANTER.drainage} m, ${office.PLANTER.access} m maintenance strip; drip irrigation and planter drains to roof drainage assumed; hanging planting long only over parking screens, ≤ 0.6 m over frame bands above glazing. |`);
+md.push(`| Resort pool | Swim depth ${res.POOL.swimDepth} m, sun shelf ${res.POOL.shelfDepth} m, basin slab + waterproofing ${res.POOL.basinSlab} m, raised terrace +${res.POOL.terraceRaise} m over a ${core.DECK_BUILDUP} m deck build-up; basin soffit at ${round(res.POOL.basinSoffitY, 2)} m, ${res.POOL.mepAllowance} m services allowance; basin carried by the podium column grid below. |`);
+md.push(`| Spa | Raised spa, water ≈ ${res.SPA.depth} m deep with its floor on the structural top (no depressed slab). |`);
+md.push(`| Parking | Stalls ${2.6} × ${5.4} m, two-way aisles 6.8 m, slab 0.3 m, 2.1 m car clearance; residential ramp stacked switchback; office served by two car lifts. |`);
+md.push(`| Program | Residential efficiency ${ASSUMPTIONS.residentialEfficiency}, average unit ${Object.values(ASSUMPTIONS.unitNSA).join(' / ')} m² NSA, 2 penthouse units per tower; hotel room bay ${ASSUMPTIONS.hotelRoomBay} m; office efficiency ${ASSUMPTIONS.officeEfficiency}; retail liner ${ASSUMPTIONS.retailLinerDepth} m. |`);
+md.push('| Park | Public, unfenced; café seating as licensed outdoor dining beside ground-floor frontages. Private areas (residential deck, hotel pool court) are separated by the podium guard and the hotel service link. |');
+md.push('| Water movement | Shader ripples advance only on frames already rendering (render-on-demand preserved); jets are static geometry. |', '');
+
+md.push('## 3. Unresolved — requires professional review or missing inputs', '', '| Matter | Status in the model | Missing input / review needed |', '|---|---|---|');
+md.push('| Zoning, FAR, height, setbacks, open space, parking minimums | **Undetermined.** The site is hypothetical, so no zoning compliance is claimed. | A real parcel (folio / address) and jurisdiction, then verification against the current code from authoritative sources (e.g. Miami 21 or the City of Miami Beach Land Development Regulations, if in those cities). |');
+md.push(`| Tower structure | Geometry is coherent: continuous core and columns, ≤ 3.5 m cantilevers, no tower-floor transfers. Long perimeter spans of ${A.structure.towers.flatMap((s) => s.longSpans.map((l) => `${l.span} m`)).join(', ')} where the ring crosses garage aisles. | Structural engineer: lateral system (core walls/outriggers), flat-plate/PT design, balcony cantilevers and thermal breaks, edge beams at long spans, column sizes, foundations, wind/hurricane loads, drift. |`);
+md.push('| Penthouse transfer | Declared zone and 0.9 m allowance only. | Structural design of the lower-penthouse roof as a transfer; coordination with terraces and waterproofing. |');
+md.push('| Office cantilevers | 2.4–3.0 m slab-edge cantilevers at offsets; no transfers. | Structural design (PT/steel), deflection and façade tolerance; soffit fire rating of timber. |');
+md.push(`| Resort pool basin | Soffit ${round(res.POOL.basinSoffitY, 2)} m leaves ${rpk.pool.clearHeight} m clear over P-L3 aisles/stalls with a ${res.POOL.mepAllowance} m allowance; ${rpk.pool.supportingColumns} podium columns under/near the basin. | Pool engineer and structural engineer: water/soil loads, basin slab depth, drainage falls, balance tank and plant room location, waterproofing, and beam depths over P-L3. Health-department pool rules. |`);
+md.push('| Planting loads | Planter depths modelled; loads not computed. | Saturated soil and tree loads, drainage and irrigation design, wind uplift on palms, landscape architect species selection. |');
+md.push(`| Parking supply and circulation | ${rpk.total + A.parking.office.total} modelled stalls vs ${rng2(dsum)} estimated demand; ramps and lifts geometric only. | Parking/traffic consultant: shared-parking study, valet/off-site options, ramp transitions and sight lines, car-lift capacity and queuing, accessible and van stalls, EV and bicycle requirements. |`);
+md.push('| Egress, fire and life safety | Stair counts allocated in cores; routes checked only for 1.5 m continuity on the deck and in the park. | Fire/life-safety and code consultant: occupant loads, exit widths, travel distances, stair pressurisation, fire separations between uses and the garage, fire apparatus access. |');
+md.push('| Elevators | Allocations only (see cores table). | Vertical transportation traffic analysis for each building. |');
+md.push('| Accessibility | A 1:12 ramp is modelled to the pool terrace; other routes not checked for slopes or accessible features. | Accessibility review (ADA / Florida Accessibility Code): pool lifts or sloped entries, accessible routes, parking. |');
+md.push('| Hotel back of house | Ground-floor footprints and connections modelled; café supply via the lobby gallery off-hours is an operational assumption. | Hospitality operator / kitchen and laundry consultants: sizing, loading dock count, truck turning, waste volumes, upper-floor BOH. |', '');
+
+md.push('## 4. Tests performed and not performed', '');
+if (tests) {
+  md.push(`Environment: ${tests.environment}`, '');
+  md.push('| Test | Viewport / settings | Result |', '|---|---|---|');
+  for (const t of tests.tests) md.push(`| ${t.name} | ${t.settings} | ${t.result} |`);
+  md.push('');
+  md.push('**Not performed**', '');
+  for (const n of tests.notPerformed) md.push(`- ${n}`);
+} else {
+  md.push('No test log found (tools/hero3d/test-log.json).');
+}
+md.push('');
+writeFileSync(join(here, 'validation-register.md'), md.join('\n'));
+
+// console summary
+const failed = checks.filter((c) => !c.pass);
+console.log(`${pass}/${checks.length} checks pass`);
+for (const c of failed) console.log(` ❌ [${c.area}] ${c.name} — ${c.detail}`);
+console.log('visibility', JSON.stringify(vis));
+console.log(`parking: residential ${rpk.total}, office ${A.parking.office.total}; demand ${rng2(dsum)}`);
+console.log('wrote tools/hero3d/validation-register.md and tools/hero3d/plans/*.svg');
+process.exitCode = failed.length ? 1 : 0;
