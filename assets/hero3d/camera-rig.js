@@ -113,7 +113,7 @@ export function createCameraRig(camera, tier, { reduced, dragTarget = null }) {
     const wide = w >= 900 && aspect >= 1.05;
     // keep the development readable on narrow screens by stepping back
     const fit = wide ? Math.max(1, 1.55 / aspect) : Math.min(2.6, 1.25 / Math.max(aspect, 0.35));
-    return { aspect, fit, shiftX: wide ? 0.31 : 0, shiftY: wide ? 0.02 : -0.47 };
+    return { aspect, fit, shiftX: wide ? 0.31 : 0, shiftY: wide ? 0.20 : -0.33 };   // lift the model clear of the canvas's bottom fade
   }
 
   const rig = {
