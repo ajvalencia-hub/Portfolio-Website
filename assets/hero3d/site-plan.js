@@ -21,6 +21,7 @@ import { FOUNTAIN, PLAZA_DISC, PARK_PATHS, CAFE_ZONES, parkSpecs, parkParts } fr
 import { officeGarageFacade } from './plan/office-garage.js';
 import { streetscapeSpecs, streetscapeSlabs, streetscapeParts, streetscapeEntrances, stations, VERGE_CENTRE, CROSSWALK_SETBACK, DROP_OFFS } from './plan/streetscape.js';
 import { groundsSlabs, groundsPlanting } from './plan/grounds.js';
+import { ROUTES, FURNISHING, routeCentreline, pedestrianSpecs, pedestrianParts, onRoute, inSight, inFurnishing } from './plan/pedestrian.js';
 
 export { LAYER, LAYER_COUNT, GLAZE, BLOCK, planNormals, offsetPlan, insidePlan };
 
@@ -92,15 +93,12 @@ function sitePaths(tier, masses, curved, rand) {
   ['C.corner', ...OFFICE_BLOCKS.map((b) => b.name)].forEach((n, k) =>
     add(outline(byName[n]), LAYER.tower, 0.239 + k * 0.008, 0.05, { closed: true, dash: [2.5, 1.5], y: 0.1 }));
 
-  // park: gathering circle, fountain basin, radial paths
-  add(roundedRect(-19, 3, 19, 53, 5), LAYER.landscape, 0.225, 0.06, { closed: true, y: 0.09 });
+  // park and pedestrian network: fountain plaza, basin and every route centreline
   add(circle(FOUNTAIN.x, FOUNTAIN.z, PLAZA_DISC), LAYER.landscape, 0.230, 0.05, { closed: true, y: 0.1 });
   add(circle(FOUNTAIN.x, FOUNTAIN.z, FOUNTAIN.basin + FOUNTAIN.coping, 32), LAYER.landscape, 0.238, 0.04, { closed: true, y: 0.1 });
-  PARK_PATHS.forEach((p, k) => add([p.from, p.to], LAYER.landscape, 0.244 + k * 0.003, 0.03, { y: 0.1, dash: [2, 1.2] }));
-  for (const n of ['L.fore', 'L.arrive', 'L.drive']) {
-    const m = masses.find((b) => b.name === n);
-    if (m) add(outline(m), LAYER.landscape, 0.26, 0.04, { closed: true, y: 0.1 });
-  }
+  ROUTES.forEach((r, k) => add(routeCentreline(r), LAYER.landscape, 0.240 + k * 0.002, 0.04, { y: 0.1, dash: r.type === 'primary' ? [4, 1.5] : [2, 1.2] }));
+  const drive = masses.find((b) => b.name === 'L.drive');
+  if (drive) add(outline(drive), LAYER.landscape, 0.26, 0.04, { closed: true, y: 0.1 });
 
   // road markings (context phase)
   const xs = [-PITCH_X * 1.5, -PITCH_X / 2, PITCH_X / 2, PITCH_X * 1.5];
@@ -151,7 +149,7 @@ function streetGreenery(tier, rand, masses) {
     rect(-68, -62, -26, -45), rect(38, -62, 66, -50), rect(10, 42, 26, 58),
   ];
   const podiumClear = offsetPlan(PODIUM_PLAN, 2);
-  const free = (x, z) => !insidePlan(x, z, podiumClear) && !footprints.some((f) => insidePlan(x, z, f)) && !keepClear.some((f) => insidePlan(x, z, f));
+  const free = (x, z) => !insidePlan(x, z, podiumClear) && !footprints.some((f) => insidePlan(x, z, f)) && !keepClear.some((f) => insidePlan(x, z, f)) && !onRoute(x, z, 0.8) && !inSight(x, z);
   const startAt = (x, z, base) => Math.min(0.76, base + 0.08 * (Math.hypot(x, z) / 280));
   const tree = (x, z, r, lush = true) => { if (free(x, z)) trees.push({ x, z, y: 0, r, lush, tone: rand(), start: startAt(x, z, 0.665), dur: 0.05 }); };
   const palm = (x, z, h = 8 + rand() * 3) => { if (free(x, z)) palms.push({ x, z, y: 0, h, r: 2.6 + rand() * 0.7, spin: rand() * Math.PI, start: startAt(x, z, 0.675), dur: 0.05 }); };
@@ -217,7 +215,7 @@ export function buildSitePlan(tier) {
   const masses = [...hotelBoxes(), ...officeMasses(), ...officeGarage.boxes];
   const residential = residentialMasses(tier);
   const hotelPool = hotelPoolSpecs(tier);
-  const curved = [...streetscapeSpecs(tier), ...residential.specs, ...hotelMasses(), ...hotelPool.specs, ...parkSpecs(tier)];
+  const curved = [...streetscapeSpecs(tier), ...residential.specs, ...hotelMasses(), ...hotelPool.specs, ...parkSpecs(tier), ...pedestrianSpecs(tier)];
   const slabs = [...residentialSlabs(), ...hotelSlabs(), ...officeSlabs(), ...streetscapeSlabs(), ...streetscapeEntrances(), ...groundsSlabs()];
   const boxes = [...masses, ...slabs];   // the development block only — no neighbouring buildings
   const index = Object.fromEntries(boxes.map((b, i) => [b.name, i]));
@@ -227,9 +225,16 @@ export function buildSitePlan(tier) {
   for (const c of curved) curveTop[c.name] = (c.parent ? curveTop[c.parent] : c.y0) + c.h;
 
   const res = residentialParts(tier, residential.towers, partsRand);
-  const park = parkParts(tier, partsRand);
+  // pedestrian lights and furnishing first: planting keeps its canopies clear of them
+  const officeRects = ['C.baseE', 'C.baseW', 'C.lobby'].map((n) => boxes[index[n]]).map((b) => [b.x - b.w / 2, b.x + b.w / 2, b.z - b.d / 2, b.z + b.d / 2]);
+  const hotelPlans = [HOTEL.front, HOTEL.centre, HOTEL.rear, HOTEL.link];
+  const blocked = (x, z, reach = 0) => insidePlan(x, z, offsetPlan(PODIUM_PLAN, reach)) || hotelPlans.some((p) => insidePlan(x, z, offsetPlan(p, reach)))
+    || officeRects.some((r) => inRect(x, z, r, reach)) || inRect(x, z, [1.8, 54, -39, -20], reach) || inRect(x, z, [73, 79.5, -42, -10], reach)
+    || Math.hypot(x - FOUNTAIN.x, z - FOUNTAIN.z) < FOUNTAIN.basin + FOUNTAIN.coping + reach;
+  const walk = pedestrianParts(tier, { blocked, groundAt: (x, z) => (inFurnishing(x, z) ? 0.105 : 0.07) });
+  const park = parkParts(tier, partsRand, walk.poles);
   const street = streetGreenery(tier, rand, [...masses, ...slabs]);
-  const grounds = groundsPlanting(tier, rng(11));
+  const grounds = groundsPlanting(tier, rng(11), walk.poles);
   const startAt = (x, z, base) => Math.min(0.76, base + 0.08 * (Math.hypot(x, z) / 280));
   const trees = [
     ...street.trees,
@@ -258,7 +263,7 @@ export function buildSitePlan(tier) {
     boxes,
     index,
     curved,
-    parts: [...res.parts, ...penthouse.flatMap((p) => p.parts), ...hotel.parts, ...officeParts(tier, partsRand), ...officeGarage.parts, ...park.parts, ...grounds.parts, ...streetscapeParts(tier, trees, palms)],
+    parts: [...res.parts, ...walk.parts, ...penthouse.flatMap((p) => p.parts), ...hotel.parts, ...officeParts(tier, partsRand), ...officeGarage.parts, ...park.parts, ...grounds.parts, ...streetscapeParts(tier, trees, palms)],
     paths: sitePaths(tier, boxes, curved, rand),
     trees,
     palms,
@@ -268,6 +273,6 @@ export function buildSitePlan(tier) {
       ...[HOTEL.front, HOTEL.rear, HOTEL.link].map(rectOfPlan),
       ...['C.baseE', 'C.baseW'].map((n) => boxes[index[n]]),
     ],
-    meta: { towers: residential.towers, pool: residential.pool, hotelPool: hotelPool.basin, curveTop, cafeZones: CAFE_ZONES },
+    meta: { towers: residential.towers, pool: residential.pool, hotelPool: hotelPool.basin, curveTop, cafeZones: FURNISHING.filter((f) => f.kind === 'cafe'), poles: walk.poles },
   };
 }

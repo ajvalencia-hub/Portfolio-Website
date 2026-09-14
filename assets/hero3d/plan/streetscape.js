@@ -6,6 +6,7 @@
 // that arrive with the landscape.
 import { RES, GLAZE, HX, HZ, WALK, HALF_ROAD, PITCH_X, PITCH_Z, roundedRectPlan, resampleByAngle, offsetPlan, box, partsKit } from './core.js';
 import { fixtureKit, FIXTURE } from './fixtures.js';
+import { CROSSINGS, inSight } from './pedestrian.js';
 import { canopyOf } from './planting.js';
 
 const CURB = [-HX - WALK, HX + WALK, -HZ - WALK, HZ + WALK];          // 84.5 × 59.75
@@ -18,15 +19,11 @@ export const WALK_CLEAR = WALK - CURB_W - VERGE_W;                      // 2.4 m
 export const VERGE_CENTRE = WALK - CURB_W - VERGE_W / 2;               // property line → tree line (3.3 m)
 const VERGE_TOP = SIDEWALK_TOP + 0.03;
 
-// curb cuts (driveways across the sidewalk): [side, from, to]
-export const DRIVEWAYS = [
-  ['n', -64.6, -58.2],   // residential garage
-  ['n', -39.9, -35.3],   // residential loading
-  ['n', 40.6, 64.0],     // hotel staff entry, receiving, refuse
-  ['e', -42.0, -10.0],   // hotel arrival drive
-  ['e', 15.0, 28.0],     // office car lifts
-  ['e', 41.5, 48.5],     // office loading
-];
+// curb cuts (driveways across the sidewalk): [side, from, to] — the vehicle crossings of
+// plan/pedestrian.js. The hotel arrival drive has separate entry and exit cuts with the
+// sidewalk and tree lawn continuous between them; hotel receiving no longer spans the
+// staff door.
+export const DRIVEWAYS = CROSSINGS.map((c) => [c.side, c.span[0], c.span[1]]);
 
 // street planting stations along each side (trees north, east, west; palms south)
 export const STREET_PLANTING = {
@@ -44,10 +41,10 @@ export const stations = (side) => {
 
 // paved breaks through the tree lawn: entrances, paths meeting the street, curb cuts
 const OPENINGS = {
-  n: [[-79, -75], [-27, -20], [-14, -8], [75, 79]],                          // crosswalk landings, paseo walk + promenade
-  s: [[-79, -75], [-57.5, -42.5], [-27, -20], [-3, 3], [18.5, 23.5], [75, 79]], // landings, podium lobby, arcade walk, park path, office walk
-  w: [[-35.5, -21]],                                           // podium west lobby
-  e: [[6.5, 11.5]],                                            // lane
+  n: [[-79, -75], [-14, -8.5], [75, 79]],                                     // crosswalk landings, spine (paseo)
+  s: [[-79, -75], [-55, -45], [-3.2, 3.2], [18.6, 34.2], [75, 79]], // landings, tower 2 lobby, spine gate, office walk + lobby
+  w: [[-33, -23], [12.2, 18.1]],                                              // tower 1 lobby, galleria
+  e: [[2.0, 9.0]],                                                            // promenade
 };
 const SIDE = {
   n: { axis: 'x', range: [-76, 76], line: -HZ, out: -1 },
@@ -101,10 +98,15 @@ export function streetscapeSpecs(tier) {
 export function streetscapeSlabs() {
   const t = (i) => [0.662 + i * 0.002, 0.05];
   const out = [];
-  // driveway aprons: drive-coloured paving across the sidewalk, flush with it
+  // driveway crossings: the sidewalk's own paving continues across every driveway on a
+  // 25 mm raised table, with darker 0.3 m bands marking where the vehicle path crosses
   DRIVEWAYS.forEach(([side, a0, a1], k) => {
-    const r = across(side, a0, a1, 0, WALK - CURB_W);
-    out.push(box(`S.apron${k}`, r[0], r[1], r[2], r[3], 0, SIDEWALK_TOP + 0.025, 'drive', 'L', t(k), null, { glaze: GLAZE.bond, module: [0.6, 0.3] }));
+    const r = across(side, a0 + 0.3, a1 - 0.3, 0, WALK - CURB_W);
+    out.push(box(`S.apron${k}`, r[0], r[1], r[2], r[3], 0, SIDEWALK_TOP + 0.025, 'sidewalk', 'L', t(k), null, { glaze: GLAZE.pavers, module: [1.5, 1.5] }));
+    for (const [e0, e1] of [[a0, a0 + 0.3], [a1 - 0.3, a1]]) {
+      const b = across(side, e0, e1, 0, WALK - CURB_W);
+      out.push(box(`S.apron${k}${e0 === a0 ? 'a' : 'b'}`, b[0], b[1], b[2], b[3], 0, SIDEWALK_TOP + 0.025, 'band', 'L', t(k), null, { glaze: GLAZE.pavers, module: [0.3, 0.3] }));
+    }
   });
   // tree lawns
   for (const side of ['n', 's', 'w', 'e']) {
@@ -123,6 +125,10 @@ export const ENTRANCE_ZONES = [
   ['s', -54.0, -46.0],   // tower 2 lobby (south)
   ['w', -32.0, -24.0],   // tower 1 lobby (west)
   ['s', 24.5, 33.5],     // office lobby
+  ['w', 12.6, 17.7],     // galleria (promenade west end)
+  ['e', 2.3, 8.7],       // promenade east end
+  ['s', -2.6, 2.6],      // spine: park gate
+  ['n', -13.8, -8.7],    // spine: paseo
 ];
 // marked drop-off lay-bys in the kerbside parking lane: [side, from, to]
 export const DROP_OFFS = [
@@ -207,7 +213,7 @@ export function streetscapeParts(tier, trees, palms) {
     const F = kind === 'road' ? FIXTURE.road : FIXTURE.ped;
     const ok = (v) => {
       const [x, z] = at(v);
-      if (onDriveway(side, v) || inOpening(side, v, kind === 'road' ? 0.2 : 0.8)) return false;
+      if (onDriveway(side, v) || inOpening(side, v, kind === 'road' ? 0.2 : 0.8) || inSight(...at(v))) return false;
       if (kind === 'road' && !inVerge(side, v)) return false;
       // the road light's head sits over the street, 2 m out from the pole
       const hx = x + (axis === 'x' ? 0 : o * FIXTURE.road.arm), hz = z + (axis === 'x' ? o * FIXTURE.road.arm : 0);
@@ -240,7 +246,7 @@ export function streetscapeParts(tier, trees, palms) {
         const d = VERGE_CENTRE + (n % 2 ? 0.35 : -0.35);
         const r = across(side, a, a, d, d);
         const [x, z] = [r[0], r[2]];
-        if (street.some((p) => Math.hypot(p.x - x, p.z - z) < 1.5) || poles.some(([lx, lz]) => Math.hypot(lx - x, lz - z) < 1.0)) continue;
+        if (street.some((p) => Math.hypot(p.x - x, p.z - z) < 1.5) || poles.some(([lx, lz]) => Math.hypot(lx - x, lz - z) < 1.0) || inSight(x, z)) continue;
         const sz = 0.8 + (n % 3) * 0.2, h = 0.55 + (n % 2) * 0.25;
         add('cone', x, VERGE_TOP + h / 2, z, sz, h, sz, n % 3 === 1 ? 'shrubDark' : 'shrub', C);
         n++;
@@ -248,23 +254,10 @@ export function streetscapeParts(tier, trees, palms) {
     }
   }
 
-  // benches on the south walk with litter bins, backs to the tree lawn
-  for (const x of [-40, -4, 8, 40]) {
-    if (!street.every((p) => Math.hypot(p.x - x, p.z - (HZ + 0.9)) > 2.0) || poles.some(([px, pz]) => Math.hypot(px - x, pz - HZ - 0.9) < 2.2)) continue;
-    bench(x, HZ + 0.9, y, 2.4, 0, 'frame');
-    X.litterBin(x + 1.8, HZ + 0.8, y);
-  }
-  // hoop bicycle stands near the office lobby, the podium south lobby, the tower 1 west
-  // lobby and the hotel entrance forecourt
-  X.bikeHoops(20.0, HZ + 1.0, y, 5, 0);
-  X.bikeHoops(-28.7, HZ + 1.0, y, 5, 0);
-  X.bikeHoops(-HX - 1.0, -38.5, y, 4, Math.PI / 2);
-  X.bikeHoops(38.8, 6.2, 0.05, 3, Math.PI / 2);
-
-  // bollard lights where the paseo walks and the lane meet the street (pedestrian only)
-  for (let x = -25.5; x <= -20.5; x += 1.25) { X.bollard(x, -HZ + 0.6, 0.03); X.bollard(x, HZ - 0.6, 0.07); }
-  for (let x = -13.0; x <= -9.5; x += 1.25) X.bollard(x, -HZ + 0.6, 0.07);
-  for (let z = 1.0; z <= 13.0; z += 1.6) X.bollard(HX - 0.6, z, z > 7.7 && z < 10.3 ? 0.07 : 0.03);
+  // the 2.4 m sidewalk walk stays clear: benches and bicycle stands sit in the site's own
+  // furnishing zones (plan/pedestrian.js FURNISHING), not on the public walk
+  // bollard lights at the promenade, spine and galleria mouths: on the edges only, never in the walk
+  for (const [x, z] of [[HX - 0.5, 1.9], [HX - 0.5, 9.1], [-2.9, HZ - 0.5], [2.9, HZ - 0.5], [-14.1, -HZ + 0.5], [-8.4, -HZ + 0.5]]) X.bollard(x, z, 0.07);
 
   return out;
 }

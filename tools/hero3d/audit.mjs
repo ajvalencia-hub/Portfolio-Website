@@ -87,21 +87,16 @@ for (const tier of TIERS) {
     check('Towers', `${T} ${s.id}: slab cantilever beyond column line ≤ ${s.limit} m`, s.maxCantilever <= s.limit + 0.01, `${s.maxCantilever} m`);
     check('Towers', `${T} ${s.id}: glass line moves ≤ 0.12 m floor to floor (covered by balcony slab inner edge)`, s.maxLeanStep <= 0.12, `${s.maxLeanStep} m`);
     check('Towers', `${T} ${s.id}: minimum balcony depth ≥ 0.9 m`, s.minBalconyDepth >= 0.89, `${s.minBalconyDepth} m`);
-    const ph = cv[`${s.id}.ph`], deck = cv[`${s.id}.deck`], guard = cv[`${s.id}.guard`];
-    const suite = s.penthouse;
-    check('Penthouses', `${T} ${s.id}: one enclosed penthouse level on a ${suite.plinth} m structural plinth; core inside it; glass set back ≥ 0.9 m`, !suite.issues.some((x) => /core|glass not set back/.test(x)) && p.curved.filter((c) => c.name.startsWith(`${s.id}.ph`)).length === 1, suite.issues.join('; '));
-    check('Penthouses', `${T} ${s.id}: private terrace ≥ 3.0 m deep all round the penthouse`, suite.minTerrace >= 3.0, `${suite.minTerrace} m`);
-    const poolB = suite.basins.find((b) => b.kind === 'pool'), spaB = suite.basins.find((b) => b.kind === 'spa');
-    check('Penthouses', `${T} ${s.id}: pool and separate or integrated spa modelled with coping, waterline tile and water below the deck`, !!poolB && !!spaB && !!cv[`${s.id}.pool.coping`] && !!cv[`${s.id}.pool.tile`] && poolB.waterY < suite.deckY && deck.holes?.length === 1, `pool ${!!poolB}, spa ${!!spaB}${spaB?.integrated ? ' (integrated)' : ''}`);
-    check('Penthouses', `${T} ${s.id}: basins inside the column ring, clear of core, columns and penthouse glass, soffits above the top-floor structure`, suite.basins.every((b) => b.inRing && b.clearCore && b.clearGlass && b.clearColumns && b.aboveRoof), suite.basins.map((b) => `${b.name}: ring ${b.inRing} core ${b.clearCore} glass ${b.clearGlass} cols ${b.clearColumns} soffit ${b.soffitY} ≥ ${b.plinthBaseY}`).join('; '));
-    check('Penthouses', `${T} ${s.id}: glass guard at the terrace edge ≥ 1.05 m, on the deck`, guard.h >= 1.05 && guard.pts.every(([x, z]) => insidePlan(x, z, offsetPlan(deck.pts, 0.01))));
-    check('Penthouses', `${T} ${s.id}: mechanical screen on the penthouse roof, within its footprint`, cv[`${s.id}.screen`] && cv[`${s.id}.screen`].pts.every(([x, z]) => insidePlan(x, z, ph.pts)));
-    const phParts = p.parts.filter((q) => Math.abs(q.y - q.sy / 2 - suite.deckY) < 0.02 && insidePlan(q.x, q.z, deck.pts));
-    const onWater = phParts.filter((q) => t.penthouse.basins.some((b) => insidePlan(q.x, q.z, offsetPlan(b.outline, 0.4)))).length;
-    const phPalms = p.palms.filter((q) => q.penthouse && insidePlan(q.x, q.z, deck.pts));
-    // terrace layout: every furniture / planter footprint inside the guard, off the glass walk,
-    // clear of the pool and spa and of every other group; canopies inside the deck edge
-    const L = t.penthouse.layout;
+    const suite = s.penthouse, M = t.penthouse;
+    const own = p.curved.filter((c) => c.name.startsWith(`${s.id}.`) && c.name !== `${s.id}.body`);
+    check('Penthouses', `${T} ${s.id}: ${M.concept}`, s.penthouse.issues.length === 0, s.penthouse.issues.join('; '));
+    check('Penthouses', `${T} ${s.id}: core inside every enclosed level (private elevator arrival) and mechanical plant concealed in a louvred court`,
+      M.enclosures.every((e) => t.core.every(([x, z]) => insidePlan(x, z, e.poly) || e.name.startsWith('Double'))) && M.mech.poly.every(([x, z]) => insidePlan(x, z, offsetPlan(M.mech.footprint, 0.25))) && own.some((c) => c.kind === 'screen'));
+    const pools = M.basins.filter((b) => b.kind === 'pool'), spas = M.basins.filter((b) => b.kind === 'spa');
+    check('Penthouses', `${T} ${s.id}: private pool and a separate spa, basins below the terrace surface`, pools.length === 1 && spas.length === 1 && !spas[0].integrated && pools[0].waterY < pools[0].deckY && own.some((c) => c.name === `${s.id}.pool.coping`), `${pools.length} pool, ${spas.length} spa`);
+    check('Penthouses', `${T} ${s.id}: every terrace level has a ≥ 1.05 m glass guard; wraparound terraces ≥ 2.4 m deep, roof gardens ≥ 1.5 m`, own.filter((c) => c.glaze === core.GLAZE.guard).length >= M.levels.length && own.filter((c) => c.glaze === core.GLAZE.guard).every((g) => g.h >= 1.05) && M.levels.every((l) => l.minTerrace >= (l.wrap ? 2.4 : 1.5)), M.levels.map((l) => `${l.name} ${round(l.minTerrace, 2)} m`).join(', '));
+    // terrace layout: every furniture / planter footprint inside its guard, off the glass walks,
+    // clear of pools and spas and of every other group on the same level; canopies inside the deck
     const quadIn = (q, poly) => q.every(([x, z]) => insidePlan(x, z, poly));
     const quadOverlap = (A, B) => {
       const axes = [A, B].flatMap((Q) => [[Q[1][0] - Q[0][0], Q[1][1] - Q[0][1]], [Q[3][0] - Q[0][0], Q[3][1] - Q[0][1]]]);
@@ -111,17 +106,27 @@ for (const tier of TIERS) {
         return Math.min(Math.max(...a), Math.max(...b)) - Math.max(Math.min(...a), Math.min(...b)) > 0.05 * len;
       });
     };
-    const inner = offsetPlan(deck.pts, -0.3), glassWalk = offsetPlan(ph.pts, 0.2);   // guard inner face is 0.24 m in
-    const floorQ = L.filter((o) => o.layer === 'floor');
-    const badEdge = L.filter((o) => !quadIn(o.quad, o.layer === 'canopy' ? offsetPlan(deck.pts, -0.1) : inner)).map((o) => o.name);
-    const badGlass = floorQ.filter((o) => o.quad.some(([x, z]) => insidePlan(x, z, glassWalk))).map((o) => o.name);
-    const badWater = floorQ.filter((o) => t.penthouse.basins.some((b) => o.quad.some(([x, z]) => insidePlan(x, z, offsetPlan(b.outline, 0.45))))).map((o) => o.name);
-    const clashes = [];
-    for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) if (L[i].layer === L[j].layer && L[i].quad !== L[j].quad && quadOverlap(L[i].quad, L[j].quad) && !(L[i].name === L[j].name && Math.abs(i - j) === 1 && L[i].name !== 'planter' && L[i].name !== 'palm' && L[i].name !== 'light')) clashes.push(`${L[i].name}/${L[j].name}`);
-    check('Penthouses', `${T} ${s.id}: terrace groups laid out inside the glass guard, off the glass walk and the pool / spa copings, with no clashes between groups`, badEdge.length + badGlass.length + badWater.length + clashes.length === 0 && floorQ.length >= 8, `edge ${badEdge.join(',') || 0}; glass ${badGlass.join(',') || 0}; water ${badWater.join(',') || 0}; clashes ${clashes.slice(0, 4).join(' ') || 0}; ${floorQ.length} groups`);
-    check('Penthouses', `${T} ${s.id}: loungers, seating, shade and planting on the deck, none over the water; planting limited`, phParts.length > 6 && onWater === 0 && phPalms.length >= 1 && phPalms.length <= 4, `${phParts.length} pieces, ${onWater} over water, ${phPalms.length} palms`);
+    const radialGrow = (poly, d) => poly.map(([x, z]) => { const r = Math.hypot(x - t.cx, z - t.cz) || 1; return [x + ((x - t.cx) / r) * d, z + ((z - t.cz) / r) * d]; });
+    const bad = [];
+    for (const L of M.levels) {
+      const items = M.layout.filter((o) => o.level === L.name);
+      const inner = radialGrow(L.deck, -0.3);
+      for (const o of items) {
+        if (!quadIn(o.quad, o.layer === 'canopy' ? radialGrow(L.deck, -0.1) : inner)) bad.push(`${L.name} ${o.name} over the edge`);
+        if (o.layer === 'floor' && o.name !== 'kitchen' && L.enclosures.some((e) => o.quad.some(([x, z]) => insidePlan(x, z, offsetPlan(e, 0.2))))) bad.push(`${L.name} ${o.name} on a glass walk`);
+        if (o.layer === 'floor' && M.basins.filter((b) => Math.abs(b.deckY - L.D) < 0.1).some((b) => o.quad.some(([x, z]) => insidePlan(x, z, offsetPlan(b.outline, 0.45))))) bad.push(`${L.name} ${o.name} over water`);
+      }
+      for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) if (items[i].layer === items[j].layer && items[i].quad !== items[j].quad && quadOverlap(items[i].quad, items[j].quad)) bad.push(`${L.name} ${items[i].name}/${items[j].name}`);
+    }
+    check('Penthouses', `${T} ${s.id}: terrace groups inside the guards, off the glass walks and pools, no clashes (${M.layout.filter((o) => o.layer === 'floor').length} footprints)`, bad.length === 0, bad.slice(0, 5).join('; '));
+    const phTrees = p.trees.filter((q) => q.penthouse === s.id), phPalms = p.palms.filter((q) => q.penthouse && Math.hypot(q.x - t.cx, q.z - t.cz) < 20 && q.y > 50);
+    check('Penthouses', `${T} ${s.id}: restrained rooftop planting — built-in planters, ≤ 3 sculptural small trees, no exposed palms`, phPalms.length === 0 && phTrees.length <= 3 && phTrees.every((q) => q.planterH >= 0.9 && q.r <= 1.3), `${phTrees.length} trees, ${phPalms.length} palms`);
+    // animation: every penthouse mass hangs off the tower body; loose water and seating specs sit inside the tower plan
+    const chain = (c) => { let n = c, k = 0; while (n && n.parent && k++ < 20) { if (n.parent === `${s.id}.body`) return true; n = cv[n.parent]; } return false; };
+    const detached = own.filter((c) => !(chain(c) || (c.phase === 'context' && (c.pts || []).every(([x, z]) => Math.hypot(x - t.cx, z - t.cz) < 20)))).map((c) => c.name);
+    check('Penthouses', `${T} ${s.id}: all penthouse elements attach to the tower group (no detached pieces during the build animation)`, detached.length === 0, detached.join(', '));
   }
-  const h1 = cTop['A.t1.screen'], h2 = cTop['A.t2.screen'];
+  const h1 = p.meta.towers[0].penthouse.roofTopY, h2 = p.meta.towers[1].penthouse.roofTopY;
   check('Towers', `${T} towers keep contrasting heights`, h1 - h2 > 12, `${round(h1)} m / ${round(h2)} m`);
 
   // --- office ----------------------------------------------------------------
@@ -174,18 +179,20 @@ for (const tier of TIERS) {
   const spaT2 = insidePlan(res.SPA.x, res.SPA.z, offsetPlan(lowSlab('A.t2'), res.SPA.r + res.SPA.coping));
   check('Deck', `${T} raised spa sits on the structural slab (no depression) and outside balcony overhangs`, res.SPA.raise + 0.0 >= res.SPA.depth - 0.5 && !spaT2);
 
-  // --- park -------------------------------------------------------------------------
-  check('Park', `${T} 1.5 m clear routes link retail arcade, hotel entrance, office lobby, street, paseo and fountain`, a.park.routes.every((r) => r.reachable), a.park.routes.filter((r) => !r.reachable).map((r) => r.name).join(', '));
-  check('Park', `${T} café seating kept off radial paths and the paseo`, a.park.cafePartsOnRoutes === 0, `${a.park.cafePartsOnRoutes}`);
-  const plaza = [-19.5, 19.5, 3, 53];
-  const parkTrees = p.trees.filter((t) => inRect(t.x, t.z, plaza, 1));
-  const treeOnPath = parkTrees.filter((t) => park.PARK_PATHS.some((q) => {
-    const L = Math.hypot(q.to[0] - q.from[0], q.to[1] - q.from[1]);
-    const u = ((t.x - q.from[0]) * (q.to[0] - q.from[0]) + (t.z - q.from[1]) * (q.to[1] - q.from[1])) / L;
-    const v = Math.abs(-(t.x - q.from[0]) * (q.to[1] - q.from[1]) + (t.z - q.from[1]) * (q.to[0] - q.from[0])) / L;
-    return u > -1 && u < L + 1 && v < q.width / 2 + 0.8;
-  }) || Math.hypot(t.x - park.FOUNTAIN.x, t.z - park.FOUNTAIN.z) < park.PLAZA_DISC).length;
-  check('Park', `${T} park trees clear of paths, the gathering circle and the fountain`, treeOnPath === 0, `${treeOnPath} of ${parkTrees.length}`);
+  // --- pedestrian circulation (plan/pedestrian.js, analysed by plan/circulation.js) -------------
+  const W = a.circulation;
+  check('Circulation', `${T} every principal destination reachable from the public sidewalks along continuous routes (${W.reach.length} doors and destinations)`, W.reach.every((r) => r.reachable) && W.nodeIssues.length === 0, [...W.reach.filter((r) => !r.reachable).map((r) => r.name), ...W.nodeIssues].slice(0, 5).join('; '));
+  check('Circulation', `${T} no dead-end paths: every route end meets a sidewalk, another route or a door`, W.deadEnds.length === 0, W.deadEnds.join('; '));
+  check('Circulation', `${T} clear walking zones free of furniture, lights, bollards, planters and trunks (café seating stays in furnishing zones)`, W.blockers.length === 0 && W.trunkIssues.length === 0, [...W.blockers, ...W.trunkIssues].slice(0, 6).join('; '));
+  check('Circulation', `${T} low tree canopies (underside < 2.4 m) do not reach over clear zones`, W.lowCanopies.length === 0, W.lowCanopies.join(' '));
+  check('Circulation', `${T} entrances unobstructed by planting, each with ≥ 1.5 m turning space`, W.blockedEntrances.length === 0 && W.tightEntrances.length === 0, [...W.blockedEntrances, ...W.tightEntrances].join('; '));
+  check('Circulation', `${T} no pedestrian route crosses a drive, garage, loading or dock area inside the site`, W.conflicts.length === 0, W.conflicts.join('; '));
+  check('Circulation', `${T} every driveway crossing continues the sidewalk paving on a raised table with edge bands (${W.crossings.length} crossings)`, W.crossings.every((c) => c.continuousPaving && c.raisedTable && c.edgeBands === 2), W.crossings.filter((c) => !(c.continuousPaving && c.raisedTable && c.edgeBands === 2)).map((c) => c.name).join('; '));
+  check('Circulation', `${T} driveway sight triangles clear of trees, poles, signs and furniture over 0.9 m`, W.sightIssues.length === 0, W.sightIssues.slice(0, 5).join('; '));
+  check('Circulation', `${T} no public route enters the hotel pool court or a building`, W.privateIssues.length === 0 && W.hotelInside.length === 0, [...W.privateIssues, ...W.hotelInside].join('; '));
+  check('Circulation', `${T} step-free network: no stairs; all walking surfaces within ${round(Math.max(...W.tops) - Math.min(...W.tops), 3)} m of each other (conceptual flush transitions)`, W.stepFree);
+  check('Circulation', `${T} clear widths: primary ≥ 4.5 m, secondary ≥ 1.8 m`, W.widths.every((w) => w.ok), W.widths.filter((w) => !w.ok).map((w) => `${w.name} ${w.clearWidth}`).join('; '));
+  check('Circulation', `${T} lighting at every junction, door and driveway crossing (within 9 m / 16 m)`, W.darkNodes.length === 0 && W.darkCrossings.length === 0, [...W.darkNodes, ...W.darkCrossings].slice(0, 6).join('; '));
 
   // --- hotel ----------------------------------------------------------------------
   const H = a.hotel;
@@ -332,6 +339,74 @@ function svg(name, bounds, draw, title) {
 const P = desktopPlan, A = desktopAnalysis;
 const rpk = A.parking.residential;
 
+// circulation map: the pedestrian hierarchy, destinations, service and vehicle points, and the
+// paths removed or relocated from the previous layout (grey dashes)
+const ped = await load('plan/pedestrian.js');
+function out2(g, pts, col, w, dash) {
+  for (let i = 1; i < pts.length; i++) g.line(pts[i - 1], pts[i], `stroke="${col}" stroke-width="${round(w, 1)}" stroke-linecap="round" ${dash ? `stroke-dasharray="${dash}"` : ''}`);
+}
+svg('circulation-map.svg', [-92, 96, -68, 76], (g) => {
+  const W = A.circulation;
+  g.rect([-97.5, 97.5, -72.8, 72.8], 'fill="#d9dadb" stroke="none"');
+  g.rect([-84.2, 84.2, -59.5, 59.5], 'fill="#ecebe7" stroke="#9a9a96"');
+  g.rect([-80, 80, -55.25, 55.25], 'fill="#f7f6f2" stroke="#666" stroke-width="0.8"');
+  for (const b of P.boxes.filter((q) => q.name.startsWith('G.') || q.name.startsWith('S.verge'))) g.rect(rectOf(b), 'fill="#cfe3b8" stroke="none"');
+  for (const c of P.curved.filter((q) => q.name === 'P.lawns' || q.name === 'P.beds')) for (const q of c.parts) g.poly(q.pts, 'fill="#cfe3b8" stroke="none"');
+  g.poly(res.PODIUM_PLAN, 'fill="#e9e6f2" stroke="#555" stroke-width="1.1"');
+  g.poly(offsetPlan(res.PODIUM_PLAN, -core.ARCADE), 'fill="#f1eff6" stroke="#8e5bd6" stroke-dasharray="4 2" stroke-width="0.7"');
+  g.text(-70, -6, 'RESIDENTIAL PODIUM', 10, 'font-weight="bold" fill="#554"');
+  g.text(-70, -3.4, 'retail + lobbies at grade, parking above,', 8, 'fill="#665"');
+  g.text(-70, -1.4, 'residents amenity deck at +11.9 m (private)', 8, 'fill="#665"');
+  for (const pl of [hotel.HOTEL.front, hotel.HOTEL.centre, hotel.HOTEL.rear, hotel.HOTEL.link]) g.poly(pl, 'fill="#e6e8ec" stroke="#555" stroke-width="1.1"');
+  g.rect([1.8, 54, -39, -20], 'fill="#d6ecf2" stroke="#3a8fb0" stroke-dasharray="3 2"');
+  g.text(8, -29, 'HOTEL POOL COURT — guests only (controlled door from the lobby)', 8, 'fill="#276"');
+  for (const n of ['C.baseE', 'C.baseW', 'C.lobby']) g.rect(rectOf(P.boxes[P.index[n]]), 'fill="#ece8e0" stroke="#555" stroke-width="1.1"');
+  g.text(40, 30, 'OFFICE', 10, 'font-weight="bold" fill="#554"');
+  g.text(12, -12, 'HOTEL', 10, 'font-weight="bold" fill="#554"');
+  for (const t of P.meta.towers) { g.poly(t.core, 'fill="#666" stroke="none"'); g.text(t.cx - 4, t.cz + 0.6, 'tower lifts', 7, 'fill="#fff"'); }
+  for (const c of res.PODIUM_PARKING.cores) g.rect(c.rect, 'fill="#888"');
+  g.text(-40, 1.2, 'stair + lift to amenity deck', 7);
+  g.text(-73, -22.2, 'stair', 7);
+  const F0 = [0, 28];
+  for (const [ex, ez] of [[-19.5, 28], [0, 3], [19.5, 8], [19.5, 46], [0, 53], [-19, 50]]) { const a = Math.atan2(ez - F0[1], ex - F0[0]); g.line([F0[0] + Math.cos(a) * 12.5, F0[1] + Math.sin(a) * 12.5], [ex, ez], 'stroke="#999" stroke-width="2" stroke-dasharray="3 3"'); }
+  for (const r of [[-26, -21.5, -55.3, 55.3], [20.5, 80, 7.8, 10.2], [-13.5, -9, -55.3, -2], [18, 38, -2, 8], [-21.8, -16.4, 9.6, 24.8], [40, 56, 1.6, 7.6]]) g.rect(r, 'fill="none" stroke="#999" stroke-width="1" stroke-dasharray="3 3"');
+  for (const c of ped.CROSSINGS) {
+    const [a0, a1] = c.span;
+    const r = c.side === 'n' ? [a0, a1, -59.5, -55.25] : c.side === 's' ? [a0, a1, 55.25, 59.5] : c.side === 'e' ? [80, 84.2, a0, a1] : [-84.2, -80, a0, a1];
+    g.rect(r, 'fill="#f2c200" stroke="#9a7400" stroke-width="0.8"');
+    const lx = c.side === 'e' ? 85 : (a0 + a1) / 2 - 7, lz = c.side === 'n' ? -61.5 - (c.id === 'VX2' ? 2.6 : 0) : c.side === 'e' ? (a0 + a1) / 2 + 0.5 : 62;
+    g.text(lx, lz, `${c.id} ${c.name}`, 7, 'fill="#7a5c00"');
+  }
+  for (const z of ped.sightZones()) g.rect(z.rect, 'fill="none" stroke="#c89a00" stroke-width="0.6" stroke-dasharray="2 1.5"');
+  g.rect([73, 79.5, -42, -10], 'fill="#c9cccc" stroke="#777"'); g.text(73.4, -26, 'valet', 7);
+  for (const r of ped.ROUTES) {
+    const c = ped.routeCentreline(r);
+    const col = r.id === 'P1' ? '#f47321' : r.type === 'primary' ? '#c0392b' : '#6b4bd6';
+    const w = (r.type === 'primary' ? 4.5 : r.id === 'ARC' ? 2.6 : 2.2) * 9 * 0.32;
+    out2(g, c, col, w, r.id === 'ARC' ? '5 3' : '');
+  }
+  g.circle(F0[0], F0[1], 11.0, 'fill="none" stroke="#1f8fd6" stroke-width="10"');
+  g.circle(F0[0], F0[1], 8.2, 'fill="#9fd8de" stroke="#39a"');
+  for (const e of ped.ENTRANCES) g.poly(e.poly, 'fill="#12a36b" fill-opacity="0.35" stroke="#12a36b"');
+  for (const n of Object.values(ped.NODES)) {
+    if (n.kind === 'door') g.circle(n.at[0], n.at[1], 0.9, 'fill="#12a36b" stroke="#fff"');
+    if (n.kind === 'sidewalk') g.circle(n.at[0], n.at[1], 0.9, 'fill="#1f1d18"');
+  }
+  const L = (x, z, t, col = '#1f1d18', size = 8) => g.text(x, z, t, size, `fill="${col}" font-weight="bold"`);
+  L(20, 3.9, 'CENTRAL PROMENADE (6 m)', '#f47321', 9); L(-60, 12.4, 'GALLERIA (4.5 m public passage)', '#f47321', 8);
+  L(-10.2, -32, 'SPINE', '#c0392b', 9); L(1.2, 50, 'SPINE / park gate', '#c0392b', 8); L(-6.4, 17.2, 'FOUNTAIN LOOP', '#1f8fd6', 8);
+  L(-33, 36, 'ARCADE', '#8e5bd6', 7); L(-22, 26.6, 'retail link', '#6b4bd6', 7); L(11, 42.5, 'office link', '#6b4bd6', 7); L(10, 12, 'hotel link', '#6b4bd6', 7);
+  L(21.8, 25, 'office walk', '#6b4bd6', 7); L(72.3, -8, 'garden walk', '#6b4bd6', 7); L(-24, -45.8, 'paseo cross walk', '#6b4bd6', 7); L(-24, -17.4, 'paseo cross walk', '#6b4bd6', 7);
+  L(-90.5, -28, 'T1 LOBBY', '#12a36b', 7); L(-54, 47.6, 'T2 LOBBY', '#12a36b', 7); L(-57, 21.6, 'T2 galleria door', '#12a36b', 6);
+  L(22, -3.6, 'HOTEL ENTRANCE', '#12a36b', 7); L(5.5, -5.1, 'restaurant', '#12a36b', 6); L(41, -5.1, 'lobby bar + café', '#12a36b', 6); L(60.5, -30, 'GUEST ARRIVAL', '#12a36b', 7);
+  L(24.8, 51.3, 'OFFICE LOBBY', '#12a36b', 7); L(22.6, 38.8, 'park door', '#12a36b', 6);
+  L(-62, -49.4, 'garage in/out', '#333', 6); L(-41, -49.4, 'loading', '#333', 6); L(50, -49.6, 'hotel dock / refuse / staff', '#333', 6); L(66, 22, 'car lifts', '#333', 6); L(66, 45, 'loading', '#333', 6);
+  L(-12, -64.4, 'NORTH SIDEWALK', '#555', 8); L(-12, 67, 'SOUTH SIDEWALK', '#555', 8); L(-91.5, 2, 'WEST', '#555', 8); L(86.5, 2, 'EAST', '#555', 8);
+  const lg = [['#f47321', 'primary: Central Promenade'], ['#c0392b', 'primary: north–south Spine'], ['#1f8fd6', 'fountain loop'], ['#6b4bd6', 'secondary links (arcade dashed = covered)'], ['#12a36b', 'entrance zones and doors'], ['#f2c200', 'driveway crossing (continuous raised sidewalk)'], ['#c89a00', 'sight triangles (kept clear above 0.9 m)'], ['#999', 'removed or relocated previous paths']];
+  lg.forEach(([c, t], k) => { const x = -90 + (k % 4) * 46, z = 69 + Math.floor(k / 4) * 3; g.rect([x, x + 2.5, z - 1.4, z + 0.2], `fill="${c}"`); g.text(x + 3.2, z, t, 8); });
+  g.text(-90, 75.4, `Connectivity: ${W.reach.filter((r) => r.reachable).length}/${W.reach.length} destinations reachable · dead ends ${W.deadEnds.length} · clear-zone obstructions ${W.blockers.length} · vehicle conflicts ${W.conflicts.length} · step-free in the model (conceptual, not an accessibility review)`, 8, 'fill="#333"');
+}, 'Pedestrian circulation map — hierarchy, destinations, crossings (conceptual)');
+
 svg('residential-parking-L3.svg', [-80, -20, -54, 52], (g) => {
   g.poly(res.PODIUM_PLAN, 'fill="#f1efe9" stroke="#333" stroke-width="1.2"');
   g.poly(offsetPlan(res.PODIUM_PLAN, -(0.6 + res.PODIUM_PARKING.linerDepth)), 'fill="none" stroke="#bbb" stroke-dasharray="4 3"');
@@ -444,7 +519,7 @@ md.push('', '| Office block | Footprint (m) | Column lines | Max edge cantilever
 for (const b of A.structure.office.blocks) md.push(`| ${b.name} | ${round(b.rect[1] - b.rect[0])} × ${round(b.rect[3] - b.rect[2])} | ${b.columnLines} | ${b.maxCantilever} m | ${b.projection == null ? '— (first block)' : `${b.projection} m`} | ${b.continuous ? 'no' : 'yes'} |`);
 md.push('', '**Declared transfer zones**', '');
 for (const s of A.structure.towers) for (const tr of s.transfers) md.push(`- ${tr.name}: at +${round(tr.y)} m, ≈ ${tr.area} m² between the core and the column ring; conceptual structural zone ${tr.allowance} m deep. ${tr.note}.`);
-for (const s of A.structure.towers) md.push(`- ${s.id} penthouse: deck +${s.penthouse.deckY} m, roof +${s.penthouse.topY} m, minimum terrace ${s.penthouse.minTerrace} m; basins: ${s.penthouse.basins.map((b) => `${b.name} (${b.kind}${b.integrated ? ', integrated' : ''}, depth ${b.depth} m, water +${b.waterY} m, soffit +${b.soffitY} m ≥ plinth base +${b.plinthBaseY} m; inside column ring ${b.inRing ? 'yes' : 'NO'}, clear of core ${b.clearCore ? 'yes' : 'NO'}, columns ${b.clearColumns ? 'yes' : 'NO'}, glass ${b.clearGlass ? 'yes' : 'NO'})`).join('; ')}.`);
+for (const s of A.structure.towers) md.push(`- ${s.id} penthouse (${s.penthouse.type}): ${s.penthouse.concept}; main terrace +${s.penthouse.deckY} m, roof +${s.penthouse.roofTopY} m; terraces ${s.penthouse.levels.map((l) => `${l.name} +${l.deckY} m (min ${l.minTerrace} m)`).join(', ')}; basins: ${s.penthouse.basins.map((b) => `${b.name} (${b.kind}, ${b.level}, depth ${b.depth} m, soffit +${b.soffitY} m ≥ zone base +${b.zoneBaseY} m, support: ${b.support}; column-ring allowance ${b.inRing ? 'yes' : 'NO'}, clear of enclosures ${b.clearGlass ? 'yes' : 'NO'}, core ${b.clearCore ? 'yes' : 'NO'}, not over double-height room ${b.notOverDoubleHeight ? 'yes' : 'NO'}, over enclosed floor ${b.supported ? 'yes' : 'NO'})`).join('; ')}.`);
 md.push('- Office: none required by the geometry (every block uses column lines of the block below). The 2.4–3.0 m edge cantilevers still need design.', '');
 
 md.push('### Parking — modelled capacity (stalls generated along modelled aisles; rejected where columns, cores, ramp, liner units, cross aisles or level edges intervene)', '', '| Garage | Level | Valid stalls | Rejected candidates |', '|---|---|---|---|');
@@ -464,7 +539,7 @@ md.push(`| **All uses (no sharing)** | | | **${rng2(dsum)}** vs **${rpk.total + 
 md.push('Modelled capacity is well below the estimated demand range. The model does not resolve parking supply; see section 3.', '');
 
 md.push('### Program, cores and elevators (conceptual allocations)', '', '| Building | Floors | Area / count basis | Estimate |', '|---|---|---|---|');
-for (const t of prog.towers) md.push(`| ${t.id === 'A.t1' ? 'Tower 1' : 'Tower 2'} | ${t.floors} + 1 penthouse level on a structural plinth, over a 3-level podium | typical plate ${t.typicalFloorplate} m², GFA ≈ ${t.gfa} m² | ${t.units} units |`);
+for (const t of prog.towers) md.push(`| ${t.id === 'A.t1' ? 'Tower 1' : 'Tower 2'} | ${t.floors} + ${t.penthouseLevels}-level penthouse (${t.id === 'A.t1' ? 'duplex, crown transfer zone' : 'full floor + roof garden room on a 1.6 m plinth'}), over a 3-level podium | typical plate ${t.typicalFloorplate} m², GFA ≈ ${t.gfa} m² | ${t.units} units |`);
 md.push(`| Hotel | front 7, centre 10, rear 6, link 6 | GFA ≈ ${prog.hotel.gfa} m² | ${prog.hotel.totalKeys} keys (${Object.entries(prog.hotel.keys).map(([k, v]) => `${k} ${v}`).join(', ')}) |`);
 md.push(`| Office | base 3 (incl. 2 parking) + 3 blocks × 3 (crown block enlarged to ${round((office.OFFICE_BLOCKS[2].rect[1] - office.OFFICE_BLOCKS[2].rect[0]), 1)} × ${round((office.OFFICE_BLOCKS[2].rect[3] - office.OFFICE_BLOCKS[2].rect[2]), 1)} m) | GFA ≈ ${prog.office.gfa} m² | NRA ≈ ${prog.office.nra} m² |`);
 md.push(`| Retail / F&B | ground floors | podium ${prog.retail.podium} + hotel ${prog.retail.hotelFnb} + office ${prog.retail.office} m² | ≈ ${prog.retail.total} m² |`, '');
@@ -481,7 +556,7 @@ md.push('- Upper floors (assumed, not modelled): linen/pantry rooms at the servi
 md.push('## 2. Conceptual assumptions', '', '| Topic | Assumption used in the model |', '|---|---|');
 md.push(`| Site | Hypothetical 160 × 110.5 m block with a procedurally generated city context. Not an actual parcel. |`);
 md.push(`| Towers | One occupied floorplate per tower; glass line may lean ≤ ${res.TOWERS[0].perimeter} m with the twist. Continuous central core; ${A.structure.towers.map((s) => s.columns).join(' / ')} perimeter columns of ${A.structure.towers[0].columnSize} m from foundations to the lower-penthouse roof. Flat-plate floors with balcony slab cantilevers ≤ 3.5 m beyond the column line. |`);
-md.push('| Penthouses | One enclosed level per tower on a 1.8 m structural plinth over the top residential floor; perimeter columns and core stop at the plinth; penthouse posts, pool basin (1.2 m water depth) and spa (0.9 m) bear on the plinth inside the column ring; the terrace beyond the column ring is a cantilevered slab carrying furniture, planters and the glass guard only. Plinth faces are white like the tower; the terrace floor is a 30 mm pale stone paving layer inset from the slab edge. Terrace groups (sun loungers, outdoor living, daybeds, dining under a white pergola, outdoor kitchen counter, palm planters, long low planters, deck lights) are placed by a clearance search: inside the guard by ≥ 0.45 m, ≥ 1.0 m off the glass (the counter excepted), ≥ 0.5 m clear of the pool and spa copings, 0.4 m between groups, below the roof eave; groups that do not fit are dropped. Tower 1: crescent pool, separate spa, roof overhang shading the outdoor living. Tower 2: freeform oval pool with an integrated raised spa, dining under a white pergola. |');
+md.push('| Penthouses | Two separate generators (plan/penthouse-tall.js, plan/penthouse-short.js) read the top floorplate, column ring, core and ribbon rotation without changing the typical floors. Tower 1 "Sky Villa" duplex: PH1 principal floor (4.5 m level, recessed curved glass just outside the column line, wraparound terrace continuing the ribbons, bedroom terrace screened by planters); 1.7 m crown slab (structure, basins, drainage, pool plant allowance) overhanging the PH1 terrace; PH2 glass pavilion wrapped around the private elevator foyer, a double-height (≈ 10.4 m) living room facing south-west, a crescent infinity-edge pool over the enclosed PH1 floor inside the column line plus a 0.45 m edge-beam allowance, a separate raised spa, dining and summer kitchen under a thin canopy blade on slim posts, a sunken conversation lounge, a louvred mechanical court, built-in planters and two small sculptural trees. Tower 2 "Garden Pavilion": full-floor residence (4.6 m) on a 1.6 m plinth, glass recessed up to 6 m on the south-west for a broad asymmetrical terrace, curvilinear plunge pool inside the column ring, separate raised spa on the column line (edge-beam allowance), dining, summer kitchen and shaded lounge under a white roof overhang, planted windbreaks and a small tree on the private north-east terrace, a roof garden room over the core (private elevator arrival) with a louvred mechanical court under its roof and a planted roof terrace. Furniture and planters are placed by a clearance search (inside guards, off glass walks, clear of pools and each other). Miami precedent principles used (no recognisable feature copied): full-floor / duplex living, recessed floor-to-ceiling glass, private elevator arrival, tall principal rooms, wraparound terraces, private pool and separate spa, shaded outdoor dining and summer kitchen, integrated planting, concealed plant, a roof form that completes the tower. |');
 md.push('| Residential garage screen | Parametric wave fins (8 desktop / 6 mobile) wrapping the podium at the two parking levels, 0.45–1.0 m deep, ≈ 80 % open for natural ventilation (assumed, not calculated); breaks at both lobbies (signage panels) and both garage stair cores; warm recessed light strips under two fins. |');
 md.push('| Office garage façade | North (lane) and east (street) faces: white piers on the office grid, charcoal deck-edge spandrels, bays of perforated metal, breeze block, folded charcoal fins, timber slat panels and planted green-wall bays; panels 0.3 m proud of the deck edge; ≥ 50 % open assumed; car-lift and loading entrances kept clear. Original composition — no murals, logos or copied buildings. |');
 md.push('| Hotel pool court | Enclosed on all sides by the hotel and its service link (no pool fence at grade). Pool 26 × 6.6 m, 1.4 m deep with steps and sun shelf, 0.25 m paved deck, guest walks from the lobby and the lobby wing, cabanas, dining beside the pool bar, contained palms. BOH rooms and routes unchanged. |');
@@ -495,21 +570,23 @@ md.push(`| Resort pool | Swim depth ${res.POOL.swimDepth} m, sun shelf ${res.POO
 md.push(`| Spa | Raised spa, water ≈ ${res.SPA.depth} m deep with its floor on the structural top (no depressed slab). |`);
 md.push(`| Parking | Stalls ${2.6} × ${5.4} m, two-way aisles 6.8 m, slab 0.3 m, 2.1 m car clearance; residential ramp stacked switchback; office served by two car lifts. |`);
 md.push(`| Program | Residential efficiency ${ASSUMPTIONS.residentialEfficiency}, average unit ${Object.values(ASSUMPTIONS.unitNSA).join(' / ')} m² NSA, 2 penthouse units per tower; hotel room bay ${ASSUMPTIONS.hotelRoomBay} m; office efficiency ${ASSUMPTIONS.officeEfficiency}; retail liner ${ASSUMPTIONS.retailLinerDepth} m. |`);
-md.push('| Park | Public, unfenced; café seating as licensed outdoor dining beside ground-floor frontages. Private areas (residential deck, hotel pool court) are separated by the podium guard and the hotel service link. |');
+md.push('| Pedestrian circulation | One configuration (plan/pedestrian.js): route centrelines, type, width, surface, elevation, connected nodes, destinations, lighting spacing, furnishing zones and landscape setbacks; geometry is generated from the centrelines and merged by surface. Primary: Central Promenade (6 m; 4.5 m through a new ground-floor galleria in the podium, made possible by shifting the garage ramp 2.8 m north and the podium column rows to frame it) from the west to the east sidewalk; north–south Spine (4.5 m) from the south sidewalk through the fountain plaza and central crossing to the paseo and north sidewalk. Fountain loop: 14.2 m plaza with a 4.6 m clear ring. Secondary (2.2–3.5 m): podium arcade (covered, 2.1 m clear between storefronts and columns), retail, office and hotel links, office walk, hotel frontages, hotel garden walk, two paseo cross walks. Entrance zones at every principal door. Café seating only in furnishing zones beside frontages. Surfaces are flat within 75 mm (step-free in the model). |');
+md.push('| Park | Public, unfenced; organised around the fountain plaza with five links only (spine ×2, retail, office, hotel); lawns fill the sectors between links; café seating in furnishing zones beside the podium arcade and office walk. Private areas (residential deck, hotel pool court) are not on any public route. |');
 md.push('| Water movement | Shader ripples advance only on frames already rendering (render-on-demand preserved); jets are static geometry. |', '');
 
 md.push('## 3. Unresolved — requires professional review or missing inputs', '', '| Matter | Status in the model | Missing input / review needed |', '|---|---|---|');
 md.push('| Zoning, FAR, height, setbacks, open space, parking minimums | **Undetermined.** The site is hypothetical, so no zoning compliance is claimed. | A real parcel (folio / address) and jurisdiction, then verification against the current code from authoritative sources (e.g. Miami 21 or the City of Miami Beach Land Development Regulations, if in those cities). |');
 md.push(`| Tower structure | Geometry is coherent: continuous core and columns, ≤ 3.5 m cantilevers, no tower-floor transfers. Long perimeter spans of ${A.structure.towers.flatMap((s) => s.longSpans.map((l) => `${l.span} m`)).join(', ')} where the ring crosses garage aisles. | Structural engineer: lateral system (core walls/outriggers), flat-plate/PT design, balcony cantilevers and thermal breaks, edge beams at long spans, column sizes, foundations, wind/hurricane loads, drift. |`);
-md.push('| Penthouse plinth, pools and spas | Geometry only: basins inside the column ring, clear of core, columns and glass, soffits above the plinth base; 1.8 m plinth depth is an allowance. | Structural engineer: plinth as a transfer (posts, water and saturated-planter loads, deflection), pool engineer: depth, overflow / balance tank and plant space, waterproofing and drainage, glass guard loads at height, wind on furniture and umbrellas, health-department rules for private pools. |');
 md.push('| Garage façades | Openness and ventilation assumed from the geometry, not calculated. | Mechanical / code review of natural ventilation openness, fire separation to liner units, screen attachment and wind loads, lighting design (glare, spill, dark-sky), maintenance access to planted bays. |');
 md.push('| Office cantilevers | 2.4–3.0 m slab-edge cantilevers at offsets; no transfers. | Structural design (PT/steel), deflection and façade tolerance; soffit fire rating of timber. |');
 md.push(`| Resort pool basin | Soffit ${round(res.POOL.basinSoffitY, 2)} m leaves ${rpk.pool.clearHeight} m clear over P-L3 aisles/stalls with a ${res.POOL.mepAllowance} m allowance; ${rpk.pool.supportingColumns} podium columns under/near the basin. | Pool engineer and structural engineer: water/soil loads, basin slab depth, drainage falls, balance tank and plant room location, waterproofing, and beam depths over P-L3. Health-department pool rules. |`);
 md.push('| Planting loads | Planter depths modelled; loads not computed. | Saturated soil and tree loads, drainage and irrigation design, wind uplift on palms, landscape architect species selection. |');
 md.push(`| Parking supply and circulation | ${rpk.total + A.parking.office.total} modelled stalls vs ${rng2(dsum)} estimated demand; ramps and lifts geometric only. | Parking/traffic consultant: shared-parking study, valet/off-site options, ramp transitions and sight lines, car-lift capacity and queuing, accessible and van stalls, EV and bicycle requirements. |`);
-md.push('| Egress, fire and life safety | Stair counts allocated in cores; routes checked only for 1.5 m continuity on the deck and in the park. | Fire/life-safety and code consultant: occupant loads, exit widths, travel distances, stair pressurisation, fire separations between uses and the garage, fire apparatus access. |');
+md.push('| Egress, fire and life safety | Stair counts allocated in cores; pedestrian routes checked only for continuity, clear width and obstructions in the conceptual geometry; the new podium galleria is not assessed for smoke control, separation from parking or exit capacity. | Fire/life-safety and code consultant: occupant loads, exit widths and travel distances, galleria separation and smoke control, hose and fire-truck access, sprinkler and alarm, lift traffic. |');
 md.push('| Elevators | Allocations only (see cores table). | Vertical transportation traffic analysis for each building. |');
-md.push('| Accessibility | A 1:12 ramp is modelled to the resident pool terrace; curb-ramp pads and tactile strips are representational (their slopes are not modelled); other routes not checked. | Accessibility review (ADA / Florida Accessibility Code): curb ramps, pool lifts or sloped entries (including penthouse and hotel pools), accessible routes, parking, drop-off zones. |');
+md.push('| Accessibility | Every principal destination is connected by a step-free route in the model (walking surfaces within 75 mm, no stairs on any route), primary routes ≥ 4.5 m and secondary ≥ 1.8 m clear, entrance zones ≥ 1.5 m; driveway crossings are continuous raised sidewalk. Slopes, cross-falls, joints, detectable warnings, curb-ramp geometry, door hardware and pool access are not modelled. | Accessibility review (ADA 2010 Standards / Florida Accessibility Code): route slopes and cross-slopes, level transitions, curb ramps, detectable warnings at crossings, accessible parking and drop-off, pool lifts or sloped entries (resident, hotel and penthouse pools), penthouse terrace thresholds. |');
+md.push('| Pedestrian / vehicle crossings | Seven driveway crossings modelled as continuous sidewalk paving on a raised table with contrasting edge bands; sight triangles 3 m either side kept clear of trees, poles and furniture over 0.9 m; hotel arrival drive split into separate entry and exit cuts. | Traffic engineer: sight-distance calculations, driveway widths and flares, gate and car-lift queuing, signage and warning devices, loading and refuse vehicle swept paths. |');
+md.push('| Penthouse crown, pools and spas | Geometry only: Tower 1 pool over the enclosed PH1 floor within the column line plus a 0.45 m edge-beam allowance, never over the double-height room; Tower 2 pool inside the column ring on the plinth; spas raised; basin soffits within their structural zones. | Structural engineer: crown / plinth as transfer structures, edge beams, water and saturated-planter loads, canopy blade and posts, double-height room lateral support; pool engineer: infinity-edge trough, balance tank, plant space; waterproofing and drainage; wind on furniture, planters and small trees at height; guard loads. |');
 md.push('| Hotel back of house | Ground-floor footprints and connections modelled; café supply via the lobby gallery off-hours is an operational assumption. | Hospitality operator / kitchen and laundry consultants: sizing, loading dock count, truck turning, waste volumes, upper-floor BOH. |', '');
 
 md.push('## 4. Tests performed and not performed', '');

@@ -58,6 +58,12 @@ export function readPalette(root = document.documentElement) {
     sidewalk: '#e0e1dd', // scored concrete sidewalks
     pathStone: '#d3d4cf',// paved walks between the buildings
     joint: '#b9bbb7',    // control joints in sidewalks and walks
+    // pedestrian hierarchy (plan/pedestrian.js): restrained neutral paving tones
+    promenade: '#d8d6d0', // central promenade field
+    spine: '#dfddd7',    // north–south spine
+    walk2: '#ebeae5',    // secondary paths, arcade and café terraces
+    band: '#aeafab',     // edge bands and driveway crossing edges
+    entry: '#c8c8c3',    // textured entrance zones
     guardGlass: '#c7d5db', // glass guard panels (light blue-grey)
     tactile: '#777b7d',   // detectable warning strips at curb ramps
     poolTile: '#3f8e9c',  // waterline tile band

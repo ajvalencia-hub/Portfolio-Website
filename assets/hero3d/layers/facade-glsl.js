@@ -74,7 +74,7 @@ const FACADE_GLSL = /* glsl */`
     if (glaze < 16.5) {
       cell = q / module;
       d = abs(fract(cell + 0.5) - 0.5) * module;
-    } else if (glaze < 17.5) {
+    } else if (glaze < 17.5 || glaze > 19.5) {
       float row = floor(q.y / module.y);
       float x = q.x / module.x + 0.5 * mod(row, 2.0);
       cell = vec2(floor(x), row);
@@ -89,12 +89,14 @@ const FACADE_GLSL = /* glsl */`
     }
     float joint = max(1.0 - smoothstep(jw, jw + px * 1.5, d.x), 1.0 - smoothstep(jw, jw + px * 1.5, d.y));
     float tone = hash21(cell);
-    return mix(0.985, (1.0 - 0.15 * joint) * (0.955 + 0.07 * tone), detail);
+    // 20: promenade — the running bond with a darker transverse band every 7.2 m
+    float bandK = glaze > 19.5 ? 1.0 - smoothstep(0.24, 0.24 + px * 1.5, abs(fract(q.x / 7.2 + 0.5) - 0.5) * 7.2) : 0.0;
+    return mix(0.985 - 0.1 * bandK, (1.0 - 0.15 * joint) * (0.955 + 0.07 * tone) * (1.0 - 0.13 * bandK), detail);
   }
 
   // returns (glass, screen, shade)
   vec3 facade(float glaze, vec3 wp, float across, vec3 nrm, float botY, float topY, vec2 module, vec4 ramp) {
-    if (glaze > 15.5 && glaze < 18.5) return vec3(0.0, 0.0, nrm.y > 0.5 ? paving(glaze, wp, module, ramp) : 1.0);
+    if ((glaze > 15.5 && glaze < 18.5) || (glaze > 19.5 && glaze < 20.5)) return vec3(0.0, 0.0, nrm.y > 0.5 ? paving(glaze, wp, module, ramp) : 1.0);
     if (glaze < 0.5 || abs(nrm.y) > 0.5 || (glaze > 2.5 && glaze < 3.5)) return vec3(0.0, 0.0, 1.0);
     float y = wp.y;
     float gH = module.x;

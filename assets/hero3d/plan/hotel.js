@@ -98,7 +98,7 @@ export function hotelMasses() {
     deco('B.lounge', roundedRectPlan(37, -17, 46, -7, 2.0), 3.6, [0.392, 0.012], 'B.front', { kind: 'glass', glaze: GLAZE.storefront }),
     deco('B.loungeRoof', roundedRectPlan(36, -18, 47, -6, 2.6), 0.45, [0.404, 0.006], 'B.lounge', { kind: 'frame', ...plain }),
     // arrival canopy: a deep white blade reaching over the forecourt on slim columns
-    deco('B.canopy', roundedRectPlan(20.5, -2.0, 35.5, 5.6, { se: 3.2, sw: 3.2 }), 0.7, [0.400, 0.010], null, { kind: 'frame', y0: 4.5, ...plain }),
+    deco('B.canopy', roundedRectPlan(18.6, -2.0, 37.4, 5.6, { se: 3.2, sw: 3.2 }), 0.7, [0.400, 0.010], null, { kind: 'frame', y0: 4.5, ...plain }),
     deco('B.porte', roundedRectPlan(65.5, -34, 80, -22, { ne: 5.5, se: 5.5 }), 0.8, [0.398, 0.010], null, { kind: 'frame', y0: 4.8, ...plain }),
   ];
 }
@@ -119,11 +119,11 @@ export function hotelBoxes() {
 export function hotelSlabs() {
   const t = (i) => [0.662 + i * 0.003, 0.05];
   return [
-    box('L.fore', 18, 38, -2, 8, 0, 0.05, 'terrazzo', 'L', t(9), null, { glaze: GLAZE.bond, module: [1.5, 0.75] }),
     // guest walks on the pool deck: lobby door to the pool, lobby wing along the south deck
     box('L.hwalkS', 3.8, 53.8, -22.4, -20.2, 0, HOTEL_POOL.deckY + 0.03, 'walk', 'L', t(4), null, { glaze: GLAZE.bond, module: [0.9, 0.45] }),
     box('L.hwalkC', 26.6, 29.4, -25.6, -22.4, 0, HOTEL_POOL.deckY + 0.03, 'walk', 'L', t(5), null, { glaze: GLAZE.bond, module: [0.9, 0.45] }),
-    box('L.arrive', 66, 73, -36, -20, 0, 0.05, 'terrazzo', 'L', t(10)),
+    // arrival court: textured entrance paving is laid by plan/pedestrian.js (E-ARRIVAL)
+    box('L.arrive', 66, 67.5, -36, -20, 0, 0.05, 'terrazzo', 'L', t(10)),
     box('L.drive', 73, 79.5, -42, -10, 0, 0.06, 'drive', 'L', t(11)),
     box('L.hroof', 36.5, 47.5, -19.5, -4.5, HOTEL_FRONT_TOP, 0.25, 'paving', 'L', t(17)),
   ];
@@ -175,10 +175,11 @@ export function hotelParts(tier) {
     for (const x of [20.55 + k * 0.72, 35.45 - k * 0.72]) block(x - 0.17, x + 0.17, GROUND + 0.6, HOTEL_CENTRE_TOP - 0.5, -2.0, -1.6, 'stucco');
   }
   // arrival canopy: slim columns, charcoal sign band (no lettering), warm light line, planters
-  for (const x of [22.4, 33.6]) column(x, 4.6, 0, 4.5, 0.12, 'metal');
+  for (const x of [19.1, 36.9]) column(x, 2.15, 0, 4.5, 0.12, 'metal');   // at the forecourt's outer corners, clear of the promenade and the entry zone
   block(23.5, 32.5, 4.62, 5.02, 5.64, 5.76, 'charcoal');
   block(21.6, 34.4, 4.42, 4.46, 4.95, 5.05, 'lamp', C);
-  for (const x of [19.4, 36.6]) { bed(x - 0.9, x + 0.9, 1.2, 3.8, 0.05, 0.7, { shrubs: true }); palms.push({ x, z: 2.5, y: 0.75, h: 6.5, r: 2.4 }); }
+  // warm wall lanterns on the storefront band beside the restaurant and café doors
+  for (const x of [8.0, 16.0, 41.0, 49.0]) block(x - 0.12, x + 0.12, 3.5, 3.8, -4.12, -4.0, 'lamp', C);
   // selected balconies on the plaza facade (glass guards), floors 2 to 6, clear of the centrepiece
   for (const [bx0, bx1] of [[9.2, 16.4], [39.6, 46.8]]) {
     for (let j = 2; j <= 6; j++) {
@@ -194,20 +195,21 @@ export function hotelParts(tier) {
   // with blank panels at both drive mouths, trench drains across the drive, a valet
   // podium and key kiosk under the porte-cochère, bollards and a luggage cart
   const X = fixtureKit(K);
-  for (const [z, dir] of [[-40.4, 1], [-11.6, -1]]) {
+  // pylons stand on the planted island between the entry and exit cuts, outside both sight triangles
+  for (const [z, drain] of [[-31.6, -39.2], [-20.4, -12.8]]) {
     block(79.56, 79.86, 0.06, 2.7, z - 0.45, z + 0.45, 'charcoal', C);
     block(79.5, 79.56, 1.1, 2.35, z - 0.32, z + 0.32, 'frame', C);
     block(79.5, 79.54, 2.45, 2.52, z - 0.36, z + 0.36, 'lamp', C);
-    block(73.3, 79.3, 0.04, 0.08, z + dir * 1.2 - 0.18, z + dir * 1.2 + 0.18, 'charcoal', C);
+    block(73.3, 79.3, 0.04, 0.08, drain - 0.18, drain + 0.18, 'charcoal', C);
   }
-  block(71.9, 72.6, 0.05, 1.12, -33.3, -32.5, 'charcoal', C);          // valet podium
-  block(71.95, 72.55, 1.12, 1.16, -33.25, -32.55, 'lamp', C);
+  block(66.6, 67.3, 0.05, 1.12, -35.4, -34.6, 'charcoal', C);          // valet podium (beside the court, off the clear zone)
+  block(66.65, 67.25, 1.12, 1.16, -35.35, -34.65, 'lamp', C);
   block(66.0, 66.45, 0.05, 1.9, -33.6, -32.4, 'charcoal', C);          // key kiosk on the lobby wing
   block(66.45, 66.48, 1.2, 1.6, -33.4, -32.6, 'lamp', C);
-  block(68.2, 69.9, 0.25, 0.3, -24.1, -23.4, 'metal', C);              // luggage cart
-  for (const x of [68.3, 69.8]) column(x, -23.75, 0.3, 1.5, 0.03, 'metal', C);
-  block(68.2, 69.9, 1.8, 1.85, -23.8, -23.7, 'metal', C);
-  for (const z of [-35.6, -36.9, -20.6]) X.bollard(72.6, z, 0.05);
+  block(66.55, 67.25, 0.25, 0.3, -25.9, -24.2, 'metal', C);            // luggage cart
+  for (const z of [-25.8, -24.3]) column(66.9, z, 0.3, 1.5, 0.03, 'metal', C);
+  block(66.85, 66.95, 1.8, 1.85, -25.9, -24.2, 'metal', C);
+  for (const z of [-35.4, -30.6, -25.4, -20.8]) X.bollard(72.85, z, 0.05);   // edge of the court along the drive
   // service frontage on the north street: dock, refuse, staff door, dock canopy
   block(50, 58, 0, 4.4, -51.2, -50.8, 'void');
   block(60.5, 63.5, 0, 3.0, -51.2, -50.8, 'void');

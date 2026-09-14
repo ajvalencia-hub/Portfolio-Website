@@ -59,6 +59,11 @@ export function coplanarFaces(plan, { insidePlan, tol = 0.012, minArea = 0.02 })
     const top = base + c.h;
     const src = { name: c.name, color: c.kind, layer: 'curves' };
     if (c.type === 'waves') continue;   // wave fins are generated geometry with sloping surfaces
+    if (c.type === 'prisms') {
+      // merged paving: each polygon is its own surface (same material, so overlaps are benign)
+      c.parts.forEach((q, k) => add(faces.h, { y: top, dir: 1, poly: q.pts, src: { name: `${c.name}#${q.owner ?? k}`, color: c.kind, layer: 'curves' } }));
+      continue;
+    }
     if (c.type === 'ring') {
       add(faces.h, { y: top, dir: 1, poly: c.pts, hole: c.inner, src });
       add(faces.h, { y: base, dir: -1, poly: c.pts, hole: c.inner, src });

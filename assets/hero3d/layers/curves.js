@@ -67,6 +67,28 @@ function cap(B, pts, y, facingUp, holes = []) {
   }
 }
 
+// merged flat prisms (pedestrian paving): many polygons, one mesh; wall normals from the
+// polygon winding so long, concave ribbons still face outward
+function prismsGeometry(parts, h) {
+  const B = makeBuilder();
+  const facing = new THREE.Vector3();
+  for (const { pts } of parts) {
+    let area = 0;
+    for (let i = 0; i < pts.length; i++) { const [ax, az] = pts[i], [bx, bz] = pts[(i + 1) % pts.length]; area += ax * bz - bx * az; }
+    const s = area > 0 ? 1 : -1;
+    for (let i = 0; i < pts.length; i++) {
+      const [ax, az] = pts[i], [bx, bz] = pts[(i + 1) % pts.length];
+      const len = Math.hypot(bx - ax, bz - az);
+      if (len < 1e-5) continue;
+      const n = [-(bz - az) / len * -s, 0, (bx - ax) / len * -s];
+      facing.set(n[0], 0, n[2]);
+      B.quad([[ax, 0, az], [bx, 0, bz], [bx, h, bz], [ax, h, az]], [n, n, n, n], [0, len, len, 0], facing);
+    }
+    cap(B, pts, h, true);
+  }
+  return B.geometry();
+}
+
 // extruded prism, local y ∈ [0, h], with roof and soffit caps; optional holes (pool
 // openings in a deck) get inward-facing walls
 function prismGeometry(pts, h, holes = []) {
@@ -339,11 +361,11 @@ export function createCurves(plan, palette, tier) {
     byName[spec.name] = item;
 
     const ring = spec.type === 'ring';
-    const outer = ring && !spec.inner ? offsetPlan(spec.pts, -(spec.inset || 0)) : spec.pts;
+    const outer = spec.type === 'prisms' ? null : ring && !spec.inner ? offsetPlan(spec.pts, -(spec.inset || 0)) : spec.pts;
     const inner = ring ? (spec.inner || offsetPlan(spec.pts, -((spec.inset || 0) + spec.thick))) : null;
     const stack = spec.type === 'stack';
     const waves = spec.type === 'waves' ? waveGeometry(spec) : null;
-    const geometry = waves ? waves.fins : ring ? ringGeometry(outer, inner, spec.h)
+    const geometry = spec.type === 'prisms' ? prismsGeometry(spec.parts, spec.h) : waves ? waves.fins : ring ? ringGeometry(outer, inner, spec.h)
       : stack ? stackGeometry(spec.floorPlans, spec.floorH) : prismGeometry(spec.pts, spec.h, spec.holes);
 
     // facade surface (static at its final height, shown once the massing turns solid)

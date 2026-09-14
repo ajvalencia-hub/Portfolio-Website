@@ -105,6 +105,11 @@ export async function createHero({ heroEl, canvasHost, tier, reduced, frozenS })
   if (qaMode) {
     const { createQaOverlay } = await import('./layers/qa-overlay.js');
     stage.scene.add(createQaOverlay(plan, qaMode));
+    // review view only: let the plan read edge to edge (copy hidden, canvas fade removed)
+    if (qaMode === 'circulation') {
+      if (copyEl) copyEl.style.visibility = 'hidden';
+      canvasHost.style.maskImage = canvasHost.style.webkitMaskImage = 'none';
+    }
   }
 
   // The stage leaves with the page; the canvas eases back slightly so the

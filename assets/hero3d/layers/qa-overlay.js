@@ -1,4 +1,4 @@
-// QA overlay (?heroPlan=structure | parking | boh | deck | all): draws the
+// QA overlay (?heroPlan=structure | parking | boh | deck | circulation | all): draws the
 // conceptual plan data behind the architecture — tower cores and continuous
 // columns, the declared penthouse transfer, office columns, parking stalls,
 // aisles, ramp and car lifts, the pool basin, deck routes and the hotel
@@ -9,6 +9,7 @@ import { analyseSite } from '../plan/program.js';
 import { PODIUM_PARKING, POOL } from '../plan/residential.js';
 import { OFFICE_PARKING, OFFICE_BLOCKS, OFFICE_CORE, OFFICE_BASE_TOP } from '../plan/office.js';
 import { HOTEL_GROUND } from '../plan/hotel.js';
+import { ROUTES, NODES, ENTRANCES, CROSSINGS, PLAZA_R, FOUNTAIN_CENTRE, routeCentreline, sightZones } from '../plan/pedestrian.js';
 
 export function createQaOverlay(plan, mode = 'all') {
   const a = analyseSite(plan);
@@ -52,6 +53,73 @@ export function createQaOverlay(plan, mode = 'all') {
   if (show('boh')) {
     const tone = { service: '#e07b39', guest: '#3d7fd1', public: '#4caf50' };
     for (const r of HOTEL_GROUND) rect(r.rect, 0.1, r.outdoor ? 0.2 : 3.0, tone[r.zone]);
+  }
+
+  if (mode === 'circulation') {
+    // circulation review: route ribbons by hierarchy, entrance zones, vehicle crossings and
+    // their sight triangles, with labels — drawn over everything, above the paving
+    const Y = 1.2;
+    const ribbons = [];   // [pts, width, color]
+    const colour = { P1: '#f47321', S1: '#c0392b', S2: '#c0392b', ARC: '#8e5bd6' };
+    for (const r of ROUTES) ribbons.push([routeCentreline(r), r.type === 'primary' ? 1.6 : 0.9, colour[r.id] || '#6b4bd6']);
+    const ring = Array.from({ length: 73 }, (_, k) => [FOUNTAIN_CENTRE[0] + (PLAZA_R - 3.2) * Math.cos((k / 72) * Math.PI * 2), FOUNTAIN_CENTRE[1] + (PLAZA_R - 3.2) * Math.sin((k / 72) * Math.PI * 2)]);
+    ribbons.push([ring, 1.2, '#1f8fd6']);
+    for (const [pts, w, color] of ribbons) {
+      const pos = [];
+      for (let i = 1; i < pts.length; i++) {
+        const [ax, az] = pts[i - 1], [bx, bz] = pts[i];
+        const l = Math.hypot(bx - ax, bz - az) || 1, nx = (-(bz - az) / l) * (w / 2), nz = ((bx - ax) / l) * (w / 2);
+        pos.push(ax + nx, Y, az + nz, bx + nx, Y, bz + nz, bx - nx, Y, bz - nz, ax + nx, Y, az + nz, bx - nx, Y, bz - nz, ax - nx, Y, az - nz);
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, depthTest: false, transparent: true, opacity: 0.85, toneMapped: false }));
+      m.renderOrder = 12;
+      group.add(m);
+    }
+    for (const e of ENTRANCES) lines.push([e.poly.map(([x, z]) => [x, Y, z]), '#12a36b']);
+    for (const c of CROSSINGS) {
+      const [a0, a1] = c.span;
+      const r = c.side === 'n' ? [a0, a1, -59.5, -55.25] : c.side === 's' ? [a0, a1, 55.25, 59.5] : c.side === 'e' ? [80, 84.2, a0, a1] : [-84.2, -80, a0, a1];
+      rect(r, 0.4, 1.4, '#f2c200');
+    }
+    for (const sz of sightZones()) lines.push([[[sz.rect[0], Y, sz.rect[2]], [sz.rect[1], Y, sz.rect[2]], [sz.rect[1], Y, sz.rect[3]], [sz.rect[0], Y, sz.rect[3]]], '#c89a00']);
+    for (const n of Object.values(NODES).filter((q) => q.kind === 'door')) rect([n.at[0] - 0.7, n.at[0] + 0.7, n.at[1] - 0.7, n.at[1] + 0.7], 0.5, 1.5, '#12a36b');
+    const label = (text, x, z, color = '#1f1d18', size = 4.2) => {
+      const c = document.createElement('canvas');
+      const ctx = c.getContext('2d');
+      const font = '600 44px system-ui, sans-serif';
+      ctx.font = font;
+      const w = Math.ceil(ctx.measureText(text).width) + 28;
+      c.width = w; c.height = 64;
+      ctx.font = font;
+      ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fillRect(0, 0, w, 64);
+      ctx.strokeStyle = color; ctx.lineWidth = 5; ctx.strokeRect(2.5, 2.5, w - 5, 59);
+      ctx.fillStyle = color; ctx.textBaseline = 'middle'; ctx.fillText(text, 14, 34);
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, toneMapped: false }));
+      sp.scale.set((size * w) / 64, size, 1);
+      sp.position.set(x, 3, z);
+      sp.renderOrder = 14;
+      group.add(sp);
+    };
+    label('CENTRAL PROMENADE', 40, 5.5, '#f47321');
+    label('GALLERIA', -51, 15.15, '#f47321', 3.6);
+    label('N–S SPINE', -11.25, -30, '#c0392b');
+    label('SPINE (park gate)', 0, 48, '#c0392b', 3.4);
+    label('FOUNTAIN LOOP', 0, 20.5, '#1f8fd6', 3.6);
+    label('PODIUM ARCADE', -28, 38, '#8e5bd6', 3.2);
+    label('RETAIL LINK', -20, 25.4, '#6b4bd6', 3.0);
+    label('OFFICE LINK', 14.5, 41.5, '#6b4bd6', 3.0);
+    label('HOTEL LINK', 14.5, 12.4, '#6b4bd6', 3.0);
+    label('OFFICE WALK', 20.5, 27, '#6b4bd6', 3.0);
+    label('HOTEL FRONTAGE', 28, -6.5, '#6b4bd6', 3.0);
+    label('GARDEN WALK', 71.3, -9, '#6b4bd6', 3.0);
+    label('PASEO CROSS WALKS', -18, -41, '#6b4bd6', 3.0);
+    for (const c of CROSSINGS) {
+      const m = (c.span[0] + c.span[1]) / 2;
+      const [x, z] = c.side === 'n' ? [m, -63.5] : c.side === 's' ? [m, 63.5] : c.side === 'e' ? [89, m] : [-89, m];
+      label(`${c.id} ${c.name}`, x, z, '#9a7400', 2.6);
+    }
   }
 
   if (boxes.length) {

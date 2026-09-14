@@ -34,7 +34,7 @@ export const GLAZE = {
   none: 0, ribbon: 1, residential: 2, water: 3, resPodium: 4,
   office: 5, officePodium: 6, deco: 7, screen: 8, storefront: 9,
   guard: 10, penthouse: 11, decoCentre: 12, garageRecess: 13,
-  perforated: 14, breezeBlock: 15, pavers: 16, bond: 17, rings: 18, officeCrown: 19,
+  perforated: 14, breezeBlock: 15, pavers: 16, bond: 17, rings: 18, officeCrown: 19, promenade: 20,
 };
 
 export function rng(seed) {

@@ -10,7 +10,8 @@ import {
 import { PODIUM_PLAN, PODIUM_PARKING, POOL, SPA } from './residential.js';
 import { OFFICE_GRID, OFFICE_BLOCKS, OFFICE_CORE, OFFICE_PARKING, OFFICE_BASE_RECT, OFFICE_BASE_TOP, OFFICE_PLANTERS, OFFICE_TERRACES, PLANTER } from './office.js';
 import { HOTEL, HOTEL_GROUND, HOTEL_DOORS, HOTEL_FRONT_TOP, HOTEL_CENTRE_TOP, HOTEL_WING_TOP } from './hotel.js';
-import { FOUNTAIN, PARK_PATHS, CAFE_ZONES } from './park.js';
+import { FOUNTAIN } from './park.js';
+import { analyseCirculation } from './circulation.js';
 
 const round = (v, d = 2) => Math.round(v * 10 ** d) / 10 ** d;
 const rectArea = (r) => (r[1] - r[0]) * (r[3] - r[2]);
@@ -43,8 +44,6 @@ const bfs = (nodes, edges, start) => {
 function towerStructure(plan) {
   return plan.meta.towers.map((t) => {
     const body = plan.curved.find((c) => c.name === t.body);
-    const ph = plan.curved.find((c) => c.name === `${t.id}.ph`);
-    const deck = plan.curved.find((c) => c.name === `${t.id}.deck`);
     const suite = t.penthouse;
     const cols = t.columns;
     const issues = [];
@@ -81,29 +80,42 @@ function towerStructure(plan) {
       const a = Math.atan2(z - t.cz, x - t.cx);
       maxCoreSpan = Math.max(maxCoreSpan, Math.hypot(x - t.cx, z - t.cz) - rayRadius(t.cx, t.cz, t.core, a));
     });
-    // penthouse: one enclosed level on the plinth, core inside it, deck cantilever within
-    // the limit; pool and spa basins inside the column ring, clear of core and glass, and
-    // their soffits above the top residential floor's structure
+    // penthouse (plan/penthouse-tall.js | penthouse-short.js): core inside every enclosed level
+    // (private elevator arrival), terrace decks within the cantilever limit, basins supported
+    // (inside the column ring, or over the enclosed floor below within the column line plus a
+    // declared edge-beam allowance), clear of the core and enclosures, never over the
+    // double-height room, and their soffits inside the structural zone they sit in
     const phIssues = [];
-    t.core.forEach(([x, z]) => { if (!insidePlan(x, z, offsetPlan(ph.pts, -0.3))) phIssues.push('core does not fit inside the penthouse'); });
-    const topPlate = body.floorPlans.at(-1);
-    if (!ph.pts.every(([x, z]) => insidePlan(x, z, offsetPlan(topPlate, -0.9)))) phIssues.push('penthouse glass not set back ≥ 0.9 m from the tower edge');
-    deck.pts.forEach(([x, z]) => {
-      const a = Math.atan2(z - t.cz, x - t.cx);
-      maxCant = Math.max(maxCant, Math.hypot(x - t.cx, z - t.cz) - rayRadius(t.cx, t.cz, cols, a));
+    const firstEncl = suite.enclosures[0].poly, topEncl = suite.enclosures.at(-1).poly;
+    t.core.forEach(([x, z]) => {
+      if (!insidePlan(x, z, offsetPlan(firstEncl, -0.3))) phIssues.push('core does not fit inside the penthouse');
+      if (!insidePlan(x, z, offsetPlan(topEncl, -0.3))) phIssues.push('core does not reach the roof pavilion (private elevator arrival)');
     });
+    for (const L of suite.levels) {
+      L.deck.forEach(([x, z]) => {
+        const a = Math.atan2(z - t.cz, x - t.cx);
+        maxCant = Math.max(maxCant, Math.hypot(x - t.cx, z - t.cz) - rayRadius(t.cx, t.cz, cols, a));
+      });
+    }
+    const duplex = suite.type === 'duplex';
     const basinRows = suite.basins.map((b) => {
-      const inRing = b.shell.every(([x, z]) => insidePlan(x, z, offsetPlan(cols, -0.3)));
-      const clearGlass = b.shell.every(([x, z]) => !insidePlan(x, z, offsetPlan(ph.pts, 0.9)));
+      const ring = duplex ? offsetPlan(cols, 0.45) : offsetPlan(cols, b.kind === 'spa' ? 0.65 : -0.3);
+      const inRing = b.shell.every(([x, z]) => insidePlan(x, z, ring));
+      const levelEncl = suite.enclosures.filter((e) => (duplex ? e.y1 > b.deckY + 0.5 && e.y0 < b.deckY + 0.5 : e.y0 <= b.deckY + 0.5 && e.y1 > b.deckY + 0.5));
+      const clearGlass = b.shell.every(([x, z]) => !levelEncl.some((e) => insidePlan(x, z, offsetPlan(e.poly, 0.9))));
       const clearCore = b.shell.every(([x, z]) => !insidePlan(x, z, offsetPlan(t.core, 1.0)));
-      const clearColumns = cols.every(([cx0, cz0]) => b.shell.every(([x, z]) => Math.hypot(x - cx0, z - cz0) > t.columnSize / 2 + 0.3));
-      const aboveRoof = b.soffitY >= t.topY + 0.05;
-      if (!inRing) phIssues.push(`${b.name} basin shell outside the column ring`);
-      if (!clearGlass) phIssues.push(`${b.name} basin within 0.9 m of penthouse glass`);
+      const clearColumns = duplex || cols.every(([cx0, cz0]) => b.shell.every(([x, z]) => Math.hypot(x - cx0, z - cz0) > t.columnSize / 2 + 0.3));
+      const notOverDoubleHeight = !suite.living || b.shell.every(([x, z]) => !insidePlan(x, z, offsetPlan(suite.living, 0.5)));
+      const supported = duplex ? b.shell.every(([x, z]) => insidePlan(x, z, offsetPlan(suite.enclosures[0].poly, 0.5))) : inRing;
+      const aboveRoof = b.soffitY >= b.zoneBase + 0.05;
+      if (!inRing) phIssues.push(`${b.name} basin shell outside the column ring allowance`);
+      if (!clearGlass) phIssues.push(`${b.name} basin within 0.9 m of an enclosure on its level`);
       if (!clearCore) phIssues.push(`${b.name} basin within 1 m of the core`);
       if (!clearColumns) phIssues.push(`${b.name} basin within 0.3 m of a column`);
-      if (!aboveRoof) phIssues.push(`${b.name} basin soffit ${round(b.soffitY, 2)} below the plinth base ${round(t.topY, 2)}`);
-      return { name: b.name, kind: b.kind, integrated: !!b.integrated, depth: b.depth, waterY: round(b.waterY, 2), soffitY: round(b.soffitY, 2), plinthBaseY: round(t.topY, 2), inRing, clearGlass, clearCore, clearColumns, aboveRoof };
+      if (!notOverDoubleHeight) phIssues.push(`${b.name} basin over the double-height room`);
+      if (!supported) phIssues.push(`${b.name} basin not over the enclosed floor below`);
+      if (!aboveRoof) phIssues.push(`${b.name} basin soffit ${round(b.soffitY, 2)} below its structural zone base ${round(b.zoneBase, 2)}`);
+      return { name: b.name, kind: b.kind, level: b.level, support: b.support, depth: b.depth, waterY: round(b.waterY, 2), soffitY: round(b.soffitY, 2), zoneBaseY: round(b.zoneBase, 2), inRing, clearGlass, clearCore, clearColumns, notOverDoubleHeight, supported, aboveRoof };
     });
     issues.push(...phIssues);
     // columns and cores clear of drive aisles, ramp and ground aisles
@@ -125,7 +137,7 @@ function towerStructure(plan) {
       core: t.core, coreArea: round(polygonArea(t.core), 0),
       columnBaseY: 0, columnTopY: round(t.columnTopY, 2),
       transfers: t.transfers.map((tr) => ({ ...tr, outer: undefined, inner: undefined, area: round(polygonArea(tr.outer) - polygonArea(tr.inner), 0) })),
-      penthouse: { deckY: round(suite.deckY, 2), topY: round(suite.phTopY, 2), plinth: suite.plinth, minTerrace: round(suite.minTerrace, 2), poolType: suite.poolType, basins: basinRows, issues: phIssues },
+      penthouse: { type: suite.type, concept: suite.concept, deckY: round(suite.deckY, 2), topY: round(suite.phTopY, 2), roofTopY: round(suite.roofTopY, 2), plinth: suite.plinth, crownDepth: suite.crownDepth, minTerrace: round(suite.minTerrace, 2), poolType: suite.poolType, levels: suite.levels.map((l) => ({ name: l.name, deckY: round(l.D, 2), minTerrace: round(l.minTerrace, 2) })), basins: basinRows, issues: phIssues },
       issues,
     };
   });
@@ -457,41 +469,6 @@ function deckRoutes(plan) {
   return { routes, clearWidth: 1.5, planters: planters.length, plantersWithoutAccess: noAccess, plantersWithoutAccessAt: missing };
 }
 
-function parkRoutes(plan) {
-  const parts = plan.parts.filter((q) => q.y - q.sy / 2 < 0.2 && q.x > -27 && q.x < 23 && q.z > 0 && q.z < 56 && q.color !== 'terrazzo');
-  const obstacles = [
-    ...obstaclesFrom(parts, -0.1, 0.2),
-    { circle: [FOUNTAIN.x, FOUNTAIN.z, FOUNTAIN.basin + FOUNTAIN.coping], bbox: [-9, 9, 19, 37] },
-    ...plan.palms.filter((p) => p.y === 0 && p.x > -27 && p.x < 23 && p.z > 0 && p.z < 56).map((p) => ({ circle: [p.x, p.z, 0.35], bbox: [p.x - 1, p.x + 1, p.z - 1, p.z + 1] })),
-  ];
-  const podium = offsetPlan(PODIUM_PLAN, -3.5);   // storefront line; the arcade is walkable
-  const walkable = (x, z) => !insidePlan(x, z, podium) && !(x > 22 && z > 14) && z > -2;
-  const nodes = [
-    { name: 'Podium retail arcade', at: [-27.5, 20] },
-    { name: 'Hotel entrance canopy', at: [28, 2.8] },
-    { name: 'Office lobby', at: [22.8, 46.0] },
-    { name: 'South street', at: [0, 55] },
-    { name: 'Fountain benches', at: [0, 39.6] },
-    { name: 'Paseo (north)', at: [-24, 1] },
-  ];
-  const routes = gridRoutes({ bounds: [-30, 40, -3, 57], walkable, obstacles, clear: 1.5, nodes, start: nodes[0] });
-  // café seating kept off the through routes
-  const pathRects = PARK_PATHS.map((p) => ({ name: p.name, p }));
-  const cafeParts = plan.parts.filter((q) => q.y < 1.2 && CAFE_ZONES.some((c) => inRect(q.x, q.z, c.rect, 0.01)));
-  let onPath = 0;
-  for (const q of cafeParts) {
-    for (const { p } of pathRects) {
-      const dx = q.x - p.from[0], dz = q.z - p.from[1];
-      const len = Math.hypot(p.to[0] - p.from[0], p.to[1] - p.from[1]);
-      const u = (dx * (p.to[0] - p.from[0]) + dz * (p.to[1] - p.from[1])) / len;
-      const v = Math.abs(-dx * (p.to[1] - p.from[1]) + dz * (p.to[0] - p.from[0])) / len;
-      if (u > 0 && u < len && v < p.width / 2 + 0.3) onPath++;
-    }
-    if (q.x > -26 && q.x < -22) onPath++;   // paseo
-  }
-  return { routes, cafeZones: CAFE_ZONES.length, cafePartsOnRoutes: onPath };
-}
-
 // ---------------------------------------------------------------------------
 // Hotel back of house
 // ---------------------------------------------------------------------------
@@ -549,13 +526,14 @@ export const ASSUMPTIONS = {
 function programMetrics(plan) {
   const towers = plan.meta.towers.map((t) => {
     const body = plan.curved.find((c) => c.name === t.body);
-    const ph = plan.curved.find((c) => c.name === `${t.id}.ph`);
     const floorAreas = body.floorPlans.map(polygonArea);
     const typ = floorAreas.reduce((a, b) => a + b, 0) / floorAreas.length;
-    const gfa = floorAreas.reduce((a, b) => a + b, 0) + polygonArea(ph.pts);
+    // penthouse enclosed area (the double-height room counted once, at its lower level)
+    const phArea = t.penthouse.enclosures.filter((e) => !e.name.startsWith('Double')).reduce((a, e) => a + polygonArea(e.poly), 0);
+    const gfa = floorAreas.reduce((a, b) => a + b, 0) + phArea;
     const coreA = polygonArea(t.core);
     const units = Math.floor(((typ - coreA) * ASSUMPTIONS.residentialEfficiency) / ASSUMPTIONS.unitNSA[t.id]) * t.floors + ASSUMPTIONS.penthouseUnitsPerTower;
-    return { id: t.id, floors: t.floors, penthouseLevels: 1, typicalFloorplate: round(typ, 0), gfa: round(gfa, 0), units };
+    return { id: t.id, floors: t.floors, penthouseLevels: t.penthouse.type === 'duplex' ? 2 : 1, typicalFloorplate: round(typ, 0), gfa: round(gfa, 0), units };
   });
   const bay = ASSUMPTIONS.hotelRoomBay;
   const keys = {
@@ -599,7 +577,7 @@ export function analyseSite(plan) {
     structure: { towers: towerStructure(plan), office: officeStructure() },
     parking: { residential: podiumParking(plan), office: officeParking() },
     deck: deckRoutes(plan),
-    park: parkRoutes(plan),
+    circulation: analyseCirculation(plan),
     hotel: hotelGraph(),
     program: programMetrics(plan),
     cores: cores(plan),

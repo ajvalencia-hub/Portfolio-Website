@@ -29,3 +29,15 @@ header.top,
 @media (max-width: 900px) {
   :root { --concrete-tile-width: 100vw; }
 }
+
+/* Mobile menu: the hamburger button has no fill of its own (the header texture shows
+   through), and the open menu uses exactly the page background's texture and wash
+   instead of a lighter panel with a drop shadow. */
+.nav-toggle {
+  background: transparent;
+}
+
+.mobile-nav {
+  --concrete-wash: 0.20;
+  box-shadow: none;
+}

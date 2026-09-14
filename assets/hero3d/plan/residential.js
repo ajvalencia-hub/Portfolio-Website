@@ -11,9 +11,11 @@
 //   • tower columns land on the podium's parking module lines (aisle edges and
 //     back-to-back stall lines), so they come down through the garage without
 //     transfers and without entering drive aisles
-//   • the only declared transfer is the upper penthouse perimeter bearing on the
-//     lower penthouse roof (listed in `transfers` with its conceptual allowance)
-import { penthouseSuite } from './penthouse.js';
+//   • penthouses come from separate generators (plan/penthouse-tall.js, penthouse-short.js)
+//     that read the top floorplate, column ring, core and ribbon rotation but never alter
+//     the typical floors; their declared transfer zones are listed in `transfers`
+import { tallPenthouse } from './penthouse-tall.js';
+import { shortPenthouse } from './penthouse-short.js';
 import { fixtureKit } from './fixtures.js';
 import { poolSpecs as sharedPool, spaSpecs as sharedSpa } from './pools.js';
 import {
@@ -50,14 +52,17 @@ export const PODIUM_PARKING = {
     { x: [-52.0, -46.6], aisle: ['aisle E north', 'aisle E south'], side: 'w' },
     { x: [-39.8, -34.4], aisle: ['aisle E north', 'aisle E south'], side: 'e' },
   ],
-  // stacked switchback ramp between the towers: two one-way lanes, 30 m runs
+  // stacked switchback ramp between the towers: two one-way lanes, 30 m runs. Shifted 2.8 m
+  // north of the podium centre so the public galleria (below) passes under the parking
+  // decks south of the ramp's turnaround with no vehicle crossing
   ramp: {
-    rect: [-46.6, -37.6, -15.0, 15.0], lanes: [[-46.6, -42.4], [-41.8, -37.6]], run: 30,
+    rect: [-46.6, -37.6, -17.8, 12.2], lanes: [[-46.6, -42.4], [-41.8, -37.6]], run: 30,
     // each level change uses two runs (up the west lane, back down the east lane side)
     rises: [GROUND, FLOOR], landing: 'north', connects: 'aisle E north',
   },
   columnLines: [-70.65, -65.25, -57.55, -52.3, -47.05, -42.1, -39.35, -34.0],
-  columnStep: 8.4, columnOrigin: -1.0,
+  // podium column rows at z = 3.8 ± 8.4 k: the rows at 12.2 and 20.6 frame the galleria
+  columnStep: 8.4, columnOrigin: 3.8,
   entry: { portal: [-64.6, -58.2], z: -1 - 50 + ARCADE, aisle: 'aisle W' },
   // ground floor: retail liner, lobbies, services and the approach to the ramp
   ground: {
@@ -73,6 +78,9 @@ export const PODIUM_PARKING = {
       { name: 'Tower 2 lobby (south entrance)', use: 'lobby', rect: [-55.5, -46.5, 31.5, 45.5] },
       { name: 'Electrical / water / pool plant', use: 'plant', rect: [-70.0, -58.5, -12.0, 10.0] },
       { name: 'Bicycle + resident storage', use: 'plant', rect: [-56.0, -48.5, -12.0, -4.0] },
+      // public galleria through the ground floor (east-west promenade), lined with shopfronts
+      { name: 'Galleria (public passage)', use: 'public', rect: [-76.0, -26.0, 12.9, 17.4] },
+      { name: 'Tower 2 lobby (galleria entrance)', use: 'lobby', rect: [-56.0, -47.5, 17.4, 24.3] },
     ],
   },
   // garage stair / lift cores that reach the amenity deck
@@ -102,14 +110,13 @@ const TOWER1 = {
   minDepth: 0.9,
   // the ribbon outline has stronger lobes than the floorplate, so its turn reads clearly
   ribbon: (t, g, eMax, shape, tw) => polarRadius({ ...shape, R: shape.R + 1.9, a3: 0.2 }, t - tw * D2R),
-  // penthouse: crescent lap pool on the west-south-west (toward the hero view), a separate spa
-  // beyond its west end, the roof sweeping out over a south lounge
-  penthouse: { poolAngle: 150, recess: [1.4, 8.0, 100], poolType: 'crescent', spa: 'separate', spaSide: 1, shade: 'overhang', shadeAngle: 80, deckEdge: 2.4,
-    layout: [
-      { type: 'loungers', n: 4, at: 150 }, { type: 'living', at: 80 }, { type: 'daybeds', at: 112 },
-      { type: 'dining', at: 218, pergola: true }, { type: 'bar', at: 30, desktopOnly: true }, { type: 'palms', at: [96, 250, 330] },
-      { type: 'planters', at: [55, 180, 275, 5] },
-    ] },
+  // penthouse: "Sky Villa" duplex (plan/penthouse-tall.js) — angles are plan degrees about the
+  // tower centre (90° = south, 180° = west); the principal view is south-west
+  penthouse: {
+    generator: 'tall', living: [104, 150], pool: [164, 216], room: [28, 98], mech: [236, 318],
+    canopy: [20, 104], canopyPosts: [30, 64, 97], pit: 46, dining: 80, kitchen: 60, spaChairs: 240,
+    trees: [262, 334], planters: [252, 290, 352, 16], bedroom: 318, screens: [292, 350],
+  },
   timing: [0.370, 0.104],
 };
 
@@ -121,14 +128,11 @@ const TOWER2 = {
   core: { w: 8.0, d: 7.0 },
   minDepth: 0.9,
   ribbon: (t, g, eMax, shape, tw) => eMax + 0.9 + 2.0 * (0.5 + 0.5 * Math.sin(2 * (t - (shape.p2 + tw) * D2R) + g * 0.55)),
-  // penthouse: freeform oval pool on the west with a raised spa integrated at its southern
-  // end, dining under a white pergola on the south terrace
-  penthouse: { poolAngle: 190, recess: [1.3, 7.2, 92], poolType: 'oval', spa: 'integrated', spaSide: -1, shade: 'pergola', shadeAngle: 245, deckEdge: 2.2,
-    layout: [
-      { type: 'loungers', n: 4, at: 196 }, { type: 'living', at: 135 }, { type: 'dining', at: 245, pergola: true },
-      { type: 'bar', at: 330, desktopOnly: true }, { type: 'palms', at: [118, 275, 20] },
-      { type: 'planters', at: [95, 160, 300, 50] },
-    ] },
+  // penthouse: "Garden Pavilion" full-floor residence (plan/penthouse-short.js)
+  penthouse: {
+    generator: 'short', broad: 178, recess: 5.2, overhang: 100, gardenRoom: 30, mech: [238, 298], pool: 184,
+    windbreaks: [18, 312], privateGarden: 336, roofTree: 330, roofPlanters: [0, 66, 102, 312],
+  },
   timing: [0.380, 0.090],
 };
 
@@ -245,8 +249,10 @@ function buildTower(cfg, N, tier) {
   const topY = PODIUM_TOP + floors * FLOOR;
   const top = enc[floors - 1];
   const t0 = cfg.timing[0] + cfg.timing[1];
-  const suite = penthouseSuite({
-    id, cx, cz, N, th, top, colR, columns, core, topY, bodyName, t0, maxCantilever: MAX_CANTILEVER,
+  const gen = cfg.penthouse.generator === 'tall' ? tallPenthouse : shortPenthouse;
+  const suite = gen({
+    id, cx, cz, N, th, top, colR, columns, core, topY, bodyName, t0, maxCantilever: MAX_CANTILEVER, floors,
+    ribbon: (t, g, eMax = 0) => cfg.ribbon(t, g, eMax, shape, twist(g)),
   }, cfg.penthouse, tier);
   specs.push(...suite.specs);
   return {
@@ -254,8 +260,9 @@ function buildTower(cfg, N, tier) {
     penthouse: suite,
     meta: {
       id, cx, cz, N, floors, topY, body: bodyName, core, columns, columnSize: COLUMN,
-      // perimeter columns and core stop at the underside of the penthouse plinth
-      columnTopY: topY, coreTopY: suite.meta.phTopY,
+      // perimeter columns stop at the plinth (T2) or continue through PH1 to the crown (T1);
+      // the core rises to the private elevator arrival on the roof
+      columnTopY: cfg.penthouse.generator === 'tall' ? suite.meta.phTopY : topY, coreTopY: suite.meta.roofTopY,
       maxCantilever: MAX_CANTILEVER,
       penthouse: suite.meta,
       transfers: [suite.transfer],
@@ -450,6 +457,7 @@ export function residentialParts(tier, towers, rand) {
   const nearest = (samples, test, x, z) => samples.filter(test).reduce((a, b) => (Math.hypot(b.x - x, b.z - z) < Math.hypot(a.x - x, a.z - z) ? b : a));
   for (const s of arcSamples(PODIUM_PLAN, 8.4)) {
     if (s.nz < -0.5 && s.x > -68 && s.x < -28) continue;  // keep the garage and loading frontage clear
+    if (Math.abs(s.nx) > 0.9 && Math.abs(s.z - 15.15) < 3.4) continue;   // galleria mouths
     column(s.x - s.nx * 1.0, s.z - s.nz * 1.0, 0, GROUND, 0.38);
   }
   const podiumFine = arcSamples(PODIUM_PLAN, 0.5);
@@ -465,6 +473,18 @@ export function residentialParts(tier, towers, rand) {
     alongFacade(b, 0.25, GROUND + 0.5, 5.4, b.width - 1.4, 0.3, 'frame');
     alongFacade(b, 0.45, GROUND + 3.0, 0.9, b.width - 3.2, 0.12, 'charcoal');
     alongFacade(b, 0.45, GROUND + 2.86, 0.06, b.width - 3.4, 0.08, 'lamp', C);
+  }
+
+  // galleria portals on both storefront lines: a tall dark opening in a white frame with a
+  // warm soffit light and a blank sign plaque (the passage runs 4.5 m wide under the decks)
+  const storeFine = arcSamples(offsetPlan(PODIUM_PLAN, -ARCADE), 0.25);
+  for (const side of [-1, 1]) {
+    const s = nearest(storeFine, (q) => q.nx * side > 0.9, side > 0 ? -29.5 : -72.5, 15.15);
+    alongFacade(s, 0.05, 0, 4.4, 4.5, 0.3, 'void');
+    for (const u of [-1, 1]) add('box', s.x - s.nx * 0.1 + -s.nz * u * 2.6, 2.2, s.z - s.nz * 0.1 + s.nx * u * 2.6, 0.4, 4.4, 0.5, 'frame', 'solid', Math.atan2(-s.nx, -s.nz));
+    alongFacade(s, 0.33, 4.4, 0.56, 5.3, 0.56, 'frame');
+    alongFacade(s, 0.4, 4.32, 0.05, 4.2, 0.25, 'lamp', C);
+    alongFacade(s, 0.62, 4.5, 0.36, 1.4, 0.04, 'charcoal', C);
   }
 
   // service doors sit on the storefront line of the curved base (flush door panels)

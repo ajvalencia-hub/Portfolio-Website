@@ -55,6 +55,11 @@
       "name": "Revision: finished-model clean-up, hotel garden, penthouse layout, vehicle entrances, park sculpture",
       "settings": "audit desktop + mobile tiers; headless SwiftShader renders at S 0.45 and 0.92 (hero, park, hotel garden, both penthouses, residential and office entrances, mobile 430 px); in-app browser real GPU at S ≈ 0.88",
       "result": "161/161 scripted checks pass, including the new penthouse layout check (every group inside the glass guard, off the glass walk and the basins, no clashes) and the coplanar scan; construction grid and linework visible during the build (S 0.45) and absent on the finished model (S 0.92); real GPU: 118 draw calls, ≈ 242,000 triangles, < 1 ms CPU per frame, no new runtime errors. Idle-frame count not re-measured: the pane was receiving pointer movement (parallax) during the check."
+    },
+    {
+      "name": "Revision: pedestrian circulation network and penthouse redesign",
+      "settings": "audit desktop + mobile tiers (175 checks incl. 12 circulation checks and the rewritten penthouse checks); headless SwiftShader renders: hero, top-down with ?heroPlan=circulation overlay, promenade, both penthouses; in-app browser real GPU desktop 1350 × 910 and 390-class mobile emulation 375 × 812",
+      "result": "175/175 pass; 26/26 destinations reachable from the public sidewalks, 0 dead ends, 0 clear-zone obstructions, 0 vehicle conflicts, 7 raised continuous driveway crossings, coplanar scan clean. Real GPU desktop: 132 draw calls, ≈ 244,000 triangles, ≈ 2 ms CPU/frame, idle 1 frame in 3 s after load. Mobile emulation: 120 draw calls (was 112), ≈ 166,000 triangles (was ≈ 147,000), ≈ 1.8 ms CPU/frame on the desktop GPU, 0 idle frames, no runtime errors. Mobile menu: toggle background transparent, menu panel uses the page texture and wash with no shadow (verified by computed style and screenshot at 375 px)."
     }
   ],
   "notPerformed": [

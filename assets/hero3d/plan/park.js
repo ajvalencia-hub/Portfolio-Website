@@ -1,99 +1,104 @@
-// Public park between the podium, the hotel and the office: a white twisting sculpture
-// rising from a reflecting pool as the focal point, a paved gathering circle, radial paths to the
-// retail arcade, hotel entrance, office lobby and streets, lawns with shade trees,
-// palms and layered planting in the sectors between the paths, benches around the
-// fountain, and café seating beside the ground-floor frontages (kept off the
-// through routes). Open on all sides — distinct from the private residential deck
-// and hotel pool court.
+// Public park between the podium, the hotel and the office, organised around the
+// fountain plaza (plan/pedestrian.js): a continuous paved ring around a white twisting
+// sculpture in a reflecting pool, entered from exactly five directions — the spine from
+// the south gate, the spine from the central crossing, and secondary links to the podium
+// retail arcade, the office lobby and the hotel entrance. Lawns fill the sectors between
+// those links (no paths into beds, no leftover triangles), with planting beds on the
+// outer edges, shade and flowering trees, palm pairs marking each mouth, a bench ring
+// facing the fountain and lanterns between the benches. Café seating stays in the
+// furnishing zones beside the podium arcade and the office walk.
 import { RES, GLAZE, D2R, circlePlan, roundedRectPlan, rayRadius, insidePlan, partsKit, polarRadius } from './core.js';
 import { placeTrees } from './planting.js';
+import { PLAZA_R, LAWN_TOP, FOUNTAIN_CENTRE, SURFACE, ROUTES, routeCentreline, onRoute, inFurnishing } from './pedestrian.js';
 
-export const FOUNTAIN = { x: 0, z: 28, basin: 7.5, coping: 0.7, copingH: 0.5, waterY: 0.36 };
-export const PLAZA_DISC = 12.8;
+export const FOUNTAIN = { x: FOUNTAIN_CENTRE[0], z: FOUNTAIN_CENTRE[1], basin: 7.5, coping: 0.7, copingH: 0.5, waterY: 0.36 };
+export const PLAZA_DISC = PLAZA_R;
 // Sculpture: an original abstract piece in the development's own language — a stack of
 // thin white plates in the rounded-triangle plan of tower 1, each turned a few degrees so
 // the stack twists like the towers and swells and narrows like the garage wave screen,
 // threaded on a slender white core. It stands on a stone plinth in a calm reflecting pool
 // (no jets), lit from below by warm uplights set around the plinth.
-export const SCULPTURE = { plinthR: 1.7, plinthH: 0.55, coreR: 0.32, plates: 13, gap: 0.82, thick: 0.1, twist: 13, lobes: { a3: 0.24, p3: -90, a1: 0.08 } };                          // paved gathering circle
-export const LAWN_BOUNDARY = roundedRectPlan(-15.8, 8.6, 15.8, 50.6, 3);   // clear of the café zones
-const LAWN_INNER = PLAZA_DISC + 0.6;
-const PATH_CLEAR = 2.2;                                  // lawn edge to path centreline
+export const SCULPTURE = { plinthR: 1.7, plinthH: 0.55, coreR: 0.32, plates: 13, gap: 0.82, thick: 0.1, twist: 13, lobes: { a3: 0.24, p3: -90, a1: 0.08 } };
+// lawns stop 0.8 m short of the promenade (following its curve on the north-west), the
+// office walk and the café zones
+export const LAWN_BOUNDARY = (() => {
+  const P = ROUTES.find((r) => r.id === 'P1');
+  const c = routeCentreline(P);
+  const edge = [];
+  for (let i = 1; i < c.length - 1; i++) {
+    const [ax, az] = c[i - 1], [bx, bz] = c[i + 1];
+    const l = Math.hypot(bx - ax, bz - az) || 1;
+    const d = P.width(c[i][0]) / 2 + 0.8;
+    const q = [c[i][0] + (-(bz - az) / l) * d, c[i][1] + ((bx - ax) / l) * d];
+    if (q[0] > -21.4 && q[0] < 14.2) edge.push([q[0], Math.max(9.2, q[1])]);
+  }
+  return [[-21.4, 54.6], [-21.4, edge[0][1]], ...edge, [14.2, 9.2], [16.7, 11.7], [16.7, 54.6]];
+})();
+const LAWN_INNER = PLAZA_DISC + 0.5;
 const F = FOUNTAIN;
 
-// radial paths: [end x, end z, what they connect]
-export const PARK_PATHS = [
-  { to: [-19.5, 28.0], name: 'retail arcade (podium)' },
-  { to: [0.0, 3.0], name: 'lane + hotel restaurant' },
-  { to: [19.5, 8.0], name: 'hotel entrance forecourt' },
-  { to: [19.5, 46.0], name: 'office lobby' },
-  { to: [0.0, 53.0], name: 'south street' },
-  { to: [-19.0, 50.0], name: 'podium south lobby corner' },
-].map((p) => {
-  const a = Math.atan2(p.to[1] - F.z, p.to[0] - F.x);
-  const from = [F.x + Math.cos(a) * (PLAZA_DISC - 0.3), F.z + Math.sin(a) * (PLAZA_DISC - 0.3)];
-  return { ...p, angle: a, from, width: 3.2 };
+// the five plaza connections: plan angle and the half-corridor kept clear of lawn
+export const PLAZA_LINKS = [
+  { deg: -90, clear: 3.05, route: 'S2' },
+  { deg: -50, clear: 2.1, route: 'C3' },
+  { deg: 35, clear: 2.1, route: 'C2' },
+  { deg: 90, clear: 3.05, route: 'S1' },
+  { deg: 180, clear: 2.1, route: 'C1' },
+].map((l) => ({ ...l, a: l.deg * D2R }));
+
+// kept for the linework and older tools: the plaza connections as from → to segments
+export const PARK_PATHS = PLAZA_LINKS.map((l) => ({
+  name: l.route, angle: l.a, width: l.clear * 2 - 1.2,
+  from: [F.x + Math.cos(l.a) * (PLAZA_DISC - 0.3), F.z + Math.sin(l.a) * (PLAZA_DISC - 0.3)],
+  to: [F.x + Math.cos(l.a) * 26, F.z + Math.sin(l.a) * 26],
+}));
+export const CAFE_ZONES = [];   // café seating is defined in plan/pedestrian.js (FURNISHING)
+
+const SECTORS = PLAZA_LINKS.map((l, k) => {
+  const n = PLAZA_LINKS[(k + 1) % PLAZA_LINKS.length];
+  let b = n.a;
+  if (b <= l.a) b += Math.PI * 2;
+  return { a0: l.a, a1: b, c0: l.clear, c1: n.clear, mid: (l.a + b) / 2, span: b - l.a };
 });
-
-// café seating zones (occupied), each beside an implied frontage
-export const CAFE_ZONES = [
-  { name: 'Podium café (retail arcade)', rect: [-21.8, -16.4, 9.6, 24.8] },
-  { name: 'Hotel restaurant terrace', rect: [3.0, 16.6, 1.6, 7.6] },
-  { name: 'Hotel lobby café', rect: [40.0, 56.0, 1.6, 7.6] },
-  { name: 'Office coffee bar', rect: [16.2, 19.4, 29.6, 40.6] },
-];
-
-// sectors between consecutive paths
-const SECTORS = (() => {
-  const angles = PARK_PATHS.map((p) => p.angle).sort((a, b) => a - b);
-  return angles.map((a, k) => {
-    let b = angles[(k + 1) % angles.length];
-    if (b <= a) b += Math.PI * 2;
-    return { a0: a, a1: b, mid: (a + b) / 2, span: b - a };
-  });
-})();
 const boundaryR = (t) => rayRadius(F.x, F.z, LAWN_BOUNDARY, t);
+const at = (r, t) => [F.x + r * Math.cos(t), F.z + r * Math.sin(t)];
 
-// lawn in a sector: inner arc, straight edges 2.2 m off each path, outer park boundary
+// lawn in a sector: inner arc, edges parallel to each link corridor, outer park boundary
 function lawnPolygon(s) {
-  const at = (r, t) => [F.x + r * Math.cos(t), F.z + Math.sin(t) * r];
   const pts = [];
   const n = 10;
-  const d = (r) => Math.asin(Math.min(0.95, PATH_CLEAR / r));
-  const edgeLen = (t) => boundaryR(t);
-  const tA = s.a0 + d(LAWN_INNER), tB = s.a1 - d(LAWN_INNER);
+  const dA = (r) => Math.asin(Math.min(0.95, s.c0 / r)), dB = (r) => Math.asin(Math.min(0.95, s.c1 / r));
+  const tA = s.a0 + dA(LAWN_INNER), tB = s.a1 - dB(LAWN_INNER);
   if (tB <= tA) return null;
-  for (let k = 0; k <= n; k++) pts.push(at(LAWN_INNER, tA + ((tB - tA) * k) / n));                // inner arc
-  const outerB = edgeLen(s.a1 - d(18));
-  for (let k = 1; k <= n; k++) { const r = LAWN_INNER + ((outerB - LAWN_INNER) * k) / n; pts.push(at(r, s.a1 - d(r))); }
-  const tB2 = s.a1 - d(outerB), tA2 = s.a0 + d(edgeLen(s.a0 + d(18)));
-  for (let k = 1; k < 2 * n; k++) { const t = tB2 + ((tA2 - tB2) * k) / (2 * n); pts.push(at(boundaryR(t) - 0.05, t)); }  // outer boundary
-  const outerA = edgeLen(s.a0 + d(18));
-  for (let k = n; k >= 1; k--) { const r = LAWN_INNER + ((outerA - LAWN_INNER) * k) / n; pts.push(at(r, s.a0 + d(r))); }
+  for (let k = 0; k <= n; k++) pts.push(at(LAWN_INNER, tA + ((tB - tA) * k) / n));
+  const outerB = boundaryR(s.a1 - dB(18));
+  for (let k = 1; k <= n; k++) { const r = LAWN_INNER + ((outerB - LAWN_INNER) * k) / n; pts.push(at(r, s.a1 - dB(r))); }
+  const tB2 = s.a1 - dB(outerB), tA2 = s.a0 + dA(boundaryR(s.a0 + dA(18)));
+  for (let k = 1; k < 2 * n; k++) { const t = tB2 + ((tA2 - tB2) * k) / (2 * n); pts.push(at(boundaryR(t) - 0.05, t)); }
+  const outerA = boundaryR(s.a0 + dA(18));
+  for (let k = n; k >= 1; k--) { const r = LAWN_INNER + ((outerA - LAWN_INNER) * k) / n; pts.push(at(r, s.a0 + dA(r))); }
   return pts;
 }
+const LAWNS = SECTORS.map(lawnPolygon).filter(Boolean);
 
-// palms mark the path mouths and lawn corners; their crowns are reserved before trees are placed
-const PALM_SPOTS = [[-17.2, 24.6], [-17.2, 31.4], [-3.0, 50.6], [3.0, 50.6], [13.4, 12.6], [-13.4, 12.6], [13.6, 47.2]];
-const PALM_RESERVE = PALM_SPOTS.map(([x, z]) => ({ x, z, r: 2.4, top: 14 }));
+// palm pairs mark the plaza mouths and the park gates; crowns are reserved before trees
+const PALM_SPOTS = [[-3.9, 50.2], [3.9, 50.2], [-4.3, 10.9], [4.3, 10.9], [-17.4, 24.3], [-17.4, 31.7], [14.4, 13.4], [15.6, 32.2], [9.8, 44.6]];
 
-// Planting beds along the outer edge of each lawn sector, clear of the radial paths.
+// planting beds along the outer edge of each lawn sector, clear of the link corridors
 const BED_TOP = 0.34;
 const BED_POLYS = SECTORS.map((s) => {
-  const clr = (r) => Math.asin(Math.min(0.95, (PATH_CLEAR + 0.3) / r));
-  const outer = (t) => boundaryR(t) - 0.45, inner = (t) => Math.max(LAWN_INNER + 1.4, boundaryR(t) - 2.6);
-  const tA = s.a0 + clr(boundaryR(s.a0 + 0.3)), tB = s.a1 - clr(boundaryR(s.a1 - 0.3));
+  const cA = (r) => Math.asin(Math.min(0.95, (s.c0 + 0.3) / r)), cB = (r) => Math.asin(Math.min(0.95, (s.c1 + 0.3) / r));
+  const outer = (t) => boundaryR(t) - 0.45, inner = (t) => Math.max(LAWN_INNER + 1.4, boundaryR(t) - 2.4);
+  const tA = s.a0 + cA(boundaryR(s.a0 + 0.3)), tB = s.a1 - cB(boundaryR(s.a1 - 0.3));
   if (tB - tA < 0.2 || boundaryR(s.mid) < LAWN_INNER + 2.4) return null;
-  const at = (r, t) => [F.x + r * Math.cos(t), F.z + r * Math.sin(t)];
   const n = 18;
   const ts = Array.from({ length: n + 1 }, (_, i) => tA + ((tB - tA) * i) / n)
-    .map((t) => [t, Math.max(t, s.a0 + clr(outer(t))), Math.min(t, s.a1 - clr(outer(t)))]).map(([t, lo, hi]) => Math.min(Math.max(t, lo), hi));
+    .map((t) => Math.min(Math.max(t, s.a0 + cA(outer(t))), s.a1 - cB(outer(t))));
   const pts = [...ts.map((t) => at(outer(t), t)), ...ts.slice().reverse().map((t) => at(inner(t), t))];
   const width = (t) => outer(t) - inner(t);
   if (width(s.mid) < 0.9) return null;
   return {
     pts,
-    // shrub stations in two staggered rows along the bed
     stations: (step) => {
       const out = [];
       for (const [row, f] of [[0, 0.3], [1, 0.72]]) {
@@ -102,8 +107,7 @@ const BED_POLYS = SECTORS.map((s) => {
         const cnt = Math.max(2, Math.round(arc / step));
         for (let i = 0; i < cnt; i++) {
           const t = tA + ((tB - tA) * (i + 0.5 * row + 0.25)) / cnt;
-          if (t > tB) continue;
-          out.push([...at(rMid(t), t), row]);
+          if (t <= tB) out.push([...at(rMid(t), t), row]);
         }
       }
       return out;
@@ -137,21 +141,22 @@ function sculptureSpec(tier, ctx) {
 export function parkSpecs(tier) {
   const seg = tier.name === 'mobile' ? 48 : 72;
   const ctx = { module: RES, parent: null, start: 0.655, dur: 0.01, wire: false, phase: 'context' };
-  const lawns = SECTORS.map(lawnPolygon).filter(Boolean).map((pts, k) => ({ ...ctx, name: `P.lawn${k}`, type: 'prism', kind: 'lawn', glaze: GLAZE.none, y0: 0, h: 0.22, pts }));
   return [
-    { ...ctx, name: 'P.disc', type: 'prism', kind: 'terrazzo', glaze: GLAZE.rings, module: [1.6, 1.8], ramp: [F.x, F.z, 0, 0], y0: 0, h: 0.08, pts: circlePlan(F.x, F.z, PLAZA_DISC, seg) },
-    ...lawns,
-    ...BED_POLYS.map((b, k) => ({ ...ctx, name: `P.bed${k}`, type: 'prism', kind: 'bed', glaze: GLAZE.none, y0: 0, h: BED_TOP, pts: b.pts })),
+    { ...ctx, name: 'P.disc', type: 'prism', kind: SURFACE.plaza.kind, glaze: SURFACE.plaza.glaze, module: SURFACE.plaza.module, ramp: [F.x, F.z, 0, 0], y0: 0, h: SURFACE.plaza.top, pts: circlePlan(F.x, F.z, PLAZA_DISC, seg) },
+    // lawns and beds: one merged mesh each
+    { ...ctx, name: 'P.lawns', type: 'prisms', kind: 'lawn', glaze: GLAZE.none, y0: 0, h: LAWN_TOP, parts: LAWNS.map((pts, k) => ({ pts, owner: `lawn${k}` })) },
+    { ...ctx, name: 'P.beds', type: 'prisms', kind: 'bed', glaze: GLAZE.none, y0: 0, h: BED_TOP, parts: BED_POLYS.map((b, k) => ({ pts: b.pts, owner: `bed${k}` })) },
     { ...ctx, name: 'P.coping', type: 'ring', kind: 'coping', glaze: GLAZE.none, y0: 0, h: F.copingH, pts: circlePlan(F.x, F.z, F.basin + F.coping, seg), inner: circlePlan(F.x, F.z, F.basin, seg) },
     { ...ctx, name: 'P.water', type: 'prism', kind: 'pool', glaze: GLAZE.water, y0: 0, h: F.waterY, pts: circlePlan(F.x, F.z, F.basin, seg), ramp: [F.x, F.z, 0, 1] },
     sculptureSpec(tier, ctx),
   ];
 }
 
-export function parkParts(tier, rand) {
+// poles: lights, umbrellas, benches and bike stands from plan/pedestrian.js
+export function parkParts(tier, rand, poles = []) {
   const out = [];
   const K = partsKit(out);
-  const { add, column, oriented, umbrella, cafe, bench } = K;
+  const { add, column, bench } = K;
   const C = 'context';
   const full = tier.name !== 'mobile';
   const trees = [];
@@ -161,72 +166,31 @@ export function parkParts(tier, rand) {
   // uplights set into it around the core
   column(F.x, F.z, 0, SCULPTURE.plinthH - 0.08, SCULPTURE.plinthR, 'stone', C);
   column(F.x, F.z, SCULPTURE.plinthH - 0.08, 0.08, SCULPTURE.plinthR + 0.12, 'coping', C);
-  const lights = full ? 8 : 4;
-  for (let k = 0; k < lights; k++) {
-    const a = (k / lights) * Math.PI * 2 + 0.2;
+  const uplights = full ? 8 : 4;
+  for (let k = 0; k < uplights; k++) {
+    const a = (k / uplights) * Math.PI * 2 + 0.2;
     add('cyl', F.x + Math.cos(a) * 1.05, SCULPTURE.plinthH + 0.03, F.z + Math.sin(a) * 1.05, 0.22, 0.06, 0.22, 'lamp', C);
   }
 
-  // radial paths (paving strips) from the gathering circle
-  for (const p of PARK_PATHS) {
-    const len = Math.hypot(p.to[0] - p.from[0], p.to[1] - p.from[1]);
-    oriented((p.from[0] + p.to[0]) / 2, (p.from[1] + p.to[1]) / 2, 0, 0.045, len, p.width, p.angle, 'terrazzo');   // tucks under the disc (0.08) and the walks (0.07)
-  }
-
-  // benches around the fountain on the gathering circle, facing it
+  // bench ring on the plaza's outer furnishing band, facing the fountain, never across a link
+  const seats = [];
+  const ringR = PLAZA_DISC - 0.8;
   for (const s of SECTORS) {
-    const n = s.span > 1.3 ? 2 : 1;
+    const margin = (c) => Math.asin(Math.min(0.95, (c + 0.6) / ringR));
+    const t0 = s.a0 + margin(s.c0), t1 = s.a1 - margin(s.c1);
+    const span = t1 - t0;
+    if (span <= 0.2) continue;
+    const n = Math.max(1, Math.min(3, Math.floor((span * ringR) / 6.5)));
     for (let j = 0; j < n; j++) {
-      const a = s.a0 + (s.span * (j + 1)) / (n + 1);
-      bench(F.x + Math.cos(a) * 10.2, F.z + Math.sin(a) * 10.2, 0, 3.0, a + Math.PI / 2);
-    }
-  }
-
-  // café seating beside the frontages (umbrellas sized to the table groups)
-  const cafes = full ? 1 : 2;   // mobile: every other table
-  let n = 0;
-  const umbrellas = [];
-  const shade = (x, z, size) => { umbrella(x, z, 0, size); umbrellas.push({ x, z, r: size / 2, top: 3.1 }); };
-  for (let z = 10.6; z <= 24.2; z += 2.7) for (const x of [-20.5, -17.7]) if (n++ % cafes === 0) cafe(x, z, 0, 'x');
-  shade(-19.1, 13.3, 3.0); shade(-19.1, 18.7, 3.0); shade(-19.1, 24.1, 3.0);
-  for (const x of [4.2, 7.6, 11.0, 14.4]) for (const z of [3.0, 6.2]) if (n++ % cafes === 0) cafe(x, z, 0, 'x');
-  shade(5.9, 4.6, 3.0); shade(12.7, 4.6, 3.0);
-  for (const x of [41.6, 45.0, 48.4, 51.8, 55.0]) for (const z of [3.0, 6.2]) if (n++ % cafes === 0) cafe(x, z, 0, 'x');
-  shade(43.3, 4.6, 3.0); shade(50.1, 4.6, 3.0);
-  for (const z of [30.6, 33.3, 36.0, 38.7]) if (n++ % cafes === 0) cafe(17.8, z, 0, 'z');
-  shade(17.8, 32.0, 2.6); shade(17.8, 37.4, 2.6);
-
-  // low path lights along the radial paths (alternating sides) and benches facing the lawns
-  const poles = [...umbrellas];
-  const pathDist = (x, z, p) => {
-    const L = Math.hypot(p.to[0] - p.from[0], p.to[1] - p.from[1]);
-    const u = ((x - p.from[0]) * (p.to[0] - p.from[0]) + (z - p.from[1]) * (p.to[1] - p.from[1])) / L;
-    const v = Math.abs(-(x - p.from[0]) * (p.to[1] - p.from[1]) + (z - p.from[1]) * (p.to[0] - p.from[0])) / L;
-    return u > -1 && u < L + 1 ? v : Infinity;
-  };
-  for (const p of PARK_PATHS) {
-    const L = Math.hypot(p.to[0] - p.from[0], p.to[1] - p.from[1]);
-    const ux = (p.to[0] - p.from[0]) / L, uz = (p.to[1] - p.from[1]) / L;
-    let side = 1;
-    for (let d = 2.5; d < L - 1.0; d += full ? 4.5 : 9) {
-      const off = p.width / 2 + 0.35;
-      const x = p.from[0] + ux * d - uz * off * side, z = p.from[1] + uz * d + ux * off * side;
-      if (Math.hypot(x - F.x, z - F.z) > PLAZA_DISC + 0.5 && Math.abs(x) < 19 && z < 53 && z > 3.5) { K.deckLight(x, z, 0.05, 0.85); poles.push({ x, z, r: 0.1, top: 1.0 }); }
-      side = -side;
-    }
-    if (L > 10) {
-      const d = L * 0.55, off = p.width / 2 + 0.75;
-      const x = p.from[0] + ux * d + uz * off, z = p.from[1] + uz * d - ux * off;
-      if (Math.abs(x) < 15 && z > 9 && z < 50) bench(x, z, 0.22, 2.2, p.angle, 'frame');
+      const a = t0 + (span * (j + 0.5)) / n;
+      const [x, z] = at(ringR, a);
+      if (poles.some((p) => Math.hypot(p.x - x, p.z - z) < 1.8)) continue;
+      bench(x, z, SURFACE.plaza.top, 2.6, a + Math.PI / 2);
+      seats.push({ x, z, r: 1.3, top: 0.5 });
     }
   }
 
   // --- layered tropical planting ---------------------------------------------------------
-  // candidates per sector: one or two large shade trees in the widest part, understory
-  // trees near the gathering circle (a few flowering), a broad flowering accent in the
-  // two widest sectors; accepted only where canopies clear each other, the lights and the
-  // café umbrellas (plan/planting.js). Controlled randomisation varies size and species.
-  const candidates = [];
   const edgeDist = (x, z, poly) => {
     let best = Infinity;
     for (let i = 0; i < poly.length; i++) {
@@ -237,38 +201,33 @@ export function parkParts(tier, rand) {
     }
     return best;
   };
-  SECTORS.map(lawnPolygon).forEach((poly) => {
-    if (!poly) return;
+  // palms first (trunks ≥ 0.8 m clear of every route), then trees clear of palms, poles and routes
+  PALM_SPOTS.forEach(([x, z], k) => {
+    if (onRoute(x, z, 0.8) || poles.some((p) => Math.hypot(p.x - x, p.z - z) < 2.6)) return;
+    palms.push({ x, z, h: 11.5 + ((k * 1.37) % 2.5) });
+  });
+  const reserve = palms.map((p) => ({ x: p.x, z: p.z, r: 2.4, top: 14 }));
+  const candidates = [];
+  LAWNS.forEach((poly) => {
     const xs = poly.map((q) => q[0]), zs = poly.map((q) => q[1]);
     const pts = [];
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 110; i++) {
       const x = Math.min(...xs) + rand() * (Math.max(...xs) - Math.min(...xs));
       const z = Math.min(...zs) + rand() * (Math.max(...zs) - Math.min(...zs));
       if (!insidePlan(x, z, poly)) continue;
       const e = edgeDist(x, z, poly);
-      if (e < 1.3 || PARK_PATHS.some((q) => pathDist(x, z, q) < q.width / 2 + 1.0)) continue;
-      pts.push({ x, z, e, d: Math.hypot(x - F.x, z - F.z) });
+      if (e < 1.3 || onRoute(x, z, 1.4)) continue;
+      pts.push({ x, z, e });
     }
-    // large shade trees where the lawn is deepest, then understory and flowering accents
     pts.sort((a, b) => b.e - a.e);
-    pts.slice(0, 3).forEach((q, k) => candidates.push({ x: q.x, z: q.z, y: 0, tone: rand(), lush: true, kind: k === 2 ? 'broad' : 'spread', flower: k === 2, r: k === 2 ? 2.4 + rand() * 0.4 : 3.0 + rand() * 0.9 }));
-    pts.slice(3, full ? 9 : 6).forEach((q) => candidates.push({ x: q.x, z: q.z, y: 0, tone: rand(), lush: true, kind: 'round', flower: rand() < 0.25, r: 1.4 + rand() * 0.5 }));
+    pts.slice(0, 3).forEach((q, k) => candidates.push({ x: q.x, z: q.z, y: 0, tone: rand(), lush: true, kind: k === 2 ? 'broad' : 'spread', flower: k === 2, r: k === 2 ? 2.4 + rand() * 0.4 : 3.0 + rand() * 0.8 }));
+    pts.slice(3, full ? 8 : 5).forEach((q, j) => candidates.push({ x: q.x, z: q.z, y: 0, tone: rand(), lush: true, kind: 'round', flower: j === 0 || rand() < 0.3, r: 1.4 + rand() * 0.5 }));
   });
-  // palms first reserve their crowns, then trees are accepted largest-first
-  trees.push(...placeTrees(candidates, { poles: [...poles, ...PALM_RESERVE], gap: 0.15, minScale: 0.6 }));
+  // low canopies (underside below 2.4 m) may not reach over a clear zone
+  const blocked = (x, z, r) => onRoute(x, z, Math.max(0.8, r - 0.2)) || inFurnishing(x, z, r);
+  trees.push(...placeTrees(candidates, { poles: [...poles, ...reserve, ...seats], blocked, gap: 0.15, minScale: 0.55 }));
 
-  // palms in clusters of varied height at the path mouths and lawn corners
-  const palmSpots = PALM_SPOTS;
-  palmSpots.forEach(([x, z], k) => {
-    palms.push({ x, z, h: 12.5 + rand() * 1.5 });
-    const a = rand() * Math.PI * 2;
-    const [x2, z2] = [x + Math.cos(a) * 1.7, z + Math.sin(a) * 1.7];
-    const onPath = PARK_PATHS.some((p) => pathDist(x2, z2, p) < p.width / 2 + 0.5) || Math.abs(x2) > 18.5 || z2 > 54;
-    if (full && !onPath && !umbrellas.some((u) => Math.hypot(u.x - x2, u.z - z2) < 2.4)) palms.push({ x: x2, z: z2, h: 9 + rand() * 1.5 });
-  });
-
-  // planting beds along the outer lawn edges (specs in parkSpecs): two staggered rows of
-  // shrubs with flowering and light-foliage accents, clear of tree trunks
+  // beds: two staggered rows of shrubs with flowering and light-foliage accents
   const shrubAt = (x, z, k, big) => {
     const colors = ['shrub', 'shrubDark', 'shrub', 'shrubLight', 'shrubDark', 'shrubFlower'];
     const c = colors[(k + Math.floor(rand() * 2)) % colors.length];
@@ -278,20 +237,18 @@ export function parkParts(tier, rand) {
   let k = 0;
   for (const bed of BED_POLYS) {
     for (const [x, z, row] of bed.stations(full ? 1.25 : 2.5)) {
-      if (trees.some((t) => Math.hypot(t.x - x, t.z - z) < 0.9) || palms.some((q) => Math.hypot(q.x - x, q.z - z) < 0.8)) continue;
+      if (trees.some((t) => Math.hypot(t.x - x, t.z - z) < 0.9) || palms.some((q) => Math.hypot(q.x - x, q.z - z) < 0.8) || onRoute(x, z, 0.6)) continue;
       shrubAt(x, z, k++, row === 0);
     }
   }
-  // groundcover drifts where the lawns meet the gathering circle
+  // groundcover drifts where the lawns meet the plaza, clear of the link mouths
   for (const s of SECTORS) {
     for (const f of [0.35, 0.65]) {
       const t = s.a0 + s.span * f;
-      const r = LAWN_INNER + 0.9;
-      const [x, z] = [F.x + r * Math.cos(t), F.z + r * Math.sin(t)];
-      if (PARK_PATHS.some((p) => pathDist(x, z, p) < p.width / 2 + 1.0)) continue;
-      add('cone', x, 0.22 + 0.25, z, 1.4, 0.5, 1.0, k++ % 3 ? 'shrubLight' : 'shrub', C);
+      const [x, z] = at(LAWN_INNER + 0.9, t);
+      if (onRoute(x, z, 0.8) || poles.some((p) => Math.hypot(p.x - x, p.z - z) < 1.0)) continue;
+      add('cone', x, LAWN_TOP + 0.25, z, 1.4, 0.5, 1.0, k++ % 3 ? 'shrubLight' : 'shrub', C);
     }
   }
-
   return { parts: out, trees, palms };
 }
