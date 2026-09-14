@@ -4,9 +4,12 @@
 //     benches, a promenade and a shade-tree lawn along the hotel),
 //   - the west edge of the park beside the podium arcade,
 //   - the lane between the hotel and the office, and the walk along the office,
-//   - the frontage strips between the buildings and the sidewalks.
+//   - the frontage strips between the buildings and the sidewalks,
+//   - the hotel entrance garden: lawns, layered beds, shade trees and palms filling the
+//     open ground between the plaza entrance, the arrival court and the east street,
+//     with a garden walk from the lane to the porte-cochère.
 // Walks stay clear for the park and paseo routes checked in program.js.
-import { HZ, box, partsKit } from './core.js';
+import { HZ, GLAZE, box, partsKit } from './core.js';
 
 const PATH_TOP = 0.07;     // over the block paving (0.03) and the park's radial paths (0.05)
 const LAWN_TOP = 0.10;
@@ -19,6 +22,7 @@ export const GROUND_PATHS = [
   ['G.cross1', -21.5, -13.5, -17.0, -14.0],
   ['G.lane', 20.5, 80.0, 7.8, 10.2],             // hotel ↔ office lane
   ['G.officeWalk', 19.8, 22.0, 10.2, HZ],        // along the office's west face to the south street
+  ['G.arrivalWalk', 69.6, 73.0, -20.0, 7.8],     // hotel garden walk: lane ↔ arrival court
 ];
 
 export const GROUND_LAWNS = [
@@ -44,12 +48,16 @@ export const GROUND_LAWNS = [
   ['G.hotelNorth', 2.0, 37.5, -54.8, -52.2],
   ['G.officeSouth', 37.0, 72.0, 51.2, 54.4],
   ['G.officeEast', 75.2, 79.4, 29.5, 40.0],
+  // hotel entrance garden (east of the plaza entrance and south of the lobby wing)
+  ['G.hotelGarden0', 58.8, 69.6, -17.4, 7.2],
+  ['G.hotelGarden1', 73.4, 78.8, -9.2, 7.2],
+  ['G.hotelGarden2', 66.4, 72.4, -50.8, -37.5],   // beside the lobby wing, north of the arrival court
 ];
 
 export function groundsSlabs() {
   const t = (i) => [0.664 + i * 0.002, 0.05];
   return [
-    ...GROUND_PATHS.map(([n, x0, x1, z0, z1]) => box(n, x0, x1, z0, z1, 0, PATH_TOP, 'pathStone', 'L', t(0))),
+    ...GROUND_PATHS.map(([n, x0, x1, z0, z1]) => box(n, x0, x1, z0, z1, 0, PATH_TOP, 'pathStone', 'L', t(0), null, { glaze: GLAZE.bond, module: [1.2, 0.6] })),
     ...GROUND_LAWNS.map(([n, x0, x1, z0, z1]) => box(n, x0, x1, z0, z1, 0, LAWN_TOP, 'lawn', 'L', t(1))),
   ];
 }
@@ -75,6 +83,15 @@ export function groundsPlanting(tier, rand) {
   for (const x of [35.5, 45.5, 55.5, 65.5]) tree(x, 11.8, 1.5 + rand() * 0.2, false);   // lane
   for (const x of [-65.0, -60.5, -39.0, -32.0]) tree(x, 52.6, 1.6 + rand() * 0.2, false); // podium south frontage
   for (const x of [42.0, 52.0, 62.0]) tree(x, 52.8, 1.7 + rand() * 0.2, false);         // office south frontage
+  // hotel entrance garden: two broad shade trees clear of the hotel canopies, a flowering
+  // accent, and palm clusters of varied height along the garden walk and the east lawn
+  const gardenTree = (x, z, r, extra) => trees.push({ x, z, y: 0, r, lush: true, tone: rand(), start: startAt(x, z), dur: 0.05, ...extra });
+  gardenTree(64.2, -10.2, 2.7, { kind: 'spread' });
+  gardenTree(63.8, 2.2, 2.8, { kind: 'spread' });
+  gardenTree(62.4, -3.9, 1.6, { kind: 'round', flower: true });
+  palm(67.9, -15.2, 9.5); palm(67.6, -5.6, 11.5); palm(66.6, -7.4, 8.5);
+  palm(75.9, -6.4, 10.5); palm(76.2, 4.6, 9.0); palm(77.6, 3.0, 11.8);
+  palm(69.6, -47.8, 10.0); palm(70.4, -41.0, 8.5); palm(68.9, -39.6, 11.0);
 
   // --- benches facing the walks ------------------------------------------------------------
   const seats = [];
@@ -82,6 +99,7 @@ export function groundsPlanting(tier, rand) {
   for (const z of [-39.0, -30.0, -21.0]) seat(-21.85, z, PATH_TOP, Math.PI / 2);   // arcade walk edge, facing the palm lawn
   for (const z of [-32.0, -23.0]) seat(-9.35, z, PATH_TOP, Math.PI / 2);    // promenade edge, facing the hotel garden
   for (const x of [40.5, 50.5, 60.5]) seat(x, 10.6, LAWN_TOP, 0);
+  for (const z of [-11.8, 1.4]) seat(69.25, z, LAWN_TOP, Math.PI / 2);   // garden walk edge, facing the hotel garden
   const nearSeat = (x, z) => seats.some(([sx, sz, a]) => (a ? Math.abs(x - sx) < 1.0 && Math.abs(z - sz) < 1.9 : Math.abs(x - sx) < 1.9 && Math.abs(z - sz) < 1.0));
 
   // --- layered shrubs along the lawn edges, clear of trunks and benches ------------------
@@ -105,19 +123,55 @@ export function groundsPlanting(tier, rand) {
   };
   ['G.paseoLawn0', 'G.paseoLawn1', 'G.paseoLawn2', 'G.hotelGarden', 'G.laneLawn', 'G.officeSouth', 'G.podiumSouth0', 'G.podiumSouth1'].forEach((n) => shrubRows(n));
   ['G.arcadeLawn', 'G.parkEast'].forEach((n) => shrubRows(n, { clear: 1.6 }));
-  ['G.podiumWest0', 'G.podiumWest1', 'G.podiumNorth0', 'G.podiumNorth1', 'G.podiumNorth2', 'G.hotelNorth', 'G.officeEast'].forEach((n) => shrubRows(n, { rows: 1, step: full ? 1.4 : 2.8 }));
-
-  // --- scored joints across the walks --------------------------------------------------------
-  if (full) {
-    for (const [, x0, x1, z0, z1] of GROUND_PATHS) {
-      const alongX = x1 - x0 > z1 - z0;
-      const [a0, a1] = alongX ? [x0, x1] : [z0, z1];
-      for (let a = a0 + 1.5; a < a1 - 0.5; a += 1.5) {
-        if (alongX) block(a - 0.025, a + 0.025, PATH_TOP, PATH_TOP + 0.006, z0 + 0.05, z1 - 0.05, 'joint', C);
-        else block(x0 + 0.05, x1 - 0.05, PATH_TOP, PATH_TOP + 0.006, a - 0.025, a + 0.025, 'joint', C);
-      }
+  // hotel garden: layered beds of mixed foliage with flowering accents, then groundcover
+  // drifts across the open lawn
+  for (const n of ['G.hotelGarden0', 'G.hotelGarden1', 'G.hotelGarden2']) {
+    const [x0, x1, z0, z1] = lawn(n);
+    let k = 0;
+    const clearOf = (x, z, d) => !nearSeat(x, z) && !planted().some((p) => Math.hypot(p.x - x, p.z - z) < d);
+    const colors = ['shrub', 'shrubDark', 'shrubFlower', 'shrubLight', 'shrub', 'shrubDark'];
+    const edge = (x, z, big) => {
+      k++;
+      if (!clearOf(x, z, 1.3)) return;
+      const sz = (big ? 1.3 : 0.9) + (k % 3) * 0.2, h = (big ? 1.1 : 0.7) + (k % 4) * 0.18;
+      add('cone', x, LAWN_TOP + h / 2, z, sz, h, sz, colors[k % colors.length], C);
+    };
+    const step = full ? 1.3 : 2.6;
+    for (let z = z0 + 0.7; z <= z1 - 0.7; z += step) { edge(x0 + 0.6, z, true); edge(x0 + 1.7, z + step / 2, false); edge(x1 - 0.6, z + step / 3, false); }
+    for (let x = x0 + 0.7; x <= x1 - 0.7; x += step) { edge(x, z0 + 0.6, true); edge(x + step / 2, z0 + 1.7, false); edge(x + step / 3, z1 - 0.6, false); }
+    if (full) for (let i = 0; i < 10; i++) {
+      const x = x0 + 2.6 + rand() * (x1 - x0 - 5.2), z = z0 + 2.6 + rand() * (z1 - z0 - 5.2);
+      if (x1 - x0 < 6 || !clearOf(x, z, 2.2)) continue;
+      add('cone', x, LAWN_TOP + 0.25, z, 1.6, 0.5, 1.2, i % 3 ? 'shrubLight' : 'shrub', C);
     }
   }
+  // low path lights along the garden walk
+  for (let z = -17.5; z <= 5.5; z += full ? 4.6 : 9.2) K.deckLight(73.25, z, 0.03, 0.85);
+  // hotel garden: layered beds of mixed foliage with flowering accents, then groundcover
+  // drifts across the open lawn
+  for (const n of ['G.hotelGarden0', 'G.hotelGarden1']) {
+    const [x0, x1, z0, z1] = lawn(n);
+    let k = 0;
+    const clearOf = (x, z, d) => !nearSeat(x, z) && !planted().some((p) => Math.hypot(p.x - x, p.z - z) < d);
+    const colors = ['shrub', 'shrubDark', 'shrubFlower', 'shrubLight', 'shrub', 'shrubDark'];
+    const edge = (x, z, big) => {
+      k++;
+      if (!clearOf(x, z, 1.3)) return;
+      const sz = (big ? 1.3 : 0.9) + (k % 3) * 0.2, h = (big ? 1.1 : 0.7) + (k % 4) * 0.18;
+      add('cone', x, LAWN_TOP + h / 2, z, sz, h, sz, colors[k % colors.length], C);
+    };
+    const step = full ? 1.3 : 2.6;
+    for (let z = z0 + 0.7; z <= z1 - 0.7; z += step) { edge(x0 + 0.6, z, true); edge(x0 + 1.7, z + step / 2, false); edge(x1 - 0.6, z + step / 3, false); }
+    for (let x = x0 + 0.7; x <= x1 - 0.7; x += step) { edge(x, z0 + 0.6, true); edge(x + step / 2, z0 + 1.7, false); edge(x + step / 3, z1 - 0.6, false); }
+    if (full) for (let i = 0; i < 10; i++) {
+      const x = x0 + 2.6 + rand() * (x1 - x0 - 5.2), z = z0 + 2.6 + rand() * (z1 - z0 - 5.2);
+      if (x1 - x0 < 6 || !clearOf(x, z, 2.2)) continue;
+      add('cone', x, LAWN_TOP + 0.25, z, 1.6, 0.5, 1.2, i % 3 ? 'shrubLight' : 'shrub', C);
+    }
+  }
+  // low path lights along the garden walk
+  for (let z = -17.5; z <= 5.5; z += full ? 4.6 : 9.2) K.deckLight(73.25, z, 0.03, 0.85);
+  ['G.podiumWest0', 'G.podiumWest1', 'G.podiumNorth0', 'G.podiumNorth1', 'G.podiumNorth2', 'G.hotelNorth', 'G.officeEast'].forEach((n) => shrubRows(n, { rows: 1, step: full ? 1.4 : 2.8 }));
 
   return { parts: out, trees, palms };
 }

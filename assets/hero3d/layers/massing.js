@@ -7,7 +7,7 @@
 //             from box-local coordinates (constant pixel width, one draw call)
 // Extrusion, stacking and fades are per-instance CPU updates.
 import * as THREE from 'three';
-import { PHASES } from '../config.js';
+import { PHASES, BUILT } from '../config.js';
 import { clamp01, window01, smootherstep, lerp } from '../sequence.js';
 import { injectFacade } from './facade-glsl.js';
 
@@ -102,9 +102,16 @@ export function createMassing(plan, palette, tier) {
   fill.receiveShadow = !!tier.shadows;
 
   // ---- edges + floor plates --------------------------------------------------
+  // The edge pass draws on the very triangles of the fill pass, so their depths tie
+  // exactly and the winner flips with depth-precision noise as the camera moves (the
+  // twitching outlines on rooftop boxes). A polygon offset toward the camera makes the
+  // edge pass win deterministically; it is the only place massing uses polygon offset.
   const edgeMaterial = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -2,
     side: THREE.DoubleSide,
     toneMapped: false,
     extensions: { derivatives: true },
@@ -196,7 +203,9 @@ export function createMassing(plan, palette, tier) {
     // surfaces fill over a tighter window so the dithered in-between is brief
     const solid = smootherstep(window01(S, [PHASES.materialize[0] + 0.02, PHASES.materialize[1] - 0.02]));
     // once the facades are visible, the drawn floor lines step back
-    edgeMaterial.uniforms.uFloor.value = lerp(0.5, 0.06, mat);
+    // ...and the drawn floor-plate and mullion grid clears once the model is built
+    const clear = 1 - smootherstep(window01(S, BUILT));
+    edgeMaterial.uniforms.uFloor.value = lerp(0.5, 0.06, mat) * clear;
 
     for (let i = 0; i < count; i++) {
       const b = boxes[i];
@@ -210,7 +219,7 @@ export function createMassing(plan, palette, tier) {
       let fillA, edgeA;
       if (b.group === 'L') {
         fillA = g;
-        edgeA = 0.1 * g;
+        edgeA = 0.1 * g * clear;   // ground slabs: no drawn outlines left on the paving
       } else if (isDev(b)) {
         fillA = (KIND[b.kind] || KIND.concrete).fill * solid;
         edgeA = g > 0 ? lerp(0.9, 0.3, mat) : 0;

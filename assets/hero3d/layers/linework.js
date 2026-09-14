@@ -3,7 +3,7 @@
 // footprints. All site lines share one LineSegments draw call.
 import * as THREE from 'three';
 import { LAYER, LAYER_COUNT } from '../site-plan.js';
-import { PHASES } from '../config.js';
+import { PHASES, BUILT } from '../config.js';
 import { window01, lerp } from '../sequence.js';
 
 function emitPath(path, out) {
@@ -63,6 +63,7 @@ export function createLinework(paths, palette) {
       uLayerColor: { value: colors },
       uLayerTip: { value: tips },
       uTip: { value: new THREE.Color(palette.orange) },
+      uOutside: { value: 1 },
     },
     vertexShader: /* glsl */`
       #define LAYERS ${LAYER_COUNT}
@@ -72,6 +73,7 @@ export function createLinework(paths, palette) {
       uniform float uLayerAlpha[LAYERS];
       uniform vec3 uLayerColor[LAYERS];
       uniform float uLayerTip[LAYERS];
+      uniform float uOutside;   // lines beyond the model's street ring (context drawing)
       varying float vDist;
       varying float vReveal;
       varying float vAlpha;
@@ -85,7 +87,8 @@ export function createLinework(paths, palette) {
         int li = int(aPath.z + 0.5);
         vec4 wp = modelMatrix * vec4(position, 1.0);
         float fade = 1.0 - smoothstep(190.0, 440.0, length(wp.xz));
-        vAlpha = uLayerAlpha[li] * fade;
+        float inside = step(abs(wp.x), 97.6) * step(abs(wp.z), 72.9);
+        vAlpha = uLayerAlpha[li] * fade * mix(uOutside, 1.0, inside);
         vColor = uLayerColor[li];
         vTip = (t > 0.0 && t < 1.0) ? uLayerTip[li] * fade : 0.0;
         gl_Position = projectionMatrix * viewMatrix * wp;
@@ -120,15 +123,19 @@ export function createLinework(paths, palette) {
       material.uniforms.uS.value = S;
       const mat = w(S, PHASES.materialize);
       const out = w(S, PHASES.handoff);
+      // once built, the construction drawing clears: only road paint on the model's own
+      // streets remains (the lane lines and crosswalks are part of the finished model)
+      const clear = 1 - w(S, BUILT);
       alpha[LAYER.guides] = 0.24 * w(S, [0.0, 0.05]) * (1 - w(S, [0.26, 0.36]));
-      alpha[LAYER.streets] = lerp(0.3, 0.2, mat) * (1 - 0.4 * out);
-      alpha[LAYER.property] = lerp(0.62, 0.34, mat);
-      alpha[LAYER.parcel] = lerp(0.4, 0.1, w(S, [0.44, 0.6]));
-      alpha[LAYER.footprint] = lerp(0.85, 0.22, w(S, [0.44, 0.58]));
+      alpha[LAYER.streets] = lerp(0.3, 0.2, mat) * clear;
+      alpha[LAYER.property] = lerp(0.62, 0.34, mat) * clear;
+      alpha[LAYER.parcel] = lerp(0.4, 0.1, w(S, [0.44, 0.6])) * clear;
+      alpha[LAYER.footprint] = lerp(0.85, 0.22, w(S, [0.44, 0.58])) * clear;
       alpha[LAYER.tower] = 0.42 * (1 - w(S, [0.38, 0.48]));
-      alpha[LAYER.landscape] = 0.5;
+      alpha[LAYER.landscape] = 0.5 * clear;
       alpha[LAYER.markings] = 0.3 * (1 - 0.5 * out);
-      alpha[LAYER.paths] = 0.36;
+      alpha[LAYER.paths] = 0.36 * clear;
+      material.uniforms.uOutside.value = clear;
       alpha[LAYER.dimension] = 0.5 * (1 - w(S, [0.4, 0.48]));
     },
   };

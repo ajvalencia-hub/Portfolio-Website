@@ -1,23 +1,69 @@
 {
-  "environment": "Windows 11 Home (10.0.26200), 32 logical cores. In-app Chromium browser pane: ANGLE / NVIDIA GeForce RTX 5080 (D3D11). Headless Google Chrome 152.0.7977.83 with SwiftShader (software WebGL). Local static server (python http.server). Measured 2026-09-13.",
+  "environment": "Windows 11 Home (10.0.26200), 32 logical cores. In-app Chromium browser pane: ANGLE / NVIDIA GeForce RTX 5080 (D3D11). Headless Google Chrome 152.0.7977.83 with SwiftShader (software WebGL). Local static server (python http.server). Measured 2026-09-13 after the architecture, landscape, streetscape and stability revision.",
   "tests": [
-    { "name": "Geometry + program audit (tools/hero3d/audit.mjs)", "settings": "desktop and mobile plan tiers", "result": "all scripted checks pass (see section 1); runtime < 1 s" },
-    { "name": "Desktop hero, real GPU (in-app browser)", "settings": "1350 × 910 CSS px, DPR 1, canvas 1335 × 818, shadows on, S = 0.92", "result": "102 draw calls per frame; median 5.0 ms, p95 5.1 ms per frame during pointer parallax (display-refresh limited); 0 draw calls over 2 s idle (render-on-demand pause holds); JS heap ≈ 50 MB; no console errors" },
-    { "name": "Mobile tier, emulated in the in-app browser", "settings": "375 × 812 CSS px emulation (device DPR 2, tier cap 1.25 → canvas 468 × 905), shadows off, settled wireframes dropped", "result": "72 draw calls per frame; median 5.0 ms, p95 5.2 ms during drag rotation — on the desktop GPU, so NOT representative of a phone; 0 idle draws; no horizontal overflow" },
-    { "name": "Animation states (headless)", "settings": "1440 × 900, S = 0.05, 0.22, 0.36, 0.44, 0.56, 0.72, 0.92, 1.00", "result": "grid → footprints → rising wireframes (towers rise as one stack per tower) → dithered materialise → landscape/pools/fountain → final composition → handoff; no missing or floating elements observed" },
-    { "name": "Live intro (headless, no frozen S)", "settings": "1440 × 900", "result": "intro drawing starts; hero initialises without errors" },
-    { "name": "Reduced motion (headless)", "settings": "--force-prefers-reduced-motion", "result": "static final composition rendered; no scroll-driven animation; water clock frozen" },
-    { "name": "No WebGL fallback (headless)", "settings": "--disable-3d-apis", "result": "image hero shown" },
-    { "name": "Mobile hero framing (headless)", "settings": "500 × 1084 CSS px (headless minimum width), mobile tier", "result": "model, resort pool and fountain visible below the hero text; no overlap with copy" },
-    { "name": "Hero-camera visibility (ray-marched, audit)", "settings": "desktop key frame S 0.92; mobile camera travel 0.55", "result": "see visibility table in section 1" },
-    { "name": "QA overlay", "settings": "?heroPlan=all", "result": "columns, cores, transfer rings, stalls, aisles, ramp, lifts, basin and hotel BOH rooms render over the model" }
+    {
+      "name": "Geometry + program audit (tools/hero3d/audit.mjs)",
+      "settings": "desktop and mobile plan tiers",
+      "result": "all scripted checks pass (see section 1), including penthouse basins, office crown and garage, canopy clearances and the coplanar-surface scan"
+    },
+    {
+      "name": "Coplanar-surface scan (tools/hero3d/coplanar.mjs)",
+      "settings": "masses, curved caps, slab and ring annuli, instanced parts; 12 mm tolerance; downward faces skipped",
+      "result": "before the revision: office block roofs vs roof bands (≈ 1,055 / 626 / 262 m²), tower and penthouse roof caps vs top slabs, hotel roof caps vs cornices, sidewalk and path joint strips 6 mm above paving, driveway aprons 5 mm above sidewalks; after: 0 overlapping visible surfaces on desktop and mobile"
+    },
+    {
+      "name": "Depth-tie flicker test, real GPU",
+      "settings": "hero pose S 0.92, canvas 1335 × 818; camera fixed, near plane perturbed ±3 % over 6 renders so screen positions are identical and only depth precision changes; pixels differing by > 10 RGB counted",
+      "result": "previous published model (near 10 m): 7,383 pixels; revised model at its shipping clipping range: 36 pixels (6,112 before the edge-pass polygon offset was added); revised model forced to a 10 m near plane: 368. Mobile tier (487 × 945 canvas): 5 pixels. The remaining pixels are sub-pixel line overlays on the ground."
+    },
+    {
+      "name": "Desktop hero, real GPU (in-app browser)",
+      "settings": "1350 × 910 CSS px, DPR 1, canvas 1335 × 818, shadows on (2048 map), S = 0.92",
+      "result": "140 draw calls; ≈ 217,000 triangles; 18 shader programs; ≈ 1–2 ms CPU per frame after warm-up (first frame including shader compilation ≈ 50–70 ms); 0 frames rendered over 3 s idle; no runtime errors"
+    },
+    {
+      "name": "Mobile tier, emulated in the in-app browser",
+      "settings": "390 × 844 CSS px emulation (DPR cap 1.25 → canvas 487 × 945), shadows off, reduced fins / plants / curve segments",
+      "result": "112 draw calls; ≈ 147,000 triangles; ≈ 1.7 ms CPU per frame on the desktop GPU (NOT representative of a phone); first frame ≈ 550 ms including shader compilation; 0 idle frames"
+    },
+    {
+      "name": "Interaction stability, real GPU",
+      "settings": "normal page (no frozen S): slow scroll through the track, instant jump to mid-track, drag-rotate with release coast, viewport resize to 1100 × 760",
+      "result": "no runtime errors; S settles and clamps (0.7041 held over 3 s); drag coast settles and rendering stops (0 idle frames after 2.5 s); resize re-fits and then idles (0 frames); near / far follow the orbit distance"
+    },
+    {
+      "name": "Animation states (headless)",
+      "settings": "1440 × 900, S = 0.14, 0.45, 0.62, 0.92",
+      "result": "grid and footprints → rising wireframes → materialise (wave screen and office garage arrive with their buildings) → final composition; no missing or floating elements observed"
+    },
+    {
+      "name": "Rotated views (headless)",
+      "settings": "hero distance, elevation 34°, azimuth −31° (hero), 59°, 149°, −121°",
+      "result": "south-east, north-east and north-west views show the office garage façade, crown terrace, hotel service side and both penthouse terraces without gaps or intersections"
+    },
+    {
+      "name": "Mobile hero framing (headless + in-app)",
+      "settings": "500 × 1084 (headless), 375 × 667, 390 × 844, 430 × 932, 768 × 1024 (in-app emulation)",
+      "result": "model fitted below the hero copy at every size; the M.R.E.D.+U. line is clear of the model"
+    },
+    {
+      "name": "Hero-camera visibility (ray-marched, audit)",
+      "settings": "desktop key frame S 0.92; mobile camera travel 0.55",
+      "result": "see visibility table in section 1"
+    },
+    {
+      "name": "Revision: finished-model clean-up, hotel garden, penthouse layout, vehicle entrances, park sculpture",
+      "settings": "audit desktop + mobile tiers; headless SwiftShader renders at S 0.45 and 0.92 (hero, park, hotel garden, both penthouses, residential and office entrances, mobile 430 px); in-app browser real GPU at S ≈ 0.88",
+      "result": "161/161 scripted checks pass, including the new penthouse layout check (every group inside the glass guard, off the glass walk and the basins, no clashes) and the coplanar scan; construction grid and linework visible during the build (S 0.45) and absent on the finished model (S 0.92); real GPU: 118 draw calls, ≈ 242,000 triangles, < 1 ms CPU per frame, no new runtime errors. Idle-frame count not re-measured: the pane was receiving pointer movement (parallax) during the check."
+    }
   ],
   "notPerformed": [
     "No physical phone or tablet was tested. Mobile results above come from desktop emulation and headless Chrome and are not device validation.",
     "No low-end or integrated GPU was tested; SwiftShader renders confirm correctness only, not performance.",
     "No Safari / iOS WebKit or Firefox testing.",
     "No thermal, battery or long-session memory testing.",
-    "No accessibility audit of the page beyond reduced-motion behaviour.",
-    "Frame times are display-refresh limited on the test machine; GPU frame cost under load was not profiled."
+    "No accessibility audit of the page beyond reduced-motion behaviour; curve ramps and tactile strips are representational, not checked against accessibility standards.",
+    "Frame times are display-refresh limited on the test machine; GPU frame cost under load was not profiled.",
+    "Reduced-motion and no-WebGL fallbacks were not re-run after this revision (they are unchanged code paths)."
   ]
 }

@@ -6,6 +6,9 @@
 //     south/west, screened parking north/east) · 7 Art Deco hotel rooms
 //   8 mechanical screens · 9 storefront · 10 glass guard · 11 penthouse glazing
 //   12 Art Deco hotel centrepiece (reeded piers around a central glazed slot)
+//   13 residential garage recess behind the wave screen · 14 perforated metal · 15 breeze block
+//   19 office crown glazing
+//   16–18 paving patterns on horizontal surfaces (square, running bond, concentric)
 // Everything resolves to three channels — glass coverage, white louvre screen
 // coverage and shade — then shares one material response (glass/water sheen,
 // IBL balance). Patterns fade to an average tone when floors get small on
@@ -55,8 +58,43 @@ const FACADE_GLSL = /* glsl */`
     return vec2(field * blades, 1.0 - 0.62 * field * (1.0 - blades));
   }
 
+  float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+  // Paving drawn in the surface shader instead of as thin joint geometry (which would sit
+  // millimetres above the slab and z-fight / shimmer). Returns a shade multiplier.
+  //   16 square pavers (module.x by module.y) · 17 running bond, long side along x
+  //   18 concentric rings with radial joints around ramp.xy (ring width module.x)
+  float paving(float glaze, vec3 wp, vec2 module, vec4 ramp) {
+    vec2 q = wp.xz;
+    vec2 aa = max(fwidth(q), vec2(1e-4));
+    float px = max(aa.x, aa.y);
+    float detail = 1.0 - smoothstep(0.06, 0.28, px / min(module.x, module.y));
+    float jw = 0.012 + px * 0.25;
+    vec2 cell, d;
+    if (glaze < 16.5) {
+      cell = q / module;
+      d = abs(fract(cell + 0.5) - 0.5) * module;
+    } else if (glaze < 17.5) {
+      float row = floor(q.y / module.y);
+      float x = q.x / module.x + 0.5 * mod(row, 2.0);
+      cell = vec2(floor(x), row);
+      d = vec2(abs(fract(x + 0.5) - 0.5) * module.x, abs(fract(q.y / module.y + 0.5) - 0.5) * module.y);
+    } else {
+      vec2 r = q - ramp.xy;
+      float rad = length(r);
+      float ring = floor(rad / module.x);
+      float arc = atan(r.y, r.x) * max(ring + 0.5, 1.0) * module.x;
+      cell = vec2(ring, floor(arc / module.y));
+      d = vec2(abs(fract(rad / module.x + 0.5) - 0.5) * module.x, abs(fract(arc / module.y + 0.5) - 0.5) * module.y);
+    }
+    float joint = max(1.0 - smoothstep(jw, jw + px * 1.5, d.x), 1.0 - smoothstep(jw, jw + px * 1.5, d.y));
+    float tone = hash21(cell);
+    return mix(0.985, (1.0 - 0.15 * joint) * (0.955 + 0.07 * tone), detail);
+  }
+
   // returns (glass, screen, shade)
   vec3 facade(float glaze, vec3 wp, float across, vec3 nrm, float botY, float topY, vec2 module, vec4 ramp) {
+    if (glaze > 15.5 && glaze < 18.5) return vec3(0.0, 0.0, nrm.y > 0.5 ? paving(glaze, wp, module, ramp) : 1.0);
     if (glaze < 0.5 || abs(nrm.y) > 0.5 || (glaze > 2.5 && glaze < 3.5)) return vec3(0.0, 0.0, 1.0);
     float y = wp.y;
     float gH = module.x;
@@ -116,17 +154,19 @@ const FACADE_GLSL = /* glsl */`
         glass = band(y, 0.35, gH - 1.0, aaY) * (1.0 - pier) * (1.0 - north) * (1.0 - 0.7 * repLine(across, 1.8, 0.05, aaX));
         shade = 1.0 - 0.08 * pier;
       } else {
-        // Art Deco guest rooms: paired casements on a 3.6 m bay under continuous
-        // eyebrows, with a fluted pier every sixth bay
+        // guest rooms: tall paired windows (sill at 0.45 m, head at 2.6 m) on a 3.6 m bay,
+        // each set in a shadowed reveal, a fluted pier every sixth bay, eyebrows above
         float bayIdx = floor((across + 720.0) / 3.6);
         float bay = mod(across + 720.0, 3.6);
         float pier = step(mod(bayIdx, 6.0), 0.5);
-        float win = band(bay, 0.75, 2.85, aaX) * band(fy, 0.85, 2.5, aaY);
-        win *= 1.0 - 0.85 * (1.0 - smoothstep(0.05, 0.05 + aaX, abs(bay - 1.8)));  // central mullion
+        float win = band(bay, 0.55, 3.05, aaX) * band(fy, 0.45, 2.6, aaY);
+        float reveal = band(bay, 0.42, 3.18, aaX) * band(fy, 0.36, 2.66, aaY) - win;
+        win *= 1.0 - 0.85 * (1.0 - smoothstep(0.04, 0.04 + aaX, abs(bay - 1.8)));   // central mullion
+        win *= 1.0 - 0.6 * (1.0 - smoothstep(0.03, 0.03 + aaY, abs(fy - 2.2)));      // transom
         float flutes = pier * band(bay, 0.5, 3.1, aaX) * repLine(bay, 0.65, 0.09, aaX);
-        glass = mix(0.36, win * (1.0 - pier), detail);
-        // soft shadow just under each eyebrow
-        shade = (1.0 - 0.22 * band(fy, 2.5, 2.72, aaY) * detail) * (1.0 - 0.2 * flutes * detail);
+        glass = mix(0.42, win * (1.0 - pier), detail);
+        // reveal and eyebrow shadows give the white stucco controlled relief
+        shade = (1.0 - 0.28 * band(fy, 2.62, 2.72, aaY) * detail) * (1.0 - 0.2 * flutes * detail) * (1.0 - 0.22 * max(reveal, 0.0) * (1.0 - pier) * detail);
       }
     } else if (glaze < 8.5) {
       // screens and crowns: fine vertical louvres with a solid coping
@@ -138,6 +178,39 @@ const FACADE_GLSL = /* glsl */`
       float tall = band(y, botY + 0.3, topY - 0.5, aaY);
       float transom = band(y, botY + 3.55, botY + 3.8, aaY) * step(6.0, topY - botY);
       glass = tall * (1.0 - 0.8 * mullion3) * (1.0 - 0.8 * transom) * (1.0 - north);
+    } else if (glaze > 13.5 && glaze < 14.5) {
+      // perforated metal panel: a hole grid whose diameter swells in a slow abstract relief
+      // (bands of density), reading at distance as a soft tonal gradient
+      vec2 cell = vec2(across, y) / 0.16;
+      vec2 f = abs(fract(cell) - 0.5) * 0.16;
+      float rel = 0.5 + 0.5 * sin(across * 0.42 + y * 0.9) * cos(across * 0.11 - y * 0.35);
+      float r = 0.018 + 0.05 * rel;
+      float hole = 1.0 - smoothstep(r - aaX, r + aaX, length(f));
+      float coverage = 3.1416 * r * r / (0.16 * 0.16);
+      shade = 1.0 - 0.62 * mix(coverage, hole, detail);
+      return vec3(0.0, 0.0, shade);
+    } else if (glaze > 14.5 && glaze < 15.5) {
+      // breeze block: 0.4 m blocks, each pierced by a rotated-square opening inside a round rim
+      vec2 cell = vec2(across, y) / 0.4;
+      vec2 q = abs(fract(cell) - 0.5) * 0.4;
+      float open = 1.0 - smoothstep(0.1 - aaX, 0.1 + aaX, q.x + q.y);
+      float rim = 1.0 - smoothstep(0.02 - aaX, 0.02 + aaX, abs(length(q) - 0.13));
+      shade = 1.0 - mix(0.3, 0.62 * open + 0.15 * rim, detail);
+      return vec3(0.0, 0.0, shade);
+    } else if (glaze > 18.5 && glaze < 19.5) {
+      // office crown: floor-to-ceiling glass bays between slim mullions, spandrel at each slab
+      float vision = band(fy, 0.35, fH - 0.1, aaY) * (1.0 - 0.7 * repLine(across, 1.8, 0.05, aaX));
+      glass = mix(0.85, vision, detail);
+    } else if (glaze > 12.5 && glaze < 13.5) {
+      // residential garage behind the wave screen: occupied liner glazing on the street and
+      // plaza faces; elsewhere the decks read as deep shadowed openings between white slab edges
+      if (nrm.z > 0.35 || nrm.x > 0.55) {
+        glass = ribbon(fy, fH, across, aaY, aaX, detail, 0.5);
+      } else {
+        float slabEdge = max(band(fy, 0.0, 0.32, aaY), band(fy, fH - 0.05, fH, aaY));
+        float pier = repLine(across, 8.4, 0.3, aaX);
+        shade = mix(0.34, 1.0, max(slabEdge, 0.55 * pier));
+      }
     } else if (glaze < 11.5) {
       // penthouse: tall frameless glazing between a slim sill and a deep white fascia
       float wall = band(y, botY + 0.3, topY - 0.7, aaY);

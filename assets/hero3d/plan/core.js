@@ -33,7 +33,8 @@ export const LAYER_COUNT = 10;
 export const GLAZE = {
   none: 0, ribbon: 1, residential: 2, water: 3, resPodium: 4,
   office: 5, officePodium: 6, deco: 7, screen: 8, storefront: 9,
-  guard: 10, penthouse: 11, decoCentre: 12,
+  guard: 10, penthouse: 11, decoCentre: 12, garageRecess: 13,
+  perforated: 14, breezeBlock: 15, pavers: 16, bond: 17, rings: 18, officeCrown: 19,
 };
 
 export function rng(seed) {
@@ -239,7 +240,7 @@ export function partsKit(out) {
     add, block, column, oriented, alongFacade,
     // slatted pergola: posts, two beams, slats across (colour: frame or wood)
     pergola(x0, x1, z0, z1, baseY, { h = 3.0, color = 'frame', slat = 0.6, phase = C } = {}) {
-      for (const px of [x0 + 0.25, (x0 + x1) / 2, x1 - 0.25]) for (const pz of [z0 + 0.25, z1 - 0.25]) column(px, pz, baseY, h - 0.1, 0.11, 'frame', phase);
+      for (const px of [x0 + 0.25, (x0 + x1) / 2, x1 - 0.25]) for (const pz of [z0 + 0.25, z1 - 0.25]) column(px, pz, baseY, h - 0.2, 0.11, 'frame', phase);   // posts end inside the beams
       for (const bz of [z0 + 0.25, z1 - 0.25]) block(x0, x1, baseY + h - 0.35, baseY + h - 0.1, bz - 0.1, bz + 0.1, color, phase);
       for (let sx = x0 + 0.3; sx <= x1 - 0.25; sx += slat) block(sx - 0.06, sx + 0.06, baseY + h - 0.1, baseY + h + 0.1, z0, z1, color, phase);
     },
@@ -298,6 +299,37 @@ export function partsKit(out) {
       else block(x0 + 0.1, x1 - 0.1, baseY + 0.1, baseY + 2.6, z1 - 0.14, z1 - 0.04, 'canvas', C);
     },
     bench(x, z, baseY, len, a, color = 'frame') { oriented(x, z, baseY, 0.45, len, 0.55, a, color); },
+    // --- amenity furniture at any plan angle (a = direction the head / front faces) ---
+    loungerAt(x, z, baseY, a) {
+      const c = Math.cos(a), s = Math.sin(a);
+      oriented(x, z, baseY, 0.34, 2.0, 0.72, a, 'cushion');
+      oriented(x + c * 0.72, z + s * 0.72, baseY + 0.34, 0.42, 0.5, 0.72, a, 'cushion');
+    },
+    sideTableAt(x, z, baseY) { column(x, z, baseY, 0.45, 0.22, 'metal', C); },
+    daybed(x, z, baseY, a) {
+      oriented(x, z, baseY, 0.4, 2.2, 1.6, a, 'frame');
+      oriented(x, z, baseY + 0.4, 0.14, 2.0, 1.4, a, 'cushion');
+    },
+    // oriented planter: rim + soil + low shrubs; returns the soil level
+    planterAt(x, z, baseY, len, depth, a, h = 0.6, shrubs = true) {
+      oriented(x, z, baseY, h, len, depth, a, 'frame');
+      oriented(x, z, baseY + h, 0.06, len - 0.24, depth - 0.24, a, 'planter');
+      if (shrubs) {
+        const c = Math.cos(a), s = Math.sin(a);
+        const n = Math.max(1, Math.round(len / 1.0));
+        for (let k = 0; k < n; k++) {
+          const u = (k + 0.5) / n - 0.5;
+          const sz = 0.8 + (k % 3) * 0.2, sh = 0.7 + (k % 2) * 0.35;
+          add('cone', x + c * u * len, baseY + h + sh / 2, z + s * u * len, sz, sh, sz, k % 2 ? 'shrub' : 'shrubDark', C);
+        }
+      }
+      return baseY + h;
+    },
+    // low deck / path light (warm white head on a slim charcoal post)
+    deckLight(x, z, baseY, h = 0.55) {
+      column(x, z, baseY, h, 0.05, 'charcoal', C);
+      add('cyl', x, baseY + h + 0.05, z, 0.16, 0.1, 0.16, 'lamp', C);
+    },
     bollard: (x, z, baseY) => { column(x, z, baseY, 0.9, 0.09, 'metal', C); add('cyl', x, baseY + 0.95, z, 0.2, 0.1, 0.2, 'lamp', C); },
   };
   return kit;

@@ -107,19 +107,69 @@ export function createCameraRig(camera, tier, { reduced, dragTarget = null }) {
     dragTarget.classList.add('is-rotatable');
   }
 
+  // Narrow screens stack the copy above the model. The model is fitted into the band
+  // between the bottom of the copy (safeTop, a fraction of the canvas height) and the
+  // bottom of the canvas: its projected bounds are measured over the resting camera
+  // poses, then the camera distance and lens shift are chosen so it fills that band
+  // without reaching the copy or the edges. Cached until the viewport, copy or plan change.
+  let safeTop = null;
+  let bounds = null;
+  let narrowFit = null;
+  const NARROW_POSES = [0.65, 0.80, 0.92];
+  function fitNarrow(aspect) {
+    const cam = camera.clone();
+    const v = camera.position.clone();
+    const extent = (distScale) => {
+      const e = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity };
+      for (const s of NARROW_POSES) {
+        const k = sample(s, tier.cameraTravel);
+        const d = k.dist * distScale;
+        const az = k.az * DEG, el = k.el * DEG;
+        cam.position.set(k.tx + d * Math.cos(el) * Math.sin(az), k.ty + d * Math.sin(el), k.tz + d * Math.cos(el) * Math.cos(az));
+        cam.lookAt(k.tx, k.ty, k.tz);
+        cam.aspect = aspect;
+        cam.updateProjectionMatrix();
+        cam.updateMatrixWorld();
+        for (const [x, y, z] of bounds) {
+          v.set(x, y, z).project(cam);
+          e.x0 = Math.min(e.x0, v.x); e.x1 = Math.max(e.x1, v.x);
+          e.y0 = Math.min(e.y0, v.y); e.y1 = Math.max(e.y1, v.y);
+        }
+      }
+      return e;
+    };
+    const top = 1 - 2 * safeTop, bottom = -1 + 2 * 0.04;   // NDC band below the copy
+    const availH = top - bottom, availW = 2 * 0.92;
+    let scale = Math.min(2.6, 1.25 / Math.max(aspect, 0.35));
+    for (let i = 0; i < 3; i++) {   // projected size ≈ 1 / distance: converge in a few steps
+      const e = extent(scale);
+      const grow = Math.min(availH / (e.y1 - e.y0), availW / (e.x1 - e.x0));
+      scale /= Math.min(grow, 1.4);
+    }
+    const e = extent(scale);
+    return { aspect, fit: scale, shiftX: -(e.x0 + e.x1) / 2, shiftY: (top + bottom) / 2 - (e.y0 + e.y1) / 2 };
+  }
+
   function layout() {
     const { w, h } = viewport;
     const aspect = w / h;
     const wide = w >= 900 && aspect >= 1.05;
-    // keep the development readable on narrow screens by stepping back
-    const fit = wide ? Math.max(1, 1.55 / aspect) : Math.min(2.6, 1.25 / Math.max(aspect, 0.35));
-    return { aspect, fit, shiftX: wide ? 0.31 : 0, shiftY: wide ? 0.20 : -0.33 };   // lift the model clear of the canvas's bottom fade
+    if (wide) return { aspect, fit: Math.max(1, 1.55 / aspect), shiftX: 0.34, shiftY: 0.24 };   // lifted clear of the canvas's bottom fade
+    if (bounds && safeTop !== null) {
+      if (!narrowFit || narrowFit.aspect !== aspect) narrowFit = fitNarrow(aspect);
+      return narrowFit;
+    }
+    // before the copy has been measured: step back so the development stays readable
+    return { aspect, fit: Math.min(2.6, 1.25 / Math.max(aspect, 0.35)), shiftX: 0, shiftY: -0.33 };
   }
 
   const rig = {
     onChange: null,
     get azimuth() { return azimuth; },
-    setViewport(w, h) { viewport.w = w; viewport.h = h; },
+    setViewport(w, h) { viewport.w = w; viewport.h = h; narrowFit = null; },
+    // narrow layouts: fraction of the canvas height covered by the copy, and [x, y, z] points bounding the model
+    setSafeTop(fraction) { if (fraction !== safeTop) { safeTop = fraction; narrowFit = null; rig.onChange?.(); } },
+    setBounds(points) { bounds = points; narrowFit = null; },
     // returns true while the parallax is still settling
     update(dt, S) {
       const L = layout();
@@ -151,6 +201,10 @@ export function createCameraRig(camera, tier, { reduced, dragTarget = null }) {
       );
       camera.lookAt(k.tx, k.ty, k.tz);
       camera.aspect = L.aspect;
+      // tight clipping range around the orbit (the model spans < 300 m from the target;
+      // the ground grid fades out within ~520 m): ~20× the depth precision of a 10 m near plane
+      camera.near = Math.max(5, dist - 320);
+      camera.far = dist + 700;
       camera.updateProjectionMatrix();
       // lens shift: move the image without changing perspective
       camera.projectionMatrix.elements[8] = -L.shiftX;

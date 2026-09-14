@@ -2,7 +2,9 @@
 // a private pool court, and a conceptual ground-floor plan that separates guest
 // arrival and amenities from receiving, refuse, housekeeping, staff and kitchen
 // routes. The plan is simplified and mostly hidden in the hero view.
-import { GROUND, FLOOR, RES, GLAZE, floorsToHeight, roundedRectPlan, offsetPlan, box, partsKit } from './core.js';
+import { GROUND, FLOOR, RES, GLAZE, floorsToHeight, roundedRectPlan, offsetPlan, resampleByAngle, box, partsKit } from './core.js';
+import { poolSpecs } from './pools.js';
+import { fixtureKit } from './fixtures.js';
 
 export const HOTEL = {
   front: roundedRectPlan(-2, -20, 58, -4, { se: 6, sw: 6 }),       // 7-storey plaza front
@@ -64,7 +66,8 @@ function eyebrows(plan, upperFloors, groundDepth, roofY) {
   const inner = offsetPlan(plan, -0.12);
   if (groundDepth > 0) floors.push({ y: GROUND - 0.3, thick: 0.25, outer: offsetPlan(plan, groundDepth), inner });
   for (let j = 1; j <= upperFloors; j++) floors.push({ y: GROUND + (j - 1) * FLOOR + 2.72, thick: 0.14, outer: offsetPlan(plan, 0.75), inner });
-  floors.push({ y: roofY, thick: 0.45, outer: offsetPlan(plan, 0.35), inner });  // parapet cornice
+  // parapet cornice: rises 0.3 m above the roof so it never shares the roof plane
+  floors.push({ y: roofY + 0.3, thick: 0.75, outer: offsetPlan(plan, 0.35), inner });
   return { kind: 'slab', floors };
 }
 
@@ -75,14 +78,14 @@ export function hotelMasses() {
   });
   const plain = { glaze: GLAZE.none };
   const drum = (x0, x1, corner) => roundedRectPlan(x0, -20, x1, -4, { [corner]: 6 });
-  const drumSlab = (p) => ({ kind: 'slab', floors: [{ y: FLOOR, thick: 0.3, outer: offsetPlan(p, 0.5), inner: offsetPlan(p, -0.12) }] });
+  const drumSlab = (p) => ({ kind: 'slab', floors: [{ y: FLOOR + 0.2, thick: 0.5, outer: offsetPlan(p, 0.5), inner: offsetPlan(p, -0.12) }] });
   return [
     deco('B.rear', HOTEL.rear, HOTEL_WING_TOP, [0.318, 0.065], null, { slabs: eyebrows(HOTEL.rear, 5, 1.2, HOTEL_WING_TOP) }),
     deco('B.link', HOTEL.link, HOTEL_WING_TOP, [0.326, 0.065], null, { slabs: eyebrows(HOTEL.link, 5, 1.8, HOTEL_WING_TOP) }),
     deco('B.front', HOTEL.front, HOTEL_FRONT_TOP, [0.315, 0.072], null, { slabs: eyebrows(HOTEL.front, 6, 1.8, HOTEL_FRONT_TOP) }),
     deco('B.centre', HOTEL.centre, HOTEL_CENTRE_TOP, [0.322, 0.090], null, {
       glaze: GLAZE.decoCentre, ramp: [28, -12, 3.0, 0],
-      slabs: { kind: 'slab', floors: [{ y: HOTEL_CENTRE_TOP, thick: 0.6, outer: offsetPlan(HOTEL.centre, 0.5), inner: offsetPlan(HOTEL.centre, -0.12) }] },
+      slabs: { kind: 'slab', floors: [{ y: HOTEL_CENTRE_TOP + 0.3, thick: 0.9, outer: offsetPlan(HOTEL.centre, 0.5), inner: offsetPlan(HOTEL.centre, -0.12) }] },
     }),
     deco('B.step1', roundedRectPlan(21.4, -20.6, 34.6, -3.4, 0.6), 2.4, [0.412, 0.010], 'B.centre', plain),
     deco('B.step2', roundedRectPlan(23.6, -18.4, 32.4, -5.6, 0.6), 2.2, [0.422, 0.010], 'B.step1', plain),
@@ -94,7 +97,8 @@ export function hotelMasses() {
     deco('B.capE', roundedRectPlan(48.8, -19.2, 57.2, -4.8, { se: 5.2 }), 1.1, [0.402, 0.008], 'B.drumE', plain),
     deco('B.lounge', roundedRectPlan(37, -17, 46, -7, 2.0), 3.6, [0.392, 0.012], 'B.front', { kind: 'glass', glaze: GLAZE.storefront }),
     deco('B.loungeRoof', roundedRectPlan(36, -18, 47, -6, 2.6), 0.45, [0.404, 0.006], 'B.lounge', { kind: 'frame', ...plain }),
-    deco('B.canopy', roundedRectPlan(21, -2.5, 35, 2.5, { se: 2.2, sw: 2.2 }), 0.6, [0.400, 0.010], null, { kind: 'frame', y0: 4.4, ...plain }),
+    // arrival canopy: a deep white blade reaching over the forecourt on slim columns
+    deco('B.canopy', roundedRectPlan(20.5, -2.0, 35.5, 5.6, { se: 3.2, sw: 3.2 }), 0.7, [0.400, 0.010], null, { kind: 'frame', y0: 4.5, ...plain }),
     deco('B.porte', roundedRectPlan(65.5, -34, 80, -22, { ne: 5.5, se: 5.5 }), 0.8, [0.398, 0.010], null, { kind: 'frame', y0: 4.8, ...plain }),
   ];
 }
@@ -106,47 +110,132 @@ export function hotelBoxes() {
     box('B.svcLink', SERVICE_LINK[0], SERVICE_LINK[1], SERVICE_LINK[2], SERVICE_LINK[3], 0, 4.2, 'stucco', 'B', [0.352, 0.030], null, { glaze: GLAZE.none }),
     box('B.screen', 4, 26, -49, -42, HOTEL_WING_TOP, 2.6, 'frame', 'B', [0.392, 0.020], null, { glaze: GLAZE.screen }),
     box('B.svcOverrun', 34, 40, -51, -45, HOTEL_WING_TOP, 3.4, 'frame', 'B', [0.394, 0.020], null, { glaze: GLAZE.screen }),
+    // integrated mechanical screens on the plaza wing and the lobby wing roofs
+    box('B.mechFront', 9.5, 18.5, -17.0, -8.0, HOTEL_FRONT_TOP, 2.4, 'frame', 'B', [0.396, 0.020], null, { glaze: GLAZE.screen }),
+    box('B.mechLink', 56.5, 63.5, -35.0, -24.5, HOTEL_WING_TOP, 2.4, 'frame', 'B', [0.396, 0.020], null, { glaze: GLAZE.screen }),
   ];
 }
 
 export function hotelSlabs() {
   const t = (i) => [0.662 + i * 0.003, 0.05];
   return [
-    box('L.hcourt', 1.8, 54, -39, -20, 0, 0.08, 'paving', 'L', t(4)),
-    box('L.hcope', 11.5, 40.5, -33.5, -25.5, 0, 0.12, 'coping', 'L', t(5)),
-    box('L.hpool', 12, 36.5, -33, -26, 0, 0.16, 'pool', 'L', t(6)),
-    box('L.hshelf', 36.5, 40, -33, -26, 0, 0.16, 'shelf', 'L', t(7)),
-    box('L.hbed', 4, 40, -38.6, -37.2, 0, 0.6, 'planter', 'L', t(8)),
-    box('L.fore', 18, 38, -2, 8, 0, 0.05, 'terrazzo', 'L', t(9)),
+    box('L.fore', 18, 38, -2, 8, 0, 0.05, 'terrazzo', 'L', t(9), null, { glaze: GLAZE.bond, module: [1.5, 0.75] }),
+    // guest walks on the pool deck: lobby door to the pool, lobby wing along the south deck
+    box('L.hwalkS', 3.8, 53.8, -22.4, -20.2, 0, HOTEL_POOL.deckY + 0.03, 'walk', 'L', t(4), null, { glaze: GLAZE.bond, module: [0.9, 0.45] }),
+    box('L.hwalkC', 26.6, 29.4, -25.6, -22.4, 0, HOTEL_POOL.deckY + 0.03, 'walk', 'L', t(5), null, { glaze: GLAZE.bond, module: [0.9, 0.45] }),
     box('L.arrive', 66, 73, -36, -20, 0, 0.05, 'terrazzo', 'L', t(10)),
     box('L.drive', 73, 79.5, -42, -10, 0, 0.06, 'drive', 'L', t(11)),
     box('L.hroof', 36.5, 47.5, -19.5, -4.5, HOTEL_FRONT_TOP, 0.25, 'paving', 'L', t(17)),
   ];
 }
 
+// Hotel pool court: raised paved deck, pool with steps (west) and sun shelf (east), guest
+// walks from the lobby and the lobby wing, loungers with side tables and umbrellas on the
+// sunny north side, two cabanas at the west end, outdoor dining beside the pool bar,
+// contained palms and shrub beds, and low deck lights. The court is enclosed on all four
+// sides by the hotel and its service link, so no pool fence is modelled at grade.
+export const HOTEL_POOL = {
+  outline: roundedRectPlan(11.5, -32.8, 37.5, -26.2, 3.2),
+  cx: 24.5, cz: -29.5, deckY: 0.25, depth: 1.4,
+  court: [1.8, 54, -39, -20],
+};
+
+export function hotelPoolSpecs(tier) {
+  const P = HOTEL_POOL;
+  const N = tier.name === 'mobile' ? 64 : 96;
+  const pool = poolSpecs('B.pool', {
+    outline: P.outline, cx: P.cx, cz: P.cz, deckY: P.deckY, depth: P.depth, N, gutter: 0.1, axis: 'x',
+    bands: [
+      { name: 'B.poolSteps', from: -100, to: 13.6, kind: 'shelf' },
+      { name: 'B.poolSwim', from: 13.6, to: 34.4, kind: 'pool' },
+      { name: 'B.poolShelf', from: 34.4, to: 100, kind: 'shelf' },
+    ],
+  });
+  const [x0, x1, z0, z1] = P.court;
+  const deck = resampleByAngle(roundedRectPlan(x0, z0, x1, z1, 0.4), P.cx, P.cz, N);
+  return {
+    specs: [
+      { name: 'B.poolDeck', type: 'prism', kind: 'deck', glaze: GLAZE.pavers, module: [1.2, 1.2], parent: null, y0: 0, h: P.deckY,
+        start: 0.655, dur: 0.01, wire: false, phase: 'context', pts: deck, holes: [pool.opening] },
+      ...pool.specs,
+    ],
+    basin: pool.basin,
+  };
+}
+
 export function hotelParts(tier) {
   const out = [];
   const K = partsKit(out);
   const { block, column, lounger, umbrella, bed } = K;
+  const C = 'context';
+  const full = tier.name !== 'mobile';
+  const palms = [];
   // reeded pilasters on the centrepiece
   for (let k = 0; k < 4; k++) {
     for (const x of [20.55 + k * 0.72, 35.45 - k * 0.72]) block(x - 0.17, x + 0.17, GROUND + 0.6, HOTEL_CENTRE_TOP - 0.5, -2.0, -1.6, 'stucco');
   }
+  // arrival canopy: slim columns, charcoal sign band (no lettering), warm light line, planters
+  for (const x of [22.4, 33.6]) column(x, 4.6, 0, 4.5, 0.12, 'metal');
+  block(23.5, 32.5, 4.62, 5.02, 5.64, 5.76, 'charcoal');
+  block(21.6, 34.4, 4.42, 4.46, 4.95, 5.05, 'lamp', C);
+  for (const x of [19.4, 36.6]) { bed(x - 0.9, x + 0.9, 1.2, 3.8, 0.05, 0.7, { shrubs: true }); palms.push({ x, z: 2.5, y: 0.75, h: 6.5, r: 2.4 }); }
+  // selected balconies on the plaza facade (glass guards), floors 2 to 6, clear of the centrepiece
+  for (const [bx0, bx1] of [[9.2, 16.4], [39.6, 46.8]]) {
+    for (let j = 2; j <= 6; j++) {
+      const y = GROUND + (j - 1) * FLOOR;
+      block(bx0, bx1, y - 0.22, y, -4.0, -2.5, 'slab');
+      block(bx0, bx1, y, y + 1.05, -2.58, -2.5, 'guardGlass', C);
+      for (const x of [bx0, bx1]) block(x - 0.04, x + 0.04, y, y + 1.05, -3.95, -2.58, 'guardGlass', C);
+    }
+  }
   column(77.8, -31.3, 0, 4.8, 0.3);                                     // porte-cochère columns
   column(77.8, -24.7, 0, 4.8, 0.3);
+  // vehicle arrival (valet — the hotel has no garage of its own): lit entry / exit pylons
+  // with blank panels at both drive mouths, trench drains across the drive, a valet
+  // podium and key kiosk under the porte-cochère, bollards and a luggage cart
+  const X = fixtureKit(K);
+  for (const [z, dir] of [[-40.4, 1], [-11.6, -1]]) {
+    block(79.56, 79.86, 0.06, 2.7, z - 0.45, z + 0.45, 'charcoal', C);
+    block(79.5, 79.56, 1.1, 2.35, z - 0.32, z + 0.32, 'frame', C);
+    block(79.5, 79.54, 2.45, 2.52, z - 0.36, z + 0.36, 'lamp', C);
+    block(73.3, 79.3, 0.04, 0.08, z + dir * 1.2 - 0.18, z + dir * 1.2 + 0.18, 'charcoal', C);
+  }
+  block(71.9, 72.6, 0.05, 1.12, -33.3, -32.5, 'charcoal', C);          // valet podium
+  block(71.95, 72.55, 1.12, 1.16, -33.25, -32.55, 'lamp', C);
+  block(66.0, 66.45, 0.05, 1.9, -33.6, -32.4, 'charcoal', C);          // key kiosk on the lobby wing
+  block(66.45, 66.48, 1.2, 1.6, -33.4, -32.6, 'lamp', C);
+  block(68.2, 69.9, 0.25, 0.3, -24.1, -23.4, 'metal', C);              // luggage cart
+  for (const x of [68.3, 69.8]) column(x, -23.75, 0.3, 1.5, 0.03, 'metal', C);
+  block(68.2, 69.9, 1.8, 1.85, -23.8, -23.7, 'metal', C);
+  for (const z of [-35.6, -36.9, -20.6]) X.bollard(72.6, z, 0.05);
   // service frontage on the north street: dock, refuse, staff door, dock canopy
   block(50, 58, 0, 4.4, -51.2, -50.8, 'void');
   block(60.5, 63.5, 0, 3.0, -51.2, -50.8, 'void');
   block(41.2, 42.8, 0, 2.4, -51.2, -50.8, 'void');
   block(49.0, 59.0, 4.45, 4.75, -53.6, -51.0, 'frame');
   block(65.8, 66.2, 0, 3.0, -30, -26, 'void');                         // bell desk / luggage door on the arrival court
-  // pool court
-  for (let x = 13.5; x <= 34; x += 2.6) { lounger(x - 0.45, -35.2, 0, 'z', -1); lounger(x + 0.45, -35.2, 0, 'z', -1); }
-  for (const x of [16, 24.5, 33]) umbrella(x + 1.3, -36.0, 0, 2.6);
-  for (const x of [41.5, 43]) lounger(x, -29.5, 0, 'z', -1);
+  // pool court (deck top HOTEL_POOL.deckY)
+  const D = HOTEL_POOL.deckY;
+  const pairs = full ? [14.2, 19.4, 24.6, 29.8, 35.0] : [16.8, 27.2];
+  for (const x of pairs) {
+    lounger(x - 0.5, -35.1, D, 'z', -1); lounger(x + 0.5, -35.1, D, 'z', -1);
+    K.sideTableAt(x + 1.35, -35.6, D);
+    umbrella(x + 1.35, -36.6, D, 2.6);
+  }
+  bed(4.0, 40.0, -38.7, -37.3, D, 0.6, { shrubs: true });                          // planting along the fitness wing
+  bed(2.3, 3.5, -36.0, -23.8, D, 0.6, { shrubs: true });                           // planting along the service link
+  K.cabana(4.2, 7.4, -33.6, -30.0, D, 'w'); K.cabana(4.2, 7.4, -28.8, -25.2, D, 'w');
+  // outdoor dining beside the pool bar, under umbrellas
+  for (const [x, z] of [[42.5, -29.6], [47.5, -29.6], [42.5, -25.2], [47.5, -25.2]]) { K.dining(x, z, D, full ? 4 : 2); if (full || x < 45) umbrella(x, z, D, 2.8); }
+  // daybeds on the south deck facing the pool, either side of the lobby walk
+  K.daybed(20.5, -24.2, D, Math.PI / 2); K.daybed(35.0, -24.2, D, Math.PI / 2);
+  // contained palms at the court corners (planters rather than loose trees)
+  for (const [x, z] of [[9.2, -35.8], [9.2, -24.0], [38.8, -35.8], [52.2, -23.4]]) { bed(x - 0.8, x + 0.8, z - 0.8, z + 0.8, D, 0.9); palms.push({ x, z, y: D + 0.9, h: 7.5, r: 2.4 }); }
+  // low deck lights along the pool and the walks
+  for (let x = 12.5; x <= 36.5; x += full ? 4 : 8) { K.deckLight(x, -33.95, D); K.deckLight(x, -25.05, D); }
   // rooftop lounge terrace
   const hr = HOTEL_FRONT_TOP + 0.25;
   umbrella(39.2, -5.8, hr, 2.6); umbrella(44.6, -5.8, hr, 2.6);
   bed(36.8, 38.6, -19.2, -18.2, hr, 0.5); bed(45.4, 47.2, -19.2, -18.2, hr, 0.5);
-  return out;
+  return { parts: out, palms };
 }

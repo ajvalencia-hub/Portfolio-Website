@@ -3,6 +3,28 @@
 // hero is off-screen. Includes a one-step adaptive quality downgrade.
 import * as THREE from 'three';
 
+// Axis-aligned bounds of everything that casts or receives a meaningful shadow:
+// the block, its streets and the tallest crown (metres).
+const SHADOW_BOUNDS = { min: [-100, 0, -76], max: [100, 104, 76] };
+
+// Orthographic shadow frustum that just encloses the bounds in the light's view.
+function fitShadowCamera(THREE, light, bounds, margin) {
+  const view = new THREE.Matrix4().lookAt(light.position, light.target.position, new THREE.Vector3(0, 1, 0));
+  view.setPosition(light.position);
+  view.invert();
+  const lo = new THREE.Vector3(Infinity, Infinity, Infinity), hi = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+  const p = new THREE.Vector3();
+  for (const x of [bounds.min[0], bounds.max[0]]) for (const y of [bounds.min[1], bounds.max[1]]) for (const z of [bounds.min[2], bounds.max[2]]) {
+    p.set(x, y, z).applyMatrix4(view);
+    lo.min(p); hi.max(p);
+  }
+  Object.assign(light.shadow.camera, {
+    left: lo.x - margin, right: hi.x + margin, bottom: lo.y - margin, top: hi.y + margin,
+    near: Math.max(1, -hi.z - margin), far: -lo.z + margin,
+  });
+  light.shadow.camera.updateProjectionMatrix();
+}
+
 export function createStage(host, tier, { onFrame, onResize }) {
   const renderer = new THREE.WebGLRenderer({
     antialias: tier.antialias,
@@ -25,19 +47,23 @@ export function createStage(host, tier, { onFrame, onResize }) {
   host.appendChild(canvas);
 
   const scene = new THREE.Scene();
+  // near / far are tightened every frame around the orbit distance (camera-rig.js)
   const camera = new THREE.PerspectiveCamera(26, 1, 10, 4000);
 
   // Studio lighting for a white physical model: broad sky fill + one soft key.
+  // A single shadow-casting light, created once; its shadow camera is fitted to the
+  // development's bounds (not the whole ground plane) so each texel covers ~0.1 m.
   const hemi = new THREE.HemisphereLight(0xfffaf2, 0xc9c0ae, 1.35);
   const sun = new THREE.DirectionalLight(0xfff3e3, 2.1);
   sun.position.set(-230, 320, 150);
   if (tier.shadows) {
     sun.castShadow = true;
     sun.shadow.mapSize.set(tier.shadowMapSize, tier.shadowMapSize);
-    Object.assign(sun.shadow.camera, { left: -230, right: 230, top: 230, bottom: -230, near: 50, far: 900 });
-    sun.shadow.bias = -0.0004;
-    sun.shadow.normalBias = 0.6;
-    sun.shadow.radius = 4;
+    fitShadowCamera(THREE, sun, SHADOW_BOUNDS, 3);
+    // depth bias sized to the texel: removes acne on large flat roofs without
+    // detaching the contact shadows of small rooftop pieces (peter-panning)
+    sun.shadow.bias = -0.00025;
+    sun.shadow.normalBias = 0.09;
   }
   scene.add(hemi, sun, sun.target);
 
@@ -56,11 +82,16 @@ export function createStage(host, tier, { onFrame, onResize }) {
     if (!raf && active()) raf = requestAnimationFrame(frame);
   }
 
+  const stats = { frames: 0, cpuMs: 0, maxCpuMs: 0 };
   function frame(now) {
     raf = 0;
+    const t0 = performance.now();
     const dt = last ? Math.min(0.1, (now - last) / 1000) : 1 / 60;
     const continuing = onFrame(dt, now);
     renderer.render(scene, camera);
+    stats.frames++;
+    const cpu = performance.now() - t0;
+    stats.cpuMs = cpu; stats.maxCpuMs = Math.max(stats.maxCpuMs, cpu);
     if (last && !degraded && sampled < 90) {
       sampled++;
       if (dt > 1 / 30) slowFrames++;
@@ -105,7 +136,7 @@ export function createStage(host, tier, { onFrame, onResize }) {
   resize();
 
   return {
-    THREE, renderer, scene, camera, sun, size, invalidate,
+    THREE, renderer, scene, camera, sun, size, invalidate, stats,
     get degraded() { return degraded; },
     markShadowsDirty() { if (renderer.shadowMap.enabled) renderer.shadowMap.needsUpdate = true; },
     compile() { renderer.compile(scene, camera); },

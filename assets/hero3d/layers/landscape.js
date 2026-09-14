@@ -3,6 +3,7 @@
 // shadow-catcher ground. Instanced throughout — draw calls do not grow with counts.
 import * as THREE from 'three';
 import { PHASES } from '../config.js';
+import { TREE_FORMS, treeKind } from '../plan/planting.js';
 import { clamp01, window01, smootherstep } from '../sequence.js';
 
 function radialTexture() {
@@ -43,7 +44,14 @@ function mergeGeometries(parts) {
 // A tree at unit canopy radius: tapered trunk with two limbs, and a canopy built from
 // overlapping, noise-displaced lobes. 'spread' is a broad Miami shade tree (live oak /
 // gumbo limbo); 'upright' is a rounded street tree. Trunk base at y = 0.
-const TREE_TRUNK_H = { spread: 1.05, upright: 1.25 };
+const TREE_TRUNK_H = Object.fromEntries(Object.entries(TREE_FORMS).map(([k, f]) => [k, f.trunk]));
+// canopy lobes [x, y, z, radius] above the trunk and a vertical squash per form
+const LOBES = {
+  spread: { y: 0.78, lobes: [[0, 0.30, 0, 0.62], [0.52, 0.12, 0.18, 0.5], [-0.48, 0.1, 0.28, 0.5], [0.12, 0.08, -0.55, 0.5], [-0.3, 0.42, -0.25, 0.44], [0.3, 0.45, 0.32, 0.42], [-0.18, 0.05, 0.58, 0.4]] },
+  upright: { y: 0.95, lobes: [[0, 0.45, 0, 0.62], [0.3, 0.2, 0.15, 0.45], [-0.28, 0.25, -0.2, 0.45], [0.05, 0.78, 0.05, 0.42], [-0.12, 0.12, 0.34, 0.4]] },
+  broad: { y: 0.5, lobes: [[0, 0.3, 0, 0.72], [0.72, 0.18, 0.15, 0.56], [-0.66, 0.16, 0.3, 0.56], [0.18, 0.12, -0.72, 0.52], [-0.4, 0.22, -0.55, 0.5], [0.42, 0.26, 0.62, 0.5], [-0.2, 0.4, 0.2, 0.46]] },
+  round: { y: 1.0, lobes: [[0, 0.35, 0, 0.66], [0.34, 0.18, 0.12, 0.44], [-0.3, 0.22, -0.2, 0.44], [0.02, 0.72, 0.04, 0.4], [-0.1, 0.1, 0.36, 0.38]] },
+};
 function trunkGeometry(kind) {
   const h = TREE_TRUNK_H[kind];
   const trunk = new THREE.CylinderGeometry(0.06, 0.11, h, 7).translate(0, h / 2, 0);
@@ -56,9 +64,7 @@ function trunkGeometry(kind) {
 
 function canopyGeometry(kind) {
   const h = TREE_TRUNK_H[kind];
-  const lobes = kind === 'spread'
-    ? [[0, 0.30, 0, 0.62], [0.52, 0.12, 0.18, 0.5], [-0.48, 0.1, 0.28, 0.5], [0.12, 0.08, -0.55, 0.5], [-0.3, 0.42, -0.25, 0.44], [0.3, 0.45, 0.32, 0.42], [-0.18, 0.05, 0.58, 0.4]]
-    : [[0, 0.45, 0, 0.62], [0.3, 0.2, 0.15, 0.45], [-0.28, 0.25, -0.2, 0.45], [0.05, 0.78, 0.05, 0.42], [-0.12, 0.12, 0.34, 0.4]];
+  const { lobes, y: squash } = LOBES[kind];
   const parts = lobes.map(([x, y, z, r], k) => {
     const g = new THREE.IcosahedronGeometry(r, 1);   // already non-indexed
     const p = g.getAttribute('position');
@@ -66,7 +72,7 @@ function canopyGeometry(kind) {
       const vx = p.getX(i), vy = p.getY(i), vz = p.getZ(i);
       const len = Math.hypot(vx, vy, vz) || 1;
       const n = 0.78 + 0.34 * hash3(Math.round(vx * 100) + k * 13, Math.round(vy * 100), Math.round(vz * 100));
-      p.setXYZ(i, (vx / len) * r * n, (vy / len) * r * n * (kind === 'spread' ? 0.78 : 0.95), (vz / len) * r * n);
+      p.setXYZ(i, (vx / len) * r * n, (vy / len) * r * n * squash, (vz / len) * r * n);
     }
     return g.translate(x, h + y, z);
   });
@@ -182,21 +188,22 @@ export function createLandscape(plan, palette, tier) {
   // canopy trees — trunk + clustered canopy; shade trees spread, street trees stay upright
   const leafMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: true, envMapIntensity: 0.3 });
   const barkMat = new THREE.MeshStandardMaterial({ color: palette.bark, roughness: 0.95, envMapIntensity: 0.3 });
-  const kinds = ['spread', 'upright'];
-  const byKind = { spread: plan.trees.filter((t) => t.lush), upright: plan.trees.filter((t) => !t.lush) };
+  const kinds = Object.keys(TREE_FORMS);
+  const byKind = Object.fromEntries(kinds.map((k) => [k, plan.trees.filter((t) => treeKind(t) === k)]));
   const treeMeshes = kinds.map((kind) => {
     const list = byKind[kind];
     const n = Math.max(1, list.length);
+    if (!list.length) return null;
     const canopy = new THREE.InstancedMesh(canopyGeometry(kind), leafMat, n);
     const trunk = new THREE.InstancedMesh(trunkGeometry(kind), barkMat, n);
     canopy.count = trunk.count = list.length;
     trunk.instanceMatrix = canopy.instanceMatrix;   // shared transforms
     list.forEach((t, i) => {
-      const set = t.lush ? palette.treeLush : palette.treeStreet;
+      const set = t.flower ? palette.treeFlower : kind === 'round' ? palette.treeRound : t.lush ? palette.treeLush : palette.treeStreet;
       canopy.setColorAt(i, color.set(set[Math.floor(t.tone * set.length) % set.length]));
     });
     return { kind, list, canopy, trunk };
-  });
+  }).filter(Boolean);
 
   // royal palms — slim trunk + frond crown
   const trunks = new THREE.InstancedMesh(

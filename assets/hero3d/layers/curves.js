@@ -5,7 +5,7 @@
 // the building — vertical ribs, floor rings revealed as the mass passes them,
 // and a moving top ring. Plans come from site-plan.js in world space.
 import * as THREE from 'three';
-import { PHASES } from '../config.js';
+import { PHASES, BUILT } from '../config.js';
 import { clamp01, window01, smootherstep, lerp } from '../sequence.js';
 import { injectFacade, DITHER_GLSL } from './facade-glsl.js';
 import { planNormals, offsetPlan } from '../site-plan.js';
@@ -57,20 +57,24 @@ function wall(B, pts, y0, y1, sign = 1) {
   }
 }
 
-function cap(B, pts, y, facingUp) {
+function cap(B, pts, y, facingUp, holes = []) {
   const contour = pts.map(([x, z]) => new THREE.Vector2(x, z));
+  const holeContours = holes.map((h) => h.map(([x, z]) => new THREE.Vector2(x, z)));
+  const all = [...pts, ...holes.flat()];
   const n = facingUp ? [0, 1, 0] : [0, -1, 0];
-  for (const [i0, i1, i2] of THREE.ShapeUtils.triangulateShape(contour, [])) {
-    B.tri([[pts[i0][0], y, pts[i0][1]], [pts[i1][0], y, pts[i1][1]], [pts[i2][0], y, pts[i2][1]]], [n, n, n], [0, 0, 0], facingUp ? UP : DOWN);
+  for (const [i0, i1, i2] of THREE.ShapeUtils.triangulateShape(contour, holeContours)) {
+    B.tri([[all[i0][0], y, all[i0][1]], [all[i1][0], y, all[i1][1]], [all[i2][0], y, all[i2][1]]], [n, n, n], [0, 0, 0], facingUp ? UP : DOWN);
   }
 }
 
-// extruded prism, local y ∈ [0, h], with roof and soffit caps
-function prismGeometry(pts, h) {
+// extruded prism, local y ∈ [0, h], with roof and soffit caps; optional holes (pool
+// openings in a deck) get inward-facing walls
+function prismGeometry(pts, h, holes = []) {
   const B = makeBuilder();
   wall(B, pts, 0, h);
-  cap(B, pts, h, true);
-  cap(B, pts, 0, false);
+  for (const hole of holes) wall(B, hole, 0, h, -1);
+  cap(B, pts, h, true, holes);
+  cap(B, pts, 0, false, holes);
   return B.geometry();
 }
 
@@ -121,6 +125,87 @@ function slabGeometry(floors) {
     }
   }
   return B.geometry();
+}
+
+// Wave screen: horizontal fins that follow a closed plan path, each rising and falling in
+// a smooth wave and swelling in depth, wrapping every corner. Breaks (openings) cut the
+// fins into runs with end caps. Light strips are thin warm ribbons tucked under selected
+// fins, set back from the fin edge. Returns { fins, lights } geometries (world space).
+function waveSamples(path, spacing) {
+  // resample the closed path by arc length, with outward normals
+  const nrm = planNormals(path);
+  const out = [];
+  let s = 0, carry = 0;
+  for (let i = 0; i < path.length; i++) {
+    const j = (i + 1) % path.length;
+    const [ax, az] = path[i], [bx, bz] = path[j];
+    const len = Math.hypot(bx - ax, bz - az);
+    let t = carry;
+    while (t < len) {
+      const f = t / len;
+      const nx = nrm[i][0] + (nrm[j][0] - nrm[i][0]) * f, nz = nrm[i][1] + (nrm[j][1] - nrm[i][1]) * f;
+      const nl = Math.hypot(nx, nz) || 1;
+      out.push({ x: ax + (bx - ax) * f, z: az + (bz - az) * f, nx: nx / nl, nz: nz / nl, s: s + t });
+      t += spacing;
+    }
+    carry = t - len;
+    s += len;
+  }
+  return { samples: out, perimeter: s };
+}
+
+function waveGeometry(spec) {
+  const W = spec.waves;
+  const { samples, perimeter } = waveSamples(spec.pts, W.spacing);
+  const n = samples.length;
+  const cycles = Math.max(1, Math.round(perimeter / W.wavelength));
+  const cyclesD = Math.max(1, Math.round(perimeter / W.depthWavelength));
+  const open = samples.map((p) => !W.breaks.some((b) => Math.hypot(p.x - b.x, p.z - b.z) < b.width / 2));
+  const F = makeBuilder();
+  const L = makeBuilder();
+  const up = new THREE.Vector3(0, 1, 0), down = new THREE.Vector3(0, -1, 0), out = new THREE.Vector3();
+  W.fins.forEach((fin, k) => {
+    const pt = (i) => {
+      const p = samples[i % n];
+      const u = (2 * Math.PI * p.s) / perimeter;
+      const y = fin.y + W.amplitude * Math.sin(u * cycles + fin.phase);
+      const d = W.depth[0] + (W.depth[1] - W.depth[0]) * (0.5 + 0.5 * Math.sin(u * cyclesD + fin.phase * 0.7 + 1.3));
+      return { p, y, d };
+    };
+    const t = W.thick / 2;
+    for (let i = 0; i < n; i++) {
+      const j = i + 1;
+      if (!open[i] || !open[j % n]) {
+        // end cap where a run stops at a break
+        if (open[i] && !open[j % n]) {
+          const a = pt(i), ix = a.p.x - a.p.nx * 0.05, iz = a.p.z - a.p.nz * 0.05, ox = a.p.x + a.p.nx * a.d, oz = a.p.z + a.p.nz * a.d;
+          out.set(a.p.nz, 0, -a.p.nx);
+          F.quad([[ix, a.y - t, iz], [ox, a.y - t, oz], [ox, a.y + t, oz], [ix, a.y + t, iz]], [[out.x, 0, out.z], [out.x, 0, out.z], [out.x, 0, out.z], [out.x, 0, out.z]], [0, 0, 0, 0], out);
+        }
+        if (!open[i] && open[j % n]) {
+          const a = pt(j), ix = a.p.x - a.p.nx * 0.05, iz = a.p.z - a.p.nz * 0.05, ox = a.p.x + a.p.nx * a.d, oz = a.p.z + a.p.nz * a.d;
+          out.set(-a.p.nz, 0, a.p.nx);
+          F.quad([[ix, a.y - t, iz], [ox, a.y - t, oz], [ox, a.y + t, oz], [ix, a.y + t, iz]], [[out.x, 0, out.z], [out.x, 0, out.z], [out.x, 0, out.z], [out.x, 0, out.z]], [0, 0, 0, 0], out);
+        }
+        continue;
+      }
+      const a = pt(i), b = pt(j);
+      const ai = [a.p.x - a.p.nx * 0.05, a.p.z - a.p.nz * 0.05], bi = [b.p.x - b.p.nx * 0.05, b.p.z - b.p.nz * 0.05];
+      const ao = [a.p.x + a.p.nx * a.d, a.p.z + a.p.nz * a.d], bo = [b.p.x + b.p.nx * b.d, b.p.z + b.p.nz * b.d];
+      const sa = a.p.s, sb = a.p.s + W.spacing;
+      F.quad([[ai[0], a.y + t, ai[1]], [bi[0], b.y + t, bi[1]], [bo[0], b.y + t, bo[1]], [ao[0], a.y + t, ao[1]]], FLAT_UP, [sa, sb, sb, sa], up);
+      F.quad([[ai[0], a.y - t, ai[1]], [bi[0], b.y - t, bi[1]], [bo[0], b.y - t, bo[1]], [ao[0], a.y - t, ao[1]]], FLAT_DOWN, [sa, sb, sb, sa], down);
+      const na = [a.p.nx, 0, a.p.nz], nb = [b.p.nx, 0, b.p.nz];
+      out.set(a.p.nx + b.p.nx, 0, a.p.nz + b.p.nz);
+      F.quad([[ao[0], a.y - t, ao[1]], [bo[0], b.y - t, bo[1]], [bo[0], b.y + t, bo[1]], [ao[0], a.y + t, ao[1]]], [na, nb, nb, na], [sa, sb, sb, sa], out);
+      if (W.lights.includes(k)) {
+        // warm strip hanging 2 cm under the fin, 0.3 m back from its edge
+        const la = [a.p.x + a.p.nx * (a.d - 0.3), a.p.z + a.p.nz * (a.d - 0.3)], lb = [b.p.x + b.p.nx * (b.d - 0.3), b.p.z + b.p.nz * (b.d - 0.3)];
+        L.quad([[la[0], a.y - t - 0.09, la[1]], [lb[0], b.y - t - 0.09, lb[1]], [lb[0], b.y - t - 0.02, lb[1]], [la[0], a.y - t - 0.02, la[1]]], [na, nb, nb, na], [0, 0, 0, 0], out);
+      }
+    }
+  });
+  return { fins: F.geometry(), lights: L.geometry() };
 }
 
 // Stacked floorplates: one wall band per floor with that floor's plan (the glass
@@ -257,8 +342,9 @@ export function createCurves(plan, palette, tier) {
     const outer = ring && !spec.inner ? offsetPlan(spec.pts, -(spec.inset || 0)) : spec.pts;
     const inner = ring ? (spec.inner || offsetPlan(spec.pts, -((spec.inset || 0) + spec.thick))) : null;
     const stack = spec.type === 'stack';
-    const geometry = ring ? ringGeometry(outer, inner, spec.h)
-      : stack ? stackGeometry(spec.floorPlans, spec.floorH) : prismGeometry(spec.pts, spec.h);
+    const waves = spec.type === 'waves' ? waveGeometry(spec) : null;
+    const geometry = waves ? waves.fins : ring ? ringGeometry(outer, inner, spec.h)
+      : stack ? stackGeometry(spec.floorPlans, spec.floorH) : prismGeometry(spec.pts, spec.h, spec.holes);
 
     // facade surface (static at its final height, shown once the massing turns solid)
     const uniforms = {
@@ -271,6 +357,12 @@ export function createCurves(plan, palette, tier) {
     };
     const fillMaterial = new THREE.MeshStandardMaterial({ color: palette[spec.kind] ?? palette.concrete, roughness: 0.92, metalness: 0 });
     fillMaterial.extensions = { derivatives: true };
+    // The CAD ribs and floor rings (LineSegments, which polygon offset cannot move) lie
+    // exactly on these surfaces. Pushing the fill back slightly lets the lines win
+    // deterministically instead of flickering through depth-precision ties.
+    fillMaterial.polygonOffset = true;
+    fillMaterial.polygonOffsetFactor = 1;
+    fillMaterial.polygonOffsetUnits = 1;
     fillMaterial.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms);
       injectFacade(shader, {
@@ -298,7 +390,7 @@ export function createCurves(plan, palette, tier) {
       });
     };
     const fill = new THREE.Mesh(geometry, fillMaterial);
-    fill.position.y = finalBase;
+    fill.position.y = waves ? 0 : finalBase;   // wave screens are built in world space
     fill.castShadow = shadows;
     fill.receiveShadow = shadows;
     group.add(fill);
@@ -315,6 +407,22 @@ export function createCurves(plan, palette, tier) {
     }
 
     item.fill = fill;
+    if (waves && waves.lights.getAttribute('position').count) {
+      // recessed light strips: unlit warm white, fading in with the surfaces (no animation)
+      item.lightFill = { value: 0 };
+      const lampMat = new THREE.MeshBasicMaterial({ color: palette.lamp });
+      lampMat.onBeforeCompile = (shader) => {
+        shader.uniforms.uFill = item.lightFill;
+        shader.fragmentShader = shader.fragmentShader
+          .replace('#include <common>', `#include <common>
+            uniform float uFill;
+            ${DITHER_GLSL}`)
+          .replace('#include <color_fragment>', `#include <color_fragment>
+            if (bayer4(gl_FragCoord.xy) + 0.03125 > uFill) discard;`);
+      };
+      item.lights = new THREE.Mesh(waves.lights, lampMat);
+      group.add(item.lights);
+    }
     // rising wireframe (guards and other small rings simply materialise with the surfaces)
     if (spec.wire !== false) {
       const wireMat = wireMaterial(palette);
@@ -335,6 +443,8 @@ export function createCurves(plan, palette, tier) {
     const solid = smootherstep(window01(S, [PHASES.materialize[0] + 0.02, PHASES.materialize[1] - 0.02]));
     // landscape surfaces (pools, fountain, paving) arrive with the context phase
     const context = smootherstep(window01(S, [PHASES.context[0] + 0.01, PHASES.context[0] + 0.09]));
+    // the construction wireframe (ribs, floor rings, outlines) clears once the model is built
+    const clear = 1 - smootherstep(window01(S, BUILT));
     for (const item of items) {
       const { spec } = item;
       const g = smootherstep(clamp01((S - spec.start) / spec.dur));
@@ -346,10 +456,10 @@ export function createCurves(plan, palette, tier) {
         item.wire.position.y = base;
         item.topRing.position.y = base + height;
         item.wireMat.uniforms.uClip.value = height;
-        item.wireMat.uniforms.uEdge.value = g > 0 ? lerp(0.9, 0.3, mat) : 0;
-        item.wireMat.uniforms.uFloor.value = g > 0 ? lerp(0.32, 0.04, mat) : 0;
+        item.wireMat.uniforms.uEdge.value = g > 0 ? lerp(0.9, 0.3, mat) * clear : 0;
+        item.wireMat.uniforms.uFloor.value = g > 0 ? lerp(0.32, 0.04, mat) * clear : 0;
         // skip draw calls for lines that cannot show
-        item.wire.visible = g > 0 && !(tier.dropSettledWire && mat >= 1);
+        item.wire.visible = g > 0 && clear > 0 && !(tier.dropSettledWire && mat >= 1);
         item.topRing.visible = g > 0 && g < 1;
       }
 
@@ -357,6 +467,7 @@ export function createCurves(plan, palette, tier) {
       item.uniforms.uFill.value = fillA;
       item.fill.visible = fillA > 0;
       if (item.slabFill) { item.slabFill.value = fillA; item.slabs.visible = fillA > 0; }
+      if (item.lightFill) { item.lightFill.value = fillA; item.lights.visible = fillA > 0; }
     }
   }
 

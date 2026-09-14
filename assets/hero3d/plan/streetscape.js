@@ -5,6 +5,8 @@
 // driveway aprons, benches, bike racks and bollards. Ground-level "context" items
 // that arrive with the landscape.
 import { RES, GLAZE, HX, HZ, WALK, HALF_ROAD, PITCH_X, PITCH_Z, roundedRectPlan, resampleByAngle, offsetPlan, box, partsKit } from './core.js';
+import { fixtureKit, FIXTURE } from './fixtures.js';
+import { canopyOf } from './planting.js';
 
 const CURB = [-HX - WALK, HX + WALK, -HZ - WALK, HZ + WALK];          // 84.5 × 59.75
 const STREET = 2 * HALF_ROAD;                                          // 13 m curb to curb
@@ -42,8 +44,8 @@ export const stations = (side) => {
 
 // paved breaks through the tree lawn: entrances, paths meeting the street, curb cuts
 const OPENINGS = {
-  n: [[-27, -20], [-14, -8]],                                  // paseo walk + promenade
-  s: [[-57.5, -42.5], [-27, -20], [-3, 3], [18.5, 23.5]],      // podium lobby, arcade walk, park path, office walk
+  n: [[-79, -75], [-27, -20], [-14, -8], [75, 79]],                          // crosswalk landings, paseo walk + promenade
+  s: [[-79, -75], [-57.5, -42.5], [-27, -20], [-3, 3], [18.5, 23.5], [75, 79]], // landings, podium lobby, arcade walk, park path, office walk
   w: [[-35.5, -21]],                                           // podium west lobby
   e: [[6.5, 11.5]],                                            // lane
 };
@@ -91,7 +93,7 @@ export function streetscapeSpecs(tier) {
   return [
     { ...ctx, name: 'S.street', type: 'ring', kind: 'asphalt', y0: 0, h: 0.02, pts: rs(streetOuter), inner: rs(curb) },
     { ...ctx, name: 'S.curb', type: 'ring', kind: 'stone', y0: 0, h: SIDEWALK_TOP + 0.01, pts: rs(curb), inner: rs(offsetPlan(curb, -CURB_W)) },
-    { ...ctx, name: 'S.sidewalk', type: 'ring', kind: 'sidewalk', y0: 0, h: SIDEWALK_TOP, pts: rs(offsetPlan(curb, -CURB_W)), inner: rs(property) },
+    { ...ctx, name: 'S.sidewalk', type: 'ring', kind: 'sidewalk', glaze: GLAZE.pavers, module: [1.5, 1.5], y0: 0, h: SIDEWALK_TOP, pts: rs(offsetPlan(curb, -CURB_W)), inner: rs(property) },
     { ...ctx, name: 'S.blockPaving', type: 'prism', kind: 'paving', y0: 0, h: BLOCK_PAVING_TOP, pts: property },
   ];
 }
@@ -102,7 +104,7 @@ export function streetscapeSlabs() {
   // driveway aprons: drive-coloured paving across the sidewalk, flush with it
   DRIVEWAYS.forEach(([side, a0, a1], k) => {
     const r = across(side, a0, a1, 0, WALK - CURB_W);
-    out.push(box(`S.apron${k}`, r[0], r[1], r[2], r[3], 0, SIDEWALK_TOP + 0.005, 'drive', 'L', t(k)));
+    out.push(box(`S.apron${k}`, r[0], r[1], r[2], r[3], 0, SIDEWALK_TOP + 0.025, 'drive', 'L', t(k), null, { glaze: GLAZE.bond, module: [0.6, 0.3] }));
   });
   // tree lawns
   for (const side of ['n', 's', 'w', 'e']) {
@@ -114,67 +116,119 @@ export function streetscapeSlabs() {
   return out;
 }
 
+// crosswalks sit on the straight sidewalk runs, 7.5 m back from the cross street's curb
+export const CROSSWALK_SETBACK = HALF_ROAD + 7.5;
+// paved entrance zones on the sidewalk walk: [side, from, to]
+export const ENTRANCE_ZONES = [
+  ['s', -54.0, -46.0],   // tower 2 lobby (south)
+  ['w', -32.0, -24.0],   // tower 1 lobby (west)
+  ['s', 24.5, 33.5],     // office lobby
+];
+// marked drop-off lay-bys in the kerbside parking lane: [side, from, to]
+export const DROP_OFFS = [
+  ['w', -35.0, -21.0],   // residential tower 1 arrivals
+  ['s', 23.0, 35.0],     // office lobby
+];
+
+export function streetscapeEntrances() {
+  const t = [0.668, 0.05];
+  return ENTRANCE_ZONES.map(([side, a0, a1], k) => {
+    const r = across(side, a0, a1, 0.05, WALK_CLEAR - 0.12);
+    return box(`S.entry${k}`, r[0], r[1], r[2], r[3], 0, SIDEWALK_TOP + 0.02, 'stone', 'L', t, null, { glaze: GLAZE.pavers, module: [0.6, 0.6] });
+  });
+}
+
 export function streetscapeParts(tier, trees, palms) {
   const out = [];
   const K = partsKit(out);
-  const { add, block, column, bench, bollard } = K;
+  const X = fixtureKit(K);
+  const { add, block, bench } = K;
   const C = 'context';
   const full = tier.name !== 'mobile';
   const y = SIDEWALK_TOP;
-  const plantings = [...trees, ...palms].filter((p) => p.y === 0 && (Math.abs(p.x) > HX || Math.abs(p.z) > HZ));
-  const nearPlanting = (x, z, d = 2.2) => plantings.some((p) => Math.hypot(p.x - x, p.z - z) < d);
-  const onDriveway = (side, a, pad = 1.5) => DRIVEWAYS.some(([s, a0, a1]) => s === side && a > a0 - pad && a < a1 + pad);
+  const street = [...trees, ...palms].filter((p) => p.y < 1.2 && (Math.abs(p.x) > HX - 1 || Math.abs(p.z) > HZ - 1));
+  // clearance to canopies (trees) and crowns (palms) for poles of a given height
+  const clearOf = (x, z, top, reach) => street.every((p) => {
+    if (p.h) return Math.hypot(p.x - x, p.z - z) > (top > p.h - 1.5 ? p.r + reach + 0.3 : 0.9);   // palm crown / trunk
+    const k = canopyOf(p);
+    return Math.hypot(k.x - x, k.z - z) > (top > k.y0 ? k.r + reach : 0.9);
+  });
+  const onDriveway = (side, a, pad = 1.5) => DRIVEWAYS.some(([sd, a0, a1]) => sd === side && a > a0 - pad && a < a1 + pad);
+  const inOpening = (side, a, pad = 0.6) => [...OPENINGS[side], ...ENTRANCE_ZONES.filter(([sd]) => sd === side).map(([, a0, a1]) => [a0, a1])].some(([a0, a1]) => a > a0 - pad && a < a1 + pad);
 
-  // scored concrete walk: control joints across the walk zone, a stone header at the lawn edge
-  const jointStep = full ? 1.5 : 3.0;
+  // stone header at the tree-lawn edge (walk joints are drawn by the paving shader)
   for (const side of ['n', 's', 'w', 'e']) {
-    const [r0, r1] = SIDE[side].range;
-    for (let a = r0 - 2; a <= r1 + 2; a += jointStep) {
-      if (onDriveway(side, a, 0.1)) continue;
-      const r = across(side, a - 0.025, a + 0.025, 0.02, WALK_CLEAR);
-      block(r[0], r[1], y, y + 0.006, r[2], r[3], 'joint', C);
-    }
     for (const [a0, a1] of vergeSegments(side)) {
       const r = across(side, a0, a1, WALK_CLEAR - 0.1, WALK_CLEAR + 0.02);
       block(r[0], r[1], y, VERGE_TOP + 0.03, r[2], r[3], 'stone', C);
     }
   }
 
-  // zebra crosswalks at the block's corners, on both streets
+  // zebra crosswalks on the straight sidewalk runs, with flush curb-ramp pads and a
+  // tactile warning strip at each block-side landing (the ramp's slope is not modelled)
   const xs = [-PITCH_X / 2, PITCH_X / 2], zs = [-PITCH_Z / 2, PITCH_Z / 2];
   for (const xc of xs) for (const zc of zs) {
     const sx = Math.sign(xc), sz = Math.sign(zc);
-    const xw = xc - sx * (HALF_ROAD + 3.5);
+    const xw = xc - sx * CROSSWALK_SETBACK;
     for (let k = 0; k < 6; k++) { const zz = zc - HALF_ROAD + 1.2 + k * 2.1; block(xw - 1.6, xw + 1.6, 0.02, 0.035, zz - 0.3, zz + 0.3, 'frame', C); }
-    const zw = zc - sz * (HALF_ROAD + 3.5);
+    const zw = zc - sz * CROSSWALK_SETBACK;
     for (let k = 0; k < 6; k++) { const xx = xc - HALF_ROAD + 1.2 + k * 2.1; block(xx - 0.3, xx + 0.3, 0.02, 0.035, zw - 1.6, zw + 1.6, 'frame', C); }
+    // landings: north/south sidewalks at x = xw, east/west sidewalks at z = zw
+    const side1 = sz < 0 ? 'n' : 's';
+    const pad1 = across(side1, xw - 1.7, xw + 1.7, WALK_CLEAR - 0.2, WALK - CURB_W);
+    block(pad1[0], pad1[1], y, y + 0.05, pad1[2], pad1[3], 'drive', C);
+    const t1 = across(side1, xw - 1.5, xw + 1.5, WALK - CURB_W - 0.62, WALK - CURB_W - 0.02);
+    block(t1[0], t1[1], y, y + 0.075, t1[2], t1[3], 'tactile', C);
+    const side2 = sx < 0 ? 'w' : 'e';
+    const pad2 = across(side2, zw - 1.7, zw + 1.7, WALK_CLEAR - 0.2, WALK - CURB_W);
+    block(pad2[0], pad2[1], y, y + 0.05, pad2[2], pad2[3], 'drive', C);
+    const t2 = across(side2, zw - 1.5, zw + 1.5, WALK - CURB_W - 0.62, WALK - CURB_W - 0.02);
+    block(t2[0], t2[1], y, y + 0.075, t2[2], t2[3], 'tactile', C);
   }
 
-  // streetlights in the tree lawn, spaced ~22 m, clear of trees, palms and driveways
-  const lights = [];
-  const light = (x, z, ax, az) => {
-    lights.push([x, z]);
-    column(x, z, y, 6.5, 0.08, 'metal', C);
-    block(Math.min(x, x + ax * 1.4) - 0.05, Math.max(x, x + ax * 1.4) + 0.05, y + 6.35, y + 6.5, Math.min(z, z + az * 1.4) - 0.05, Math.max(z, z + az * 1.4) + 0.05, 'metal', C);
-    block(x + ax * 1.4 - 0.25, x + ax * 1.4 + 0.25, y + 6.2, y + 6.35, z + az * 1.4 - 0.12, z + az * 1.4 + 0.12, 'lamp', C);
-  };
-  const edge = WALK - CURB_W - 0.6;   // lamp posts 0.6 m behind the curb face
-  const spacing = full ? 22 : 33;
-  const inVerge = (side, a) => vergeSegments(side).some(([a0, a1]) => a > a0 + 0.3 && a < a1 - 0.3);
-  const place = (side, a0, fixed, ax, az) => {
-    let a = a0;
-    const at = (v) => (SIDE[side].axis === 'x' ? [v, fixed] : [fixed, v]);
-    const bad = (v) => nearPlanting(...at(v)) || onDriveway(side, v) || !inVerge(side, v);
-    for (let tries = 0; tries < 6 && bad(a); tries++) a += 2.5;
-    if (!bad(a)) light(...at(a), ax, az);
-  };
-  for (let a = -HX + 14; a <= HX - 10; a += spacing) {
-    place('n', a, -HZ - edge, 0, -1);
-    place('s', a, HZ + edge, 0, 1);
+  // drop-off lay-bys: white edge lines around a 2.4 m bay in the kerbside lane
+  for (const [side, a0, a1] of DROP_OFFS) {
+    const d0 = WALK + 0.1, d1 = WALK + 2.5;
+    for (const [e0, e1] of [[d0, d0 + 0.15], [d1 - 0.15, d1]]) { const r = across(side, a0, a1, e0, e1); block(r[0], r[1], 0.02, 0.035, r[2], r[3], 'frame', C); }
+    for (const a of [a0, a1]) { const r = across(side, a - 0.08, a + 0.08, d0, d1); block(r[0], r[1], 0.02, 0.035, r[2], r[3], 'frame', C); }
   }
-  for (let a = -HZ + 12; a <= HZ - 10; a += spacing) {
-    place('w', a, -HX - edge, -1, 0);
-    place('e', a, HX + edge, 1, 0);
+
+  // lighting: roadway poles in the tree lawn every 28 m (arms over the carriageway), and
+  // pedestrian lanterns at the building side of the walk halfway between them; both
+  // shift along the run to clear canopies, palm crowns, driveways and entrances
+  const poles = [];
+  const roadEdge = WALK - CURB_W - 0.55;
+  const spacing = full ? 28 : 42;
+  const inVerge = (side, a) => vergeSegments(side).some(([a0, a1]) => a > a0 + 0.4 && a < a1 - 0.4);
+  const place = (side, a0, kind) => {
+    const { axis, line, out: o } = SIDE[side];
+    const d = kind === 'road' ? roadEdge : 0.45;
+    const at = (v) => (axis === 'x' ? [v, line + o * d] : [line + o * d, v]);
+    const F = kind === 'road' ? FIXTURE.road : FIXTURE.ped;
+    const ok = (v) => {
+      const [x, z] = at(v);
+      if (onDriveway(side, v) || inOpening(side, v, kind === 'road' ? 0.2 : 0.8)) return false;
+      if (kind === 'road' && !inVerge(side, v)) return false;
+      // the road light's head sits over the street, 2 m out from the pole
+      const hx = x + (axis === 'x' ? 0 : o * FIXTURE.road.arm), hz = z + (axis === 'x' ? o * FIXTURE.road.arm : 0);
+      return clearOf(x, z, F.h, F.reach) && (kind !== 'road' || clearOf(hx, hz, F.h, 0.6));
+    };
+    for (let k = 0; k < 12; k++) {
+      for (const v of [a0 + k * 0.8, a0 - k * 0.8]) {
+        if (!ok(v)) continue;
+        const [x, z] = at(v);
+        if (kind === 'road') X.roadLight(x, z, y, axis === 'x' ? (o > 0 ? Math.PI / 2 : -Math.PI / 2) : (o > 0 ? 0 : Math.PI));
+        else X.pedLight(x, z, y);
+        poles.push([x, z]);
+        return;
+      }
+    }
+  };
+  for (const [side, from, to] of [['n', -HX + 12, HX - 8], ['s', -HX + 12, HX - 8], ['w', -HZ + 10, HZ - 6], ['e', -HZ + 10, HZ - 6]]) {
+    for (let a = from; a <= to; a += spacing) {
+      place(side, a, 'road');
+      if (a + spacing / 2 <= to) place(side, a + spacing / 2, 'ped');
+    }
   }
 
   // groundcover and low shrubs along the tree lawns, clear of trunks and posts
@@ -186,25 +240,31 @@ export function streetscapeParts(tier, trees, palms) {
         const d = VERGE_CENTRE + (n % 2 ? 0.35 : -0.35);
         const r = across(side, a, a, d, d);
         const [x, z] = [r[0], r[2]];
-        if (nearPlanting(x, z, 1.5) || lights.some(([lx, lz]) => Math.hypot(lx - x, lz - z) < 1.0)) continue;
-        const s = 0.8 + (n % 3) * 0.2, h = 0.55 + (n % 2) * 0.25;
-        add('cone', x, VERGE_TOP + h / 2, z, s, h, s, n % 3 === 1 ? 'shrubDark' : 'shrub', C);
+        if (street.some((p) => Math.hypot(p.x - x, p.z - z) < 1.5) || poles.some(([lx, lz]) => Math.hypot(lx - x, lz - z) < 1.0)) continue;
+        const sz = 0.8 + (n % 3) * 0.2, h = 0.55 + (n % 2) * 0.25;
+        add('cone', x, VERGE_TOP + h / 2, z, sz, h, sz, n % 3 === 1 ? 'shrubDark' : 'shrub', C);
         n++;
       }
     }
   }
 
-  // benches on the south walk between the palms, backs to the tree lawn
-  for (const x of [-40, -4, 8, 32]) if (!nearPlanting(x, HZ + 0.9, 2.0)) bench(x, HZ + 0.9, y, 2.4, 0, 'frame');
-  // bike racks beside the office lobby and the podium's south lobby
-  const rack = (x0, z, count) => { for (let k = 0; k < count; k++) block(x0 + k * 0.9 - 0.04, x0 + k * 0.9 + 0.04, y, y + 0.8, z - 0.35, z + 0.35, 'metal', C); };
-  rack(18.2, HZ + 1.0, 5);
-  rack(-30.5, HZ + 1.0, 5);
+  // benches on the south walk with litter bins, backs to the tree lawn
+  for (const x of [-40, -4, 8, 40]) {
+    if (!street.every((p) => Math.hypot(p.x - x, p.z - (HZ + 0.9)) > 2.0) || poles.some(([px, pz]) => Math.hypot(px - x, pz - HZ - 0.9) < 2.2)) continue;
+    bench(x, HZ + 0.9, y, 2.4, 0, 'frame');
+    X.litterBin(x + 1.8, HZ + 0.8, y);
+  }
+  // hoop bicycle stands near the office lobby, the podium south lobby, the tower 1 west
+  // lobby and the hotel entrance forecourt
+  X.bikeHoops(20.0, HZ + 1.0, y, 5, 0);
+  X.bikeHoops(-28.7, HZ + 1.0, y, 5, 0);
+  X.bikeHoops(-HX - 1.0, -38.5, y, 4, Math.PI / 2);
+  X.bikeHoops(38.8, 6.2, 0.05, 3, Math.PI / 2);
 
-  // bollards where the paseo walks and the lane meet the street (pedestrian only)
-  for (let x = -25.5; x <= -20.5; x += 1.25) { bollard(x, -HZ + 0.6, 0.03); bollard(x, HZ - 0.6, 0.03); }
-  for (let x = -13.0; x <= -9.5; x += 1.25) bollard(x, -HZ + 0.6, 0.03);
-  for (let z = 1.0; z <= 13.0; z += 1.6) bollard(HX - 0.6, z, 0.03);
+  // bollard lights where the paseo walks and the lane meet the street (pedestrian only)
+  for (let x = -25.5; x <= -20.5; x += 1.25) { X.bollard(x, -HZ + 0.6, 0.03); X.bollard(x, HZ - 0.6, 0.07); }
+  for (let x = -13.0; x <= -9.5; x += 1.25) X.bollard(x, -HZ + 0.6, 0.07);
+  for (let z = 1.0; z <= 13.0; z += 1.6) X.bollard(HX - 0.6, z, z > 7.7 && z < 10.3 ? 0.07 : 0.03);
 
   return out;
 }

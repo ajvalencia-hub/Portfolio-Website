@@ -13,6 +13,10 @@ export const PHASES = {
   handoff:     [0.92, 1.00], // hero scrolls away into Selected Work
 };
 
+// Construction drawing (survey grid, site-plan linework, wireframe ribs and floor lines)
+// clears away once the development is fully built, leaving only the finished model.
+export const BUILT = [0.70, 0.80];
+
 export const INTRO_END = PHASES.site[1];    // autoplayed on load: the drawing is the loading state
 export const TRACK_END = PHASES.compose[1]; // end of the sticky scroll track
 export const INTRO_SECONDS = 3.6;
@@ -54,10 +58,16 @@ export function readPalette(root = document.documentElement) {
     sidewalk: '#e0e1dd', // scored concrete sidewalks
     pathStone: '#d3d4cf',// paved walks between the buildings
     joint: '#b9bbb7',    // control joints in sidewalks and walks
+    guardGlass: '#c7d5db', // glass guard panels (light blue-grey)
+    tactile: '#777b7d',   // detectable warning strips at curb ramps
+    poolTile: '#3f8e9c',  // waterline tile band
+    perforated: '#8e9396', // office garage perforated metal
+    breeze: '#ecebe6',    // office garage breeze block
+    greenWall: '#4d8f3a', // planted garage bays
     coping: '#f7f7f4',   // pool coping
     drive: '#bfc2c2',    // arrival drive and driveway aprons
     asphalt: '#9a9e9f',  // street surface around the block
-    lawn: '#7fbf45',     // ground-level lawns
+    lawn: '#74b340',     // ground-level lawns (mature, slightly deeper green)
     planter: '#4f9a33',  // planters and planting beds
     pool: '#5ab6c2',     // pools and water features
     shelf: '#8fd2d8',    // shallow sun shelf and entry steps
@@ -73,6 +83,11 @@ export function readPalette(root = document.documentElement) {
     vineLight: '#62a94a',
     treeLush: ['#3f8f2c', '#56a83a', '#6dba45', '#2f7a26', '#80c451'],
     treeStreet: ['#6f9f4f', '#80ad5c', '#5f9346'],
+    treeRound: ['#4e8f3c', '#679f47', '#3d7d33'],
+    treeFlower: ['#cf6a3c', '#d98446', '#c25a36'],   // flowering canopy accents (poinciana-like)
+    shrubFlower: '#c35a8f',  // bougainvillea-like accent shrubs
+    shrubLight: '#9cc262',   // lighter contrasting foliage
+    bed: '#5e6a3e',          // planting bed mulch / soil
     palm: '#5aa33a',
     trunk: '#a8977d',   // palm trunks
     bark: '#6f5f4d',    // shade and street tree trunks
@@ -100,7 +115,7 @@ export function detectTier({ force = false } = {}) {
   }
   return {
     ...base, name: 'desktop', maxDpr: cores >= 8 ? 1.75 : 1.5, antialias: true,
-    shadows: true, shadowMapSize: 1024, cityRings: 2, neighbors: 'all',
+    shadows: true, shadowMapSize: 2048, cityRings: 2, neighbors: 'all',
     treeDensity: 1, cars: 16, crosswalks: true, parallax: true, cameraTravel: 1,
   };
 }

@@ -15,10 +15,11 @@ import {
   rng, box, rect, offsetPlan, insidePlan, planNormals, floorsToHeight, inRect,
 } from './plan/core.js';
 import { PODIUM_PLAN, PODIUM_PARKING, residentialMasses, residentialSlabs, residentialParts } from './plan/residential.js';
-import { HOTEL, hotelMasses, hotelBoxes, hotelSlabs, hotelParts } from './plan/hotel.js';
+import { HOTEL, hotelMasses, hotelBoxes, hotelSlabs, hotelParts, hotelPoolSpecs } from './plan/hotel.js';
 import { OFFICE_BLOCKS, OFFICE_PARKING, officeMasses, officeSlabs, officeParts } from './plan/office.js';
 import { FOUNTAIN, PLAZA_DISC, PARK_PATHS, CAFE_ZONES, parkSpecs, parkParts } from './plan/park.js';
-import { streetscapeSpecs, streetscapeSlabs, streetscapeParts, stations, VERGE_CENTRE } from './plan/streetscape.js';
+import { officeGarageFacade } from './plan/office-garage.js';
+import { streetscapeSpecs, streetscapeSlabs, streetscapeParts, streetscapeEntrances, stations, VERGE_CENTRE, CROSSWALK_SETBACK, DROP_OFFS } from './plan/streetscape.js';
 import { groundsSlabs, groundsPlanting } from './plan/grounds.js';
 
 export { LAYER, LAYER_COUNT, GLAZE, BLOCK, planNormals, offsetPlan, insidePlan };
@@ -96,7 +97,7 @@ function sitePaths(tier, masses, curved, rand) {
   add(circle(FOUNTAIN.x, FOUNTAIN.z, PLAZA_DISC), LAYER.landscape, 0.230, 0.05, { closed: true, y: 0.1 });
   add(circle(FOUNTAIN.x, FOUNTAIN.z, FOUNTAIN.basin + FOUNTAIN.coping, 32), LAYER.landscape, 0.238, 0.04, { closed: true, y: 0.1 });
   PARK_PATHS.forEach((p, k) => add([p.from, p.to], LAYER.landscape, 0.244 + k * 0.003, 0.03, { y: 0.1, dash: [2, 1.2] }));
-  for (const n of ['L.hcourt', 'L.hcope', 'L.fore', 'L.arrive', 'L.drive']) {
+  for (const n of ['L.fore', 'L.arrive', 'L.drive']) {
     const m = masses.find((b) => b.name === n);
     if (m) add(outline(m), LAYER.landscape, 0.26, 0.04, { closed: true, y: 0.1 });
   }
@@ -112,9 +113,9 @@ function sitePaths(tier, masses, curved, rand) {
       for (const zc of [zs[1], zs[2]]) {
         const sx = Math.sign(xc), sz = Math.sign(zc);
         const s = 0.70 + rand() * 0.05;
-        const xw = xc - sx * (HALF_ROAD + 3.5);
+        const xw = xc - sx * CROSSWALK_SETBACK;
         for (let k = 0; k < 6; k++) { const zz = zc - HALF_ROAD + 1.2 + k * 2.1; add([[xw - 1.5, zz], [xw + 1.5, zz]], LAYER.markings, s + k * 0.004, 0.02); }
-        const zw = zc - sz * (HALF_ROAD + 3.5);
+        const zw = zc - sz * CROSSWALK_SETBACK;
         for (let k = 0; k < 6; k++) { const xx = xc - HALF_ROAD + 1.2 + k * 2.1; add([[xx, zw - 1.5], [xx, zw + 1.5]], LAYER.markings, s + 0.02 + k * 0.004, 0.02); }
       }
     }
@@ -164,7 +165,6 @@ function streetGreenery(tier, rand, masses) {
     if (keep()) tree(-HX - o, west[k], 1.9 + rand() * 0.9, false);
     if (keep()) tree(HX + o, east[k], 1.9 + rand() * 0.9, false);
   }
-  [[6, -35.5], [6, -23.5], [44, -24]].forEach(([x, z]) => palm(x, z)); // hotel pool court
   return { trees, palms };
 }
 
@@ -190,13 +190,15 @@ function streetCars(tier, rand) {
     const x = lane.axis === 'x' ? along : lane.c;
     const z = lane.axis === 'x' ? lane.c : along;
     if (cars.some((c) => Math.hypot(c.x - x, c.z - z) < 9)) continue;   // travel lanes 2.0 m either side of the centreline
+    // keep clear of the crosswalks near each corner
+    if (lane.axis === 'x' ? Math.abs(Math.abs(x) - (PITCH_X / 2 - CROSSWALK_SETBACK)) < 4.5 : Math.abs(Math.abs(z) - (PITCH_Z / 2 - CROSSWALK_SETBACK)) < 4.5) continue;
     car(x, z, lane.rot);
   }
   // parallel-parked along the block-side curbs, clear of curb cuts and corners
   const P = PITCH_Z / 2 - 5.3, Q = PITCH_X / 2 - 5.3;   // 2.4 m parking lane against the 13 m curb-to-curb street
   const parked = [
-    ...[-64, -57.2, -36, 29.6, 36.4, 58].map((x) => [x, P, HEAD.west]),        // south street
-    ...[-40, -33.2, 5, 11.8, 34].map((z) => [-Q, z, HEAD.north]),            // west street
+    ...[-64, -57.2, -36, 40.4, 47.2, 58].map((x) => [x, P, HEAD.west]),        // south street (clear of the office drop-off)
+    ...[-46, -39.2, 5, 11.8, 34].map((z) => [-Q, z, HEAD.north]),            // west street (clear of the tower 1 drop-off)
     ...[-20, 12, 18.8].map((x) => [x, -P, HEAD.east]),                        // north street
     ...[33].map((z) => [Q, z, HEAD.south]),                                   // east street
   ];
@@ -211,10 +213,12 @@ function streetCars(tier, rand) {
 export function buildSitePlan(tier) {
   const rand = rng(20260913);
   const partsRand = rng(7);
-  const masses = [...hotelBoxes(), ...officeMasses()];
+  const officeGarage = officeGarageFacade(tier);
+  const masses = [...hotelBoxes(), ...officeMasses(), ...officeGarage.boxes];
   const residential = residentialMasses(tier);
-  const curved = [...streetscapeSpecs(tier), ...residential.specs, ...hotelMasses(), ...parkSpecs(tier)];
-  const slabs = [...residentialSlabs(), ...hotelSlabs(), ...officeSlabs(), ...streetscapeSlabs(), ...groundsSlabs()];
+  const hotelPool = hotelPoolSpecs(tier);
+  const curved = [...streetscapeSpecs(tier), ...residential.specs, ...hotelMasses(), ...hotelPool.specs, ...parkSpecs(tier)];
+  const slabs = [...residentialSlabs(), ...hotelSlabs(), ...officeSlabs(), ...streetscapeSlabs(), ...streetscapeEntrances(), ...groundsSlabs()];
   const boxes = [...masses, ...slabs];   // the development block only — no neighbouring buildings
   const index = Object.fromEntries(boxes.map((b, i) => [b.name, i]));
   boxes.forEach((b) => { b.parentIndex = b.parent ? index[b.parent] : -1; });
@@ -230,13 +234,17 @@ export function buildSitePlan(tier) {
   const trees = [
     ...street.trees,
     ...grounds.trees,
-    ...park.trees.map((t) => ({ x: t.x, z: t.z, y: 0, r: t.r, lush: true, tone: partsRand(), start: startAt(t.x, t.z, 0.665), dur: 0.05 })),
+    ...park.trees.map((t) => ({ ...t, y: 0, start: startAt(t.x, t.z, 0.665), dur: 0.05 })),
     ...res.trees,
   ];
+  const penthouse = residential.penthouses;
+  const hotel = hotelParts(tier);
   const palms = [
     ...street.palms,
+    ...penthouse.flatMap((p) => p.palms),
+    ...hotel.palms.map((p) => ({ ...p, spin: partsRand() * Math.PI, start: 0.68, dur: 0.05, court: true })),
     ...grounds.palms,
-    ...park.palms.map((p) => ({ x: p.x, z: p.z, y: 0, h: 8 + partsRand() * 2, r: 2.6 + partsRand() * 0.5, spin: partsRand() * Math.PI, start: 0.68, dur: 0.05 })),
+    ...park.palms.map((p) => ({ x: p.x, z: p.z, y: 0, h: p.h ?? 8 + partsRand() * 2, r: 2.6 + partsRand() * 0.5, spin: partsRand() * Math.PI, start: 0.68, dur: 0.05 })),
     ...res.palms,
   ];
 
@@ -250,7 +258,7 @@ export function buildSitePlan(tier) {
     boxes,
     index,
     curved,
-    parts: [...res.parts, ...hotelParts(tier), ...officeParts(tier, partsRand), ...park.parts, ...grounds.parts, ...streetscapeParts(tier, trees, palms)],
+    parts: [...res.parts, ...penthouse.flatMap((p) => p.parts), ...hotel.parts, ...officeParts(tier, partsRand), ...officeGarage.parts, ...park.parts, ...grounds.parts, ...streetscapeParts(tier, trees, palms)],
     paths: sitePaths(tier, boxes, curved, rand),
     trees,
     palms,
@@ -260,6 +268,6 @@ export function buildSitePlan(tier) {
       ...[HOTEL.front, HOTEL.rear, HOTEL.link].map(rectOfPlan),
       ...['C.baseE', 'C.baseW'].map((n) => boxes[index[n]]),
     ],
-    meta: { towers: residential.towers, pool: residential.pool, curveTop, cafeZones: CAFE_ZONES },
+    meta: { towers: residential.towers, pool: residential.pool, hotelPool: hotelPool.basin, curveTop, cafeZones: CAFE_ZONES },
   };
 }

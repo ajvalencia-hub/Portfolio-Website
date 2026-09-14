@@ -16,6 +16,28 @@ import { createLandscape } from './layers/landscape.js';
 import { createCameraRig } from './camera-rig.js';
 import { createScroll } from './scroll.js';
 
+// Points bounding everything visible at rest: the street ring at grade and the top
+// outline of every mass (used to fit the model on narrow screens).
+function modelBounds(plan) {
+  const pts = [[-97.5, 0, -72.8], [97.5, 0, -72.8], [97.5, 0, 72.8], [-97.5, 0, 72.8]];
+  const addOutline = (outline, y) => {
+    if (!outline?.length) return;
+    const xs = outline.map((p) => p[0]), zs = outline.map((p) => p[1]);
+    const [x0, x1, z0, z1] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+    pts.push([x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]);
+  };
+  for (const c of plan.curved) {
+    const top = plan.meta.curveTop[c.name];
+    if (top > 2) addOutline(c.pts || c.floorPlans?.[c.floorPlans.length - 1], top);
+  }
+  const tops = [];
+  plan.boxes.forEach((b, i) => {
+    tops[i] = (b.parentIndex >= 0 ? tops[b.parentIndex] : b.y0) + b.h;
+    if (tops[i] > 2) addOutline([[b.x - b.w / 2, b.z - b.d / 2], [b.x + b.w / 2, b.z + b.d / 2]], tops[i]);
+  });
+  return pts;
+}
+
 export async function createHero({ heroEl, canvasHost, tier, reduced, frozenS }) {
   const palette = readPalette();
   const plan = buildSitePlan(tier);
@@ -59,6 +81,23 @@ export async function createHero({ heroEl, canvasHost, tier, reduced, frozenS })
   rig = createCameraRig(stage.camera, tier, { reduced, dragTarget: canvasHost.parentElement });
   rig.setViewport(stage.size.w, stage.size.h);
   rig.onChange = stage.invalidate;
+  rig.setBounds(modelBounds(plan));
+
+  // Narrow layouts stack the copy above the model: measure where the copy ends so the
+  // rig can fit the model below it, and start the canvas's top fade just above that line.
+  const copyEl = heroEl.querySelector('.hero-copy');
+  const measureCopy = () => {
+    const host = canvasHost.getBoundingClientRect();
+    if (!copyEl || host.height < 1) return;
+    const bottom = copyEl.getBoundingClientRect().bottom - host.top + 20;   // 20 px breathing room
+    const fraction = Math.min(0.8, Math.max(0, bottom / host.height));
+    canvasHost.style.setProperty('--hero-copy-end', `${(fraction * 100).toFixed(1)}%`);
+    rig.setSafeTop(fraction);
+  };
+  measureCopy();
+  if (copyEl) new ResizeObserver(measureCopy).observe(copyEl);
+  new ResizeObserver(measureCopy).observe(canvasHost);
+  document.fonts?.ready.then(measureCopy);
   stage.scene.add(grid.object, lines.object, massing.object, curves.object, parts.object, landscape.object);
 
   // QA switch: ?heroPlan=structure|parking|boh|all overlays the conceptual plan data
@@ -84,6 +123,20 @@ export async function createHero({ heroEl, canvasHost, tier, reduced, frozenS })
   heroEl.classList.add('is-3d-ready');
   sequence.start(performance.now());
   stage.invalidate();
+
+  // QA switch: ?heroStats=1 exposes render statistics (frames rendered, draw calls,
+  // triangles, CPU time per frame) for performance and idle-stability checks
+  if (new URLSearchParams(location.search).has('heroStats')) {
+    window.__hero3dStats = () => ({
+      frames: stage.stats.frames, cpuMs: +stage.stats.cpuMs.toFixed(2), maxCpuMs: +stage.stats.maxCpuMs.toFixed(2),
+      calls: stage.renderer.info.render.calls, triangles: stage.renderer.info.render.triangles,
+      programs: stage.renderer.info.programs?.length, geometries: stage.renderer.info.memory.geometries,
+      S: +sequence.S.toFixed(4), degraded: stage.degraded, tier: tier.name, dpr: stage.renderer.getPixelRatio(),
+      near: +stage.camera.near.toFixed(1), far: +stage.camera.far.toFixed(1),
+    });
+    window.__hero3dRig = rig;
+    window.__hero3dStage = stage;
+  }
 
   let scroll = null;
   if (!reduced && frozenS == null) {

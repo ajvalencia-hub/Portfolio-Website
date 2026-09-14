@@ -1,7 +1,7 @@
 // Fine survey grid: 5 m minor / 25 m major lines, revealed radially from the
 // site centre and dissolving into the page with distance. One draw call.
 import * as THREE from 'three';
-import { PHASES } from '../config.js';
+import { PHASES, BUILT } from '../config.js';
 import { window01, easeOutCubic } from '../sequence.js';
 
 export function createGrid(palette) {
@@ -58,8 +58,10 @@ export function createGrid(palette) {
     object: mesh,
     update(S) {
       material.uniforms.uReveal.value = 20 + 640 * easeOutCubic(window01(S, [0, PHASES.grid[1] + 0.06]));
-      // quieter once the architecture carries the image
-      material.uniforms.uAlpha.value = 1 - 0.45 * window01(S, PHASES.materialize) - 0.25 * window01(S, PHASES.handoff);
+      // quieter once the architecture carries the image,
+      // then gone once the development is built (no leftover grid under the finished model)
+      material.uniforms.uAlpha.value = (1 - 0.45 * window01(S, PHASES.materialize)) * (1 - window01(S, BUILT));
+      mesh.visible = material.uniforms.uAlpha.value > 0.002;
     },
   };
 }
