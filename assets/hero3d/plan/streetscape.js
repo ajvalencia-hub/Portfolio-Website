@@ -14,8 +14,12 @@ const STREET = 2 * HALF_ROAD;                                          // 13 m c
 export const SIDEWALK_TOP = 0.15;
 export const BLOCK_PAVING_TOP = 0.03;
 export const CURB_W = 0.3;
+export const CURB_R = 9;                                               // curb return radius at the block corners
 export const VERGE_W = 1.8;                                            // tree lawn behind the curb
 export const WALK_CLEAR = WALK - CURB_W - VERGE_W;                      // 2.4 m scored walk
+// plan rectangles laid along the sidewalk (tree lawns, driveway aprons) stop just short of
+// the curb face, so they never ride over it where it turns through a corner
+const VERGE_EDGE = WALK - CURB_W - 0.04;
 export const VERGE_CENTRE = WALK - CURB_W - VERGE_W / 2;               // property line → tree line (3.3 m)
 const VERGE_TOP = SIDEWALK_TOP + 0.03;
 
@@ -41,16 +45,20 @@ export const stations = (side) => {
 
 // paved breaks through the tree lawn: entrances, paths meeting the street, curb cuts
 const OPENINGS = {
-  n: [[-79, -75], [-14, -8.5], [75, 79]],                                     // crosswalk landings, spine (paseo)
-  s: [[-79, -75], [-55, -45], [-3.2, 3.2], [18.6, 34.2], [75, 79]], // landings, tower 2 lobby, spine gate, office walk + lobby
+  n: [[-79, -75], [-11.2, -4.8], [75, 79]],                                     // crosswalk landings, spine (paseo)
+  s: [[-79, -75], [-55, -45], [-11.2, -4.8], [18.6, 34.2], [75, 79]], // landings, tower 2 lobby, spine gate, office walk + lobby
   w: [[-33, -23], [12.2, 18.1]],                                              // tower 1 lobby, galleria
-  e: [[2.0, 9.0]],                                                            // promenade
+  e: [[-2.5, 4.5]],                                                            // promenade
 };
+// the sidewalk's straight run ends where the curb return begins, so everything laid out in
+// plan rectangles (tree lawns, driveway aprons) has to stop short of it
+const STRAIGHT_X = HX + WALK - CURB_R - 1.6;
+const STRAIGHT_Z = HZ + WALK - CURB_R - 1.6;
 const SIDE = {
-  n: { axis: 'x', range: [-76, 76], line: -HZ, out: -1 },
-  s: { axis: 'x', range: [-76, 76], line: HZ, out: 1 },
-  w: { axis: 'z', range: [-50, 50], line: -HX, out: -1 },
-  e: { axis: 'z', range: [-50, 50], line: HX, out: 1 },
+  n: { axis: 'x', range: [-STRAIGHT_X, STRAIGHT_X], line: -HZ, out: -1 },
+  s: { axis: 'x', range: [-STRAIGHT_X, STRAIGHT_X], line: HZ, out: 1 },
+  w: { axis: 'z', range: [-STRAIGHT_Z, STRAIGHT_Z], line: -HX, out: -1 },
+  e: { axis: 'z', range: [-STRAIGHT_Z, STRAIGHT_Z], line: HX, out: 1 },
 };
 
 // lawn segments for one side: range minus openings and curb cuts, with a short paved
@@ -81,11 +89,16 @@ function across(side, a0, a1, d0, d1) {
 }
 
 export function streetscapeSpecs(tier) {
-  const N = tier.name === 'mobile' ? 96 : 160;
+  // The street rings are resampled at equal angles about the block centre, which spends its
+  // samples on the long straight runs and leaves only a few on the curb returns — at 160 the
+  // corners were cut by ~0.2 m and read as facets. This holds the curb return's arc.
+  const N = tier.name === 'mobile' ? 180 : 320;
   const rs = (poly) => resampleByAngle(poly, 0, 0, N);
-  const curb = roundedRectPlan(CURB[0], CURB[2], CURB[1], CURB[3], 6);
+  const curb = roundedRectPlan(CURB[0], CURB[2], CURB[1], CURB[3], CURB_R);
   const property = roundedRectPlan(-HX, -HZ, HX, HZ, 0.6);
-  const streetOuter = roundedRectPlan(CURB[0] - STREET, CURB[2] - STREET, CURB[1] + STREET, CURB[3] + STREET, 2);
+  // the far side of each intersection turns on the same curb return, so the carriageway keeps
+  // its width around the corner instead of pinching into a square one
+  const streetOuter = roundedRectPlan(CURB[0] - STREET, CURB[2] - STREET, CURB[1] + STREET, CURB[3] + STREET, CURB_R + STREET);
   const ctx = { module: RES, parent: null, start: 0.655, dur: 0.01, wire: false, phase: 'context', glaze: GLAZE.none };
   return [
     { ...ctx, name: 'S.street', type: 'ring', kind: 'asphalt', y0: 0, h: 0.02, pts: rs(streetOuter), inner: rs(curb) },
@@ -101,17 +114,17 @@ export function streetscapeSlabs() {
   // driveway crossings: the sidewalk's own paving continues across every driveway on a
   // 25 mm raised table, with darker 0.3 m bands marking where the vehicle path crosses
   DRIVEWAYS.forEach(([side, a0, a1], k) => {
-    const r = across(side, a0 + 0.3, a1 - 0.3, 0, WALK - CURB_W);
+    const r = across(side, a0 + 0.3, a1 - 0.3, 0, VERGE_EDGE);
     out.push(box(`S.apron${k}`, r[0], r[1], r[2], r[3], 0, SIDEWALK_TOP + 0.025, 'sidewalk', 'L', t(k), null, { glaze: GLAZE.pavers, module: [1.5, 1.5] }));
     for (const [e0, e1] of [[a0, a0 + 0.3], [a1 - 0.3, a1]]) {
-      const b = across(side, e0, e1, 0, WALK - CURB_W);
+      const b = across(side, e0, e1, 0, VERGE_EDGE);
       out.push(box(`S.apron${k}${e0 === a0 ? 'a' : 'b'}`, b[0], b[1], b[2], b[3], 0, SIDEWALK_TOP + 0.025, 'band', 'L', t(k), null, { glaze: GLAZE.pavers, module: [0.3, 0.3] }));
     }
   });
   // tree lawns
   for (const side of ['n', 's', 'w', 'e']) {
     vergeSegments(side).forEach(([a0, a1], k) => {
-      const r = across(side, a0, a1, WALK_CLEAR, WALK - CURB_W);
+      const r = across(side, a0, a1, WALK_CLEAR, VERGE_EDGE);
       out.push(box(`S.verge${side}${k}`, r[0], r[1], r[2], r[3], 0, VERGE_TOP, 'lawn', 'L', t(8)));
     });
   }
@@ -126,9 +139,9 @@ export const ENTRANCE_ZONES = [
   ['w', -32.0, -24.0],   // tower 1 lobby (west)
   ['s', 24.5, 33.5],     // office lobby
   ['w', 12.6, 17.7],     // galleria (promenade west end)
-  ['e', 2.3, 8.7],       // promenade east end
-  ['s', -2.6, 2.6],      // spine: park gate
-  ['n', -13.8, -8.7],    // spine: paseo
+  ['e', -2.2, 4.2],       // promenade east end
+  ['s', -10.6, -5.4],    // spine: park gate
+  ['n', -10.6, -5.4],    // spine: paseo
 ];
 // marked drop-off lay-bys in the kerbside parking lane: [side, from, to]
 export const DROP_OFFS = [
@@ -248,7 +261,7 @@ export function streetscapeParts(tier, trees, palms) {
         const [x, z] = [r[0], r[2]];
         if (street.some((p) => Math.hypot(p.x - x, p.z - z) < 1.5) || poles.some(([lx, lz]) => Math.hypot(lx - x, lz - z) < 1.0) || inSight(x, z)) continue;
         const sz = 0.8 + (n % 3) * 0.2, h = 0.55 + (n % 2) * 0.25;
-        add('cone', x, VERGE_TOP + h / 2, z, sz, h, sz, n % 3 === 1 ? 'shrubDark' : 'shrub', C);
+        add('bush', x, VERGE_TOP + h / 2, z, sz, h, sz, n % 3 === 1 ? 'shrubDark' : 'shrub', C);
         n++;
       }
     }
@@ -257,7 +270,7 @@ export function streetscapeParts(tier, trees, palms) {
   // the 2.4 m sidewalk walk stays clear: benches and bicycle stands sit in the site's own
   // furnishing zones (plan/pedestrian.js FURNISHING), not on the public walk
   // bollard lights at the promenade, spine and galleria mouths: on the edges only, never in the walk
-  for (const [x, z] of [[HX - 0.5, 1.9], [HX - 0.5, 9.1], [-2.9, HZ - 0.5], [2.9, HZ - 0.5], [-14.1, -HZ + 0.5], [-8.4, -HZ + 0.5]]) X.bollard(x, z, 0.07);
+  for (const [x, z] of [[HX - 0.5, -2.6], [HX - 0.5, 4.6], [-10.9, HZ - 0.5], [-5.1, HZ - 0.5], [-10.9, -HZ + 0.5], [-5.1, -HZ + 0.5]]) X.bollard(x, z, 0.07);
 
   return out;
 }

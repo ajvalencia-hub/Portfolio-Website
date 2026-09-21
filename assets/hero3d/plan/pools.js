@@ -30,11 +30,20 @@ const ctx = (name, extra) => ({
 export function poolSpecs(name, { outline, cx, cz, deckY, depth = 1.2, N = 96, bands = null, axis = 'x', ripple = null, gutter = 0 }) {
   const D = POOL_DETAIL;
   const rs = (poly) => resampleByAngle(poly, cx, cz, N);
+  // Offsetting a concave outline (a crescent, a waisted free-form) can pinch or cross itself
+  // at the tips, which would leave the tile band outside its own coping and the deck opening.
+  // Every ring is sampled on the same rays from [cx, cz], so each one is pushed out until it
+  // clears the ring inside it.
+  const clearRing = (inner, outer, gap) => outer.map(([x, z], i) => {
+    const dx = x - cx, dz = z - cz, r = Math.hypot(dx, dz) || 1;
+    const rMin = Math.hypot(inner[i][0] - cx, inner[i][1] - cz) + gap;
+    return r >= rMin ? [x, z] : [cx + (dx / r) * rMin, cz + (dz / r) * rMin];
+  });
   const water = rs(outline);
-  const tileOuter = rs(offsetPlan(outline, D.tileW));
-  const copingOuter = rs(offsetPlan(outline, D.tileW + D.copingW));
+  const tileOuter = clearRing(water, rs(offsetPlan(outline, D.tileW)), D.tileW * 0.6);
+  const copingOuter = clearRing(tileOuter, rs(offsetPlan(outline, D.tileW + D.copingW)), D.copingW * 0.6);
   const W = deckY - D.waterDown;
-  const opening = gutter > 0 ? rs(offsetPlan(outline, D.tileW + D.copingW + gutter)) : copingOuter;
+  const opening = gutter > 0 ? clearRing(copingOuter, rs(offsetPlan(outline, D.tileW + D.copingW + gutter)), gutter * 0.6) : copingOuter;
   const specs = [
     ctx(`${name}.coping`, { type: 'ring', kind: 'coping', y0: deckY - 0.35, h: 0.35 + D.copingUp, pts: copingOuter, inner: tileOuter }),
     ctx(`${name}.tile`, { type: 'ring', kind: 'poolTile', y0: W - 0.3, h: 0.3 + D.waterDown - 0.03, pts: tileOuter, inner: water }),

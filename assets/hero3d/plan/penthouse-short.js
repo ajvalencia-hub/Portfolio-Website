@@ -15,7 +15,7 @@
 // stop at a 1.6 m plinth over the top residential floor; the enclosure, pool and spa bear
 // on it inside the column ring (a declared transfer, as before); the roof garden room bears
 // on the core and the enclosure's roof structure.
-import { D2R, GLAZE, insidePlan, offsetPlan, rayRadius, partsKit } from './core.js';
+import { D2R, GLAZE, insidePlan, offsetPlan, rayRadius, smoothRadii, partsKit } from './core.js';
 import { poolSpecs, spaSpecs, freeformOutline } from './pools.js';
 import { EDGE, bump, sector, radialKit, terraceLayout, furnitureKit } from './penthouse-kit.js';
 
@@ -31,9 +31,15 @@ export function shortPenthouse(ctx, cfg, tier) {
   const S = (fn) => th.map((t, i) => fn(t, i));
 
   // --- radial plans ---------------------------------------------------------------------------
-  const g = S((t, i) => Math.max(coreR[i] + 3.6, top[i] - (1.0 + cfg.recess * bump(t, cfg.broad, 110))));        // glass line
-  const d = S((t, i) => Math.min(Math.max(top[i] + 2.2, ctx.ribbon(t, ctx.floors, top[i]) - 0.2), colR[i] + ctx.maxCantilever - 0.05));
-  const eave = S((t, i) => Math.min(g[i] + 0.7 + 3.0 * bump(t, cfg.overhang, 52), d[i] - 0.55));                  // refined roof overhang
+  // the glass line, terrace edge and roof overhang all run into limits (minimum depths, the
+  // cantilever); rounding them and then holding the limits again keeps every edge curved
+  const round = (rs, bound, deg = 24) => smoothRadii(rs, deg).map((r, i) => bound(r, i));
+  const g = round(S((t, i) => Math.max(coreR[i] + 3.6, top[i] - (1.0 + cfg.recess * bump(t, cfg.broad, 110)))),
+    (r, i) => Math.max(r, coreR[i] + 3.6));                                                                       // glass line
+  const d = round(S((t, i) => Math.min(Math.max(top[i] + 2.2, ctx.ribbon(t, ctx.floors, top[i]) - 0.2), colR[i] + ctx.maxCantilever - 0.05)),
+    (r, i) => Math.min(Math.max(r, g[i] + 2.45), colR[i] + ctx.maxCantilever - 0.05));
+  const eave = round(S((t, i) => Math.min(g[i] + 0.7 + 3.0 * bump(t, cfg.overhang, 52), d[i] - 0.55)),
+    (r, i) => Math.min(r, d[i] - 0.55), 10);                                                                      // refined roof overhang
   const pvR = S((t, i) => coreR[i] + 1.4 + 2.6 * bump(t, cfg.gardenRoom, 55));                                     // roof garden room
   const mechIn = (t) => at(coreR, t) + 1.4, mechOut = (t) => at(coreR, t) + 3.8;
   const mechPoly = R.sectorPoly(mechIn, mechOut, cfg.mech[0], cfg.mech[1], 16);
@@ -52,7 +58,7 @@ export function shortPenthouse(ctx, cfg, tier) {
 
   // --- plunge pool: a soft curvilinear oval set along the broad terrace inside the column ring
   const P = cfg.pool * D2R;
-  const lo = (t) => at(g, t) + 1.0 + EDGE, hi = (t) => at(colR, t) - 0.6 - EDGE;
+  const lo = (t) => at(g, t) + 1.0 + EDGE, hi = (t) => at(colR, t) - 1.0 - EDGE;   // well inside the ring: the chords between columns sag in from the ray radius
   const rc = (lo(P) + Math.min(hi(P), lo(P) + 3.2)) / 2;
   const b = Math.min(1.45, (Math.min(hi(P), lo(P) + 3.2) - lo(P)) / 2);
   const inBand = (x, z, pad) => {
@@ -72,12 +78,12 @@ export function shortPenthouse(ctx, cfg, tier) {
     for (const sgn of [1, -1]) {
       const t = (cfg.pool + sgn * (18 + k)) * D2R;
       // the raised spa needs no depressed slab: its shell stays inside the column ring
-      const r = (at(g, t) + 1.0 + at(colR, t) + 0.6) / 2;
+      const r = (at(g, t) + 1.0 + at(colR, t) + 0.2) / 2;
       const [x, z] = pt(r, t);
       const ok = Array.from({ length: 16 }, (_, j) => (j / 16) * Math.PI * 2).every((u) => {
         const qx = x + Math.cos(u) * 1.2, qz = z + Math.sin(u) * 1.2;
         const tt = Math.atan2(qz - cz, qx - cx), rr = Math.hypot(qx - cx, qz - cz);
-        return rr >= at(g, tt) + 1.0 && rr <= at(colR, tt) + 0.6;   // on the column line: declared edge-beam allowance
+        return rr >= at(g, tt) + 1.0 && rr <= at(colR, tt) + 0.2;   // on the column line: declared edge-beam allowance
       });
       if (ok && outline.every(([px, pz]) => Math.hypot(px - x, pz - z) > 1.2 + EDGE + 0.6)) { spa = { x, z }; break; }
     }

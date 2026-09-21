@@ -6,7 +6,8 @@
 //       conceptual back-of-house plan
 //   C — office: stacked blocks with modest cantilevered offsets, timber accents
 //       and planted terraces over a parking base served by car lifts
-//   P — public park around a fountain
+//   P — public park around a fountain, on the condo entrance axis
+//   M — market hall, promenade pavilion and paseo colonnade holding the park's edges
 // Pure data in metres (x = east, z = south, y = up) — no three.js here, so the
 // program can be reasoned about (and validated by tools/hero3d/audit.mjs).
 // The camera views from the south-west: south and west faces are the "front".
@@ -19,8 +20,9 @@ import { HOTEL, hotelMasses, hotelBoxes, hotelSlabs, hotelParts, hotelPoolSpecs 
 import { OFFICE_BLOCKS, OFFICE_PARKING, officeMasses, officeSlabs, officeParts } from './plan/office.js';
 import { FOUNTAIN, PLAZA_DISC, PARK_PATHS, CAFE_ZONES, parkSpecs, parkParts } from './plan/park.js';
 import { officeGarageFacade } from './plan/office-garage.js';
+import { MARKET, PAVILION, MARKET_RECT, PAVILION_RECT, pavilionMasses, pavilionBoxes, pavilionParts } from './plan/pavilions.js';
 import { streetscapeSpecs, streetscapeSlabs, streetscapeParts, streetscapeEntrances, stations, VERGE_CENTRE, CROSSWALK_SETBACK, DROP_OFFS } from './plan/streetscape.js';
-import { groundsSlabs, groundsPlanting } from './plan/grounds.js';
+import { groundsSurfaces, groundsPlanting } from './plan/grounds.js';
 import { ROUTES, FURNISHING, routeCentreline, pedestrianSpecs, pedestrianParts, onRoute, inSight, inFurnishing } from './plan/pedestrian.js';
 
 export { LAYER, LAYER_COUNT, GLAZE, BLOCK, planNormals, offsetPlan, insidePlan };
@@ -86,9 +88,11 @@ function sitePaths(tier, masses, curved, rand) {
   const outline = (m) => rect(m.x - m.w / 2, m.z - m.d / 2, m.x + m.w / 2, m.z + m.d / 2);
   add(PODIUM_PLAN, LAYER.footprint, 0.180, 0.07, { closed: true, y: 0.1 });
   [HOTEL.front, HOTEL.rear, HOTEL.link].forEach((pts, k) => add(pts, LAYER.footprint, 0.190 + k * 0.010, 0.06, { closed: true, y: 0.1 }));
-  ['C.baseE', 'C.baseW', 'B.poolbar', 'B.svcLink'].forEach((n, k) =>
+  add(MARKET.plan, LAYER.footprint, 0.212, 0.06, { closed: true, y: 0.1 });
+  add(PAVILION.roof, LAYER.footprint, 0.216, 0.05, { closed: true, dash: [2.5, 1.5], y: 0.1 });
+  ['C.baseE', 'C.baseW', 'B.poolbar'].forEach((n, k) =>
     add(outline(byName[n]), LAYER.footprint, 0.220 + k * 0.006, 0.06, { closed: true, y: 0.1 }));
-  [curveByName['A.t1.body'].pts, curveByName['A.t2.body'].pts, HOTEL.centre].forEach((pts, k) =>
+  [curveByName['A.t1.body'].pts, curveByName['A.t2.body'].pts, HOTEL.tower].forEach((pts, k) =>
     add(pts, LAYER.tower, 0.215 + k * 0.010, 0.06, { closed: true, dash: [2.5, 1.5], y: 0.1 }));
   ['C.corner', ...OFFICE_BLOCKS.map((b) => b.name)].forEach((n, k) =>
     add(outline(byName[n]), LAYER.tower, 0.239 + k * 0.008, 0.05, { closed: true, dash: [2.5, 1.5], y: 0.1 }));
@@ -142,11 +146,13 @@ function streetGreenery(tier, rand, masses) {
   const palms = [];
   const footprints = [
     ...masses.filter((m) => m.group !== 'L').map((m) => rect(m.x - m.w / 2 - 1, m.z - m.d / 2 - 1, m.x + m.w / 2 + 1, m.z + m.d / 2 + 1)),
-    ...[HOTEL.front, HOTEL.centre, HOTEL.rear, HOTEL.link].map((p) => offsetPlan(p, 1)),
+    ...[HOTEL.front, HOTEL.tower, HOTEL.rear, HOTEL.link].map((p) => offsetPlan(p, 1)),
   ];
   const keepClear = [
     rect(72, -43, 86, -9), rect(64, -36, 82, -20), rect(72, 13, 86, 30), rect(72, 40, 86, 50),
     rect(-68, -62, -26, -45), rect(38, -62, 66, -50), rect(10, 42, 26, 58),
+    rect(MARKET_RECT[0] - 3, MARKET_RECT[2] - 3, MARKET_RECT[1] + 3, MARKET_RECT[3] + 3),
+    rect(PAVILION_RECT[0] - 1, PAVILION_RECT[2] - 1, PAVILION_RECT[1] + 1, PAVILION_RECT[3] + 1),
   ];
   const podiumClear = offsetPlan(PODIUM_PLAN, 2);
   const free = (x, z) => !insidePlan(x, z, podiumClear) && !footprints.some((f) => insidePlan(x, z, f)) && !keepClear.some((f) => insidePlan(x, z, f)) && !onRoute(x, z, 0.8) && !inSight(x, z);
@@ -212,11 +218,11 @@ export function buildSitePlan(tier) {
   const rand = rng(20260913);
   const partsRand = rng(7);
   const officeGarage = officeGarageFacade(tier);
-  const masses = [...hotelBoxes(), ...officeMasses(), ...officeGarage.boxes];
+  const masses = [...hotelBoxes(), ...officeMasses(), ...officeGarage.boxes, ...pavilionBoxes()];
   const residential = residentialMasses(tier);
   const hotelPool = hotelPoolSpecs(tier);
-  const curved = [...streetscapeSpecs(tier), ...residential.specs, ...hotelMasses(), ...hotelPool.specs, ...parkSpecs(tier), ...pedestrianSpecs(tier)];
-  const slabs = [...residentialSlabs(), ...hotelSlabs(), ...officeSlabs(), ...streetscapeSlabs(), ...streetscapeEntrances(), ...groundsSlabs()];
+  const curved = [...streetscapeSpecs(tier), ...residential.specs, ...hotelMasses(), ...hotelPool.specs, ...pavilionMasses(), ...parkSpecs(tier), ...pedestrianSpecs(tier), ...groundsSurfaces()];
+  const slabs = [...residentialSlabs(), ...hotelSlabs(), ...officeSlabs(), ...streetscapeSlabs(), ...streetscapeEntrances()];
   const boxes = [...masses, ...slabs];   // the development block only — no neighbouring buildings
   const index = Object.fromEntries(boxes.map((b, i) => [b.name, i]));
   boxes.forEach((b) => { b.parentIndex = b.parent ? index[b.parent] : -1; });
@@ -226,13 +232,14 @@ export function buildSitePlan(tier) {
 
   const res = residentialParts(tier, residential.towers, partsRand);
   // pedestrian lights and furnishing first: planting keeps its canopies clear of them
-  const officeRects = ['C.baseE', 'C.baseW', 'C.lobby'].map((n) => boxes[index[n]]).map((b) => [b.x - b.w / 2, b.x + b.w / 2, b.z - b.d / 2, b.z + b.d / 2]);
-  const hotelPlans = [HOTEL.front, HOTEL.centre, HOTEL.rear, HOTEL.link];
+  const officeRects = ['C.baseE', 'C.baseW', 'C.lobby', 'M.service'].map((n) => boxes[index[n]]).map((b) => [b.x - b.w / 2, b.x + b.w / 2, b.z - b.d / 2, b.z + b.d / 2]);
+  const hotelPlans = [HOTEL.front, HOTEL.tower, HOTEL.rear, HOTEL.link];
   const blocked = (x, z, reach = 0) => insidePlan(x, z, offsetPlan(PODIUM_PLAN, reach)) || hotelPlans.some((p) => insidePlan(x, z, offsetPlan(p, reach)))
-    || officeRects.some((r) => inRect(x, z, r, reach)) || inRect(x, z, [1.8, 54, -39, -20], reach) || inRect(x, z, [73, 79.5, -42, -10], reach)
+    || officeRects.some((r) => inRect(x, z, r, reach)) || inRect(x, z, [1.8, 53.4, -39, -20], reach) || inRect(x, z, [73, 79.5, -42, -10], reach)
+    || insidePlan(x, z, offsetPlan(MARKET.plan, MARKET.canopy.out + reach)) || insidePlan(x, z, offsetPlan(PAVILION.roof, reach))
     || Math.hypot(x - FOUNTAIN.x, z - FOUNTAIN.z) < FOUNTAIN.basin + FOUNTAIN.coping + reach;
   const walk = pedestrianParts(tier, { blocked, groundAt: (x, z) => (inFurnishing(x, z) ? 0.105 : 0.07) });
-  const park = parkParts(tier, partsRand, walk.poles);
+  const park = parkParts(tier, partsRand, walk.poles, blocked);
   const street = streetGreenery(tier, rand, [...masses, ...slabs]);
   const grounds = groundsPlanting(tier, rng(11), walk.poles);
   const startAt = (x, z, base) => Math.min(0.76, base + 0.08 * (Math.hypot(x, z) / 280));
@@ -263,15 +270,16 @@ export function buildSitePlan(tier) {
     boxes,
     index,
     curved,
-    parts: [...res.parts, ...walk.parts, ...penthouse.flatMap((p) => p.parts), ...hotel.parts, ...officeParts(tier, partsRand), ...officeGarage.parts, ...park.parts, ...grounds.parts, ...streetscapeParts(tier, trees, palms)],
+    parts: [...res.parts, ...walk.parts, ...penthouse.flatMap((p) => p.parts), ...hotel.parts, ...officeParts(tier, partsRand), ...officeGarage.parts, ...pavilionParts(tier).parts, ...park.parts, ...grounds.parts, ...streetscapeParts(tier, trees, palms)],
     paths: sitePaths(tier, boxes, curved, rand),
     trees,
     palms,
     cars: streetCars(tier, rand),
     shadows: [
       { x: -51, z: -1, w: 50, d: 100 },
-      ...[HOTEL.front, HOTEL.rear, HOTEL.link].map(rectOfPlan),
+      ...[HOTEL.front, HOTEL.tower, HOTEL.rear, HOTEL.link].map(rectOfPlan),
       ...['C.baseE', 'C.baseW'].map((n) => boxes[index[n]]),
+      rectOfPlan(MARKET.plan),
     ],
     meta: { towers: residential.towers, pool: residential.pool, hotelPool: hotelPool.basin, curveTop, cafeZones: FURNISHING.filter((f) => f.kind === 'cafe'), poles: walk.poles },
   };

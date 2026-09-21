@@ -1,43 +1,140 @@
-/* Load AFTER the page's existing styles. Paths resolve relative to this file. */
+/* Concrete surface for the whole site. Load AFTER the page's own styles.
+   Paths resolve relative to this file (assets/).
+
+   The texture is painted once, on <html>, so it stays continuous behind the page,
+   the sticky header and the open mobile menu. Body and navigation surfaces carry
+   only a translucent wash, which is what stops the same image restarting on nested
+   elements and showing a seam where they meet.
+
+   Delivery is device-responsive: phones, tablets and desktops each get a tile sized
+   for their viewport, and browsers with image-set support get a WebP at the right
+   pixel density. The legacy tex/holefree.jpg path still resolves (it is now the
+   2048 x 2304 desktop JPEG) so anything referencing it directly keeps working. */
 :root {
-  --concrete-texture: url('./tex/holefree.jpg');
-  --concrete-tile-width: 1672px;
+  --concrete-color: #e7e1d4;
+  --concrete-wash: 0.20;          /* page wash, matching the previous surface */
+  --concrete-wash-nav: 0.33;      /* header / menu: same texture, lifted a little */
+  --concrete-tile-width: min(100vw, 2048px);
+  --concrete-fallback: url('./tex/concrete-desktop.jpg');
+  --concrete-texture: image-set(
+    url('./tex/concrete-desktop.webp') type('image/webp') 1x,
+    url('./tex/concrete-desktop@2x.webp') type('image/webp') 2x
+  );
 }
 
-html,
-body,
-header.top,
-.mobile-nav {
-  --concrete-wash: 0.20;
-  background-color: #e7e1d4;
+html {
+  min-height: 100%;
+  background-color: var(--concrete-color);
   background-image:
-    linear-gradient(rgba(231, 225, 212, var(--concrete-wash)), rgba(231, 225, 212, var(--concrete-wash))),
-    var(--concrete-texture);
-  background-repeat: no-repeat, repeat;
+    linear-gradient(
+      rgba(231, 225, 212, var(--concrete-wash)),
+      rgba(231, 225, 212, var(--concrete-wash))
+    ),
+    var(--concrete-fallback);
+  background-repeat: repeat, repeat;
   background-size: 100% 100%, var(--concrete-tile-width) auto;
-  background-position: top left, center 95px;
+  background-position: center top, center 95px;
 }
 
+/* Browsers with image-set support receive the DPR-aware WebP assets instead. */
+@supports (background-image: image-set(url('./tex/concrete-desktop.webp') 1x)) {
+  html {
+    background-image:
+      linear-gradient(
+        rgba(231, 225, 212, var(--concrete-wash)),
+        rgba(231, 225, 212, var(--concrete-wash))
+      ),
+      var(--concrete-texture);
+  }
+}
+
+/* Everything below the html surface stays out of its way. */
+body {
+  background-color: transparent;
+  background-image: none;
+}
+
+/* The header is sticky and the mobile menu is an overlay, so both have to be opaque:
+   page content scrolls underneath them. They carry their own copy of the same texture
+   at the same tile width and a heavier wash, which is how the surface stayed concrete
+   rather than flat cream. The hard ink rule along their bottom edge hides the fact that
+   their tile starts in their own box rather than the page's. */
 header.top,
 .mobile-nav {
-  --concrete-wash: 0.33;
+  background-color: var(--concrete-color);
+  background-image:
+    linear-gradient(
+      rgba(231, 225, 212, var(--concrete-wash-nav)),
+      rgba(231, 225, 212, var(--concrete-wash-nav))
+    ),
+    var(--concrete-fallback);
+  background-repeat: repeat, repeat;
+  background-size: 100% 100%, var(--concrete-tile-width) auto;
+  background-position: center top, center 95px;
 }
 
-/* Show the full texture width on phones/tablets instead of a narrow crop.
-   The native 1672px image exceeds 3 image pixels per CSS pixel at 390-430px.
-   Keep tile height automatic so long pages never stretch the texture. */
-@media (max-width: 900px) {
-  :root { --concrete-tile-width: 100vw; }
+@supports (background-image: image-set(url('./tex/concrete-desktop.webp') 1x)) {
+  header.top,
+  .mobile-nav {
+    background-image:
+      linear-gradient(
+        rgba(231, 225, 212, var(--concrete-wash-nav)),
+        rgba(231, 225, 212, var(--concrete-wash-nav))
+      ),
+      var(--concrete-texture);
+  }
 }
 
-/* Mobile menu: the hamburger button has no fill of its own (the header texture shows
-   through), and the open menu uses exactly the page background's texture and wash
-   instead of a lighter panel with a drop shadow. */
+/* The hamburger has no fill of its own, and the open menu is the page surface,
+   not a lighter panel with a drop shadow. */
 .nav-toggle {
   background: transparent;
 }
 
 .mobile-nav {
-  --concrete-wash: 0.20;
   box-shadow: none;
+}
+
+/* Phones: one complete texture width, never a magnified crop. */
+@media (max-width: 599px) {
+  :root {
+    --concrete-wash: 0.18;
+    --concrete-tile-width: 100vw;
+    --concrete-fallback: url('./tex/concrete-mobile.jpg');
+    --concrete-texture: image-set(
+      url('./tex/concrete-mobile.webp') type('image/webp') 1x,
+      url('./tex/concrete-mobile@2x.webp') type('image/webp') 2x
+    );
+  }
+}
+
+/* Tablets and large phones in landscape. */
+@media (min-width: 600px) and (max-width: 1024px) {
+  :root {
+    --concrete-wash: 0.19;
+    --concrete-tile-width: 100vw;
+    --concrete-fallback: url('./tex/concrete-tablet.jpg');
+    --concrete-texture: image-set(
+      url('./tex/concrete-tablet.webp') type('image/webp') 1x,
+      url('./tex/concrete-tablet@2x.webp') type('image/webp') 2x
+    );
+  }
+}
+
+/* Widescreen and 4K: repeat the seamless tile at its native CSS width instead of
+   stretching one copy across the monitor. */
+@media (min-width: 2049px) {
+  :root {
+    --concrete-tile-width: 2048px;
+  }
+}
+
+/* Printing should not spend ink on the photographic surface. */
+@media print {
+  html,
+  body,
+  header.top,
+  .mobile-nav {
+    background: #fff;
+  }
 }

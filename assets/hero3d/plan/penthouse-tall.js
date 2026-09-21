@@ -19,7 +19,7 @@
 // core continue through PH1 to the crown; the crown acts as a transfer zone for the PH2
 // pavilion and the basins; the pool sits over the enclosed PH1 floor, inside the column
 // line plus a declared 0.45 m edge-beam allowance, and never over the double-height room.
-import { D2R, GLAZE, insidePlan, offsetPlan, rayRadius, partsKit } from './core.js';
+import { D2R, GLAZE, insidePlan, offsetPlan, rayRadius, smoothRadii, partsKit } from './core.js';
 import { poolSpecs, spaSpecs } from './pools.js';
 import { EDGE, bump, sector, radialKit, crescent, terraceLayout, furnitureKit } from './penthouse-kit.js';
 
@@ -35,10 +35,17 @@ export function tallPenthouse(ctx, cfg, tier) {
   const S = (fn) => th.map((t, i) => fn(t, i));
 
   // --- radial plans ------------------------------------------------------------------------
-  const g1 = S((t, i) => Math.max(colR[i] + 0.3, top[i] - 1.4));                                  // PH1 glass line
-  const d1 = S((t, i) => Math.min(Math.max(top[i] + 2.4, ctx.ribbon(t, ctx.floors) - 0.3), colR[i] + ctx.maxCantilever - 0.05));  // PH1 terrace edge (continues the ribbons)
-  const crownBase = S((t, i) => Math.min(Math.max(g1[i] + 1.1, ctx.ribbon(t, ctx.floors + 1) - 0.4), colR[i] + 3.2));
-  const crownR = S((t, i) => crownBase[i] + (colR[i] + 1.05 - crownBase[i]) * sector(t, cfg.pool[0] - 8, cfg.pool[1] + 8, 8));
+  // Terrace and crown edges are held to the cantilever limit and to minimum depths, which
+  // leaves creases where a limit takes over. `round` rolls those into soft curves and then
+  // holds the limits again, so the penthouse reads as one continuous curved edge.
+  const round = (rs, bound, deg = 24) => { const soft = smoothRadii(rs, deg); return soft.map((r, i) => bound(r, i)); };
+  const g1 = round(S((t, i) => Math.max(colR[i] + 0.3, top[i] - 1.4)), (r, i) => Math.max(r, colR[i] + 0.3));   // PH1 glass line
+  const d1 = round(S((t, i) => Math.min(Math.max(top[i] + 2.4, ctx.ribbon(t, ctx.floors) - 0.3), colR[i] + ctx.maxCantilever - 0.05)),
+    (r, i) => Math.min(Math.max(r, g1[i] + 2.45), colR[i] + ctx.maxCantilever - 0.05));                          // PH1 terrace edge (continues the ribbons)
+  const crownBase = round(S((t, i) => Math.min(Math.max(g1[i] + 1.1, ctx.ribbon(t, ctx.floors + 1) - 0.4), colR[i] + 3.2)),
+    (r, i) => Math.min(Math.max(r, g1[i] + 1.1), colR[i] + 3.2));
+  const crownR = round(S((t, i) => crownBase[i] + (colR[i] + 1.05 - crownBase[i]) * sector(t, cfg.pool[0] - 8, cfg.pool[1] + 8, 8)),
+    (r, i) => Math.max(r, crownBase[i]), 10);
   const LIV = cfg.living;                                                                         // [a0, a1] degrees
   const livIn = (t) => at(coreR, t) + 1.4, livOut = (t) => at(g1, t) + 0.1;
   const livingPoly = R.sectorPoly(livIn, livOut, LIV[0], LIV[1], 20);

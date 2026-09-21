@@ -96,7 +96,7 @@ export function officeGarageFacade(tier) {
           for (let k = 0; k < cnt; k++) {
             const a = a0 + ((k + 0.5) / cnt) * (a1 - a0);
             const [px0, , pz0] = rectOn(bay.face, a, a, 0.76, 0.76);
-            add('cone', F.along === 'x' ? a : px0, ly + 0.45 + 0.35, F.along === 'x' ? pz0 : a, 0.8, 0.7, 0.8, k % 2 ? 'shrub' : 'shrubDark', C);
+            add('bush', F.along === 'x' ? a : px0, ly + 0.45 + 0.35, F.along === 'x' ? pz0 : a, 0.8, 0.7, 0.8, k % 2 ? 'shrub' : 'shrubDark', C);
           }
         }
       }

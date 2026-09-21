@@ -35,6 +35,7 @@ export const GLAZE = {
   office: 5, officePodium: 6, deco: 7, screen: 8, storefront: 9,
   guard: 10, penthouse: 11, decoCentre: 12, garageRecess: 13,
   perforated: 14, breezeBlock: 15, pavers: 16, bond: 17, rings: 18, officeCrown: 19, promenade: 20,
+  guardStack: 21,
 };
 
 export function rng(seed) {
@@ -180,6 +181,27 @@ export function rayRadius(cx, cz, poly, t) {
   return best;
 }
 
+// Round the corners of a radial plan (an array of radii sampled at equal angles): a circular
+// moving average over `deg` degrees. Clamping a curve — a balcony edge held to a cantilever
+// limit, a terrace edge held to a minimum depth — leaves creases where the limit takes over,
+// and this rolls them into soft curves. The average never leaves the range of the window, so
+// a curve that was inside its limits stays inside them.
+export function smoothRadii(rs, deg = 12) {
+  const n = rs.length;
+  const w = Math.max(1, Math.round((deg / 360) * n));
+  const out = new Array(n);
+  for (let i = 0; i < n; i++) {
+    let acc = 0, wt = 0;
+    for (let k = -w; k <= w; k++) {
+      const f = 1 - Math.abs(k) / (w + 1);        // triangular window: no ringing
+      acc += rs[(i + k + n) % n] * f;
+      wt += f;
+    }
+    out[i] = acc / wt;
+  }
+  return out;
+}
+
 // resample a star-shaped plan at N equal angles about (cx, cz) — gives matching vertex counts
 export function resampleByAngle(poly, cx, cz, N) {
   return Array.from({ length: N }, (_, i) => {
@@ -224,6 +246,17 @@ export function polarRadius(s, t) {
 // planting and shade builders. "solid" parts fade in with the buildings,
 // "context" parts (furniture, planting) with the landscape.
 // ---------------------------------------------------------------------------
+// Seat registry: while buildSitePlan runs, every seat the kit builds (loungers, café and
+// dining chairs, benches, daybeds, sofas) is recorded so the ambient-life layer can place
+// people on them. kind: 'sit' (fx, fz = facing) · 'lie' (fx, fz = head direction) ·
+// 'bench' (fx, fz = one of the two facing sides; resolved by plan/life.js)
+export const SEATS = { list: null };
+const registerSeat = (x, z, y, fx, fz, kind = 'sit') => {
+  if (!SEATS.list) return;
+  const l = Math.hypot(fx, fz) || 1;
+  SEATS.list.push({ x, z, y, fx: fx / l, fz: fz / l, kind });
+};
+
 export function partsKit(out) {
   const C = 'context';
   const add = (shape, x, y, z, sx, sy, sz, color, phase = 'solid', rot = 0) =>
@@ -237,7 +270,7 @@ export function partsKit(out) {
     add('box', s.x + s.nx * offset, y0 + h / 2, s.z + s.nz * offset, width, h, depth, color, phase, Math.atan2(-s.nx, -s.nz));
 
   const kit = {
-    add, block, column, oriented, alongFacade,
+    add, block, column, oriented, alongFacade, seat: registerSeat,
     // slatted pergola: posts, two beams, slats across (colour: frame or wood)
     pergola(x0, x1, z0, z1, baseY, { h = 3.0, color = 'frame', slat = 0.6, phase = C } = {}) {
       for (const px of [x0 + 0.25, (x0 + x1) / 2, x1 - 0.25]) for (const pz of [z0 + 0.25, z1 - 0.25]) column(px, pz, baseY, h - 0.2, 0.11, 'frame', phase);   // posts end inside the beams
@@ -254,7 +287,7 @@ export function partsKit(out) {
           const f = (k + 0.5) / n;
           const x = x1 - x0 > z1 - z0 ? x0 + (x1 - x0) * f : (x0 + x1) / 2;
           const z = x1 - x0 > z1 - z0 ? (z0 + z1) / 2 : z0 + (z1 - z0) * f;
-          add('cone', x, baseY + h + 0.5, z, 1.2 + (k % 3) * 0.15, 1.0 + (k % 2) * 0.3, 1.2 + (k % 3) * 0.15, k % 2 ? 'shrub' : 'shrubDark', C);
+          add('bush', x, baseY + h + 0.5, z, 1.2 + (k % 3) * 0.15, 1.0 + (k % 2) * 0.3, 1.2 + (k % 3) * 0.15, k % 2 ? 'shrub' : 'shrubDark', C);
         }
       }
     },
@@ -264,6 +297,7 @@ export function partsKit(out) {
     },
     // sun lounger 2.0 × 0.72 m with a raised back; axis 'x' or 'z', head toward sign
     lounger(x, z, baseY, axis, sign) {
+      registerSeat(x, z, baseY + 0.36, axis === 'x' ? sign : 0, axis === 'x' ? 0 : sign, 'lie');
       if (axis === 'x') {
         block(x - 1.0, x + 1.0, baseY, baseY + 0.36, z - 0.36, z + 0.36, 'cushion', C);
         block(x + sign * 0.75 - 0.25, x + sign * 0.75 + 0.25, baseY + 0.36, baseY + 0.78, z - 0.36, z + 0.36, 'cushion', C);
@@ -275,6 +309,7 @@ export function partsKit(out) {
     sideTable: (x, z, baseY) => column(x, z, baseY, 0.5, 0.24, 'frame', C),
     dining(x, z, baseY, chairs = 4) {
       column(x, z, baseY, 0.75, 0.55, 'frame', C);
+      [[0.95, 0], [-0.95, 0], [0, 0.95], [0, -0.95]].slice(0, chairs).forEach(([dx, dz]) => registerSeat(x + dx, z + dz, baseY + 0.45, -dx, -dz));
       [[0.95, 0], [-0.95, 0], [0, 0.95], [0, -0.95]].slice(0, chairs)
         .forEach(([dx, dz]) => block(x + dx - 0.22, x + dx + 0.22, baseY, baseY + 0.85, z + dz - 0.22, z + dz + 0.22, 'cushion', C));
     },
@@ -283,10 +318,12 @@ export function partsKit(out) {
       column(x, z, baseY, 0.74, 0.35, 'frame', C);
       for (const s of [-1, 1]) {
         const cx = axis === 'x' ? x + s * 0.75 : x, cz = axis === 'x' ? z : z + s * 0.75;
+        registerSeat(cx, cz, baseY + 0.45, axis === 'x' ? -s : 0, axis === 'x' ? 0 : -s);
         block(cx - 0.22, cx + 0.22, baseY, baseY + 0.85, cz - 0.22, cz + 0.22, chairColor, C);
       }
     },
     sofaGroup(x, z, baseY) {
+      registerSeat(x + 0.2, z - 1.15, baseY + 0.45, 0, 1); registerSeat(x - 1.2, z + 0.3, baseY + 0.45, 1, 0);
       block(x - 1.6, x + 1.6, baseY, baseY + 0.7, z - 1.55, z - 0.75, 'cushion', C);
       block(x - 1.6, x - 0.8, baseY, baseY + 0.7, z - 0.75, z + 1.4, 'cushion', C);
       block(x - 0.2, x + 1.1, baseY, baseY + 0.4, z - 0.2, z + 0.9, 'frame', C);
@@ -298,15 +335,20 @@ export function partsKit(out) {
       if (curtainSide === 'w') block(x0 + 0.04, x0 + 0.14, baseY + 0.1, baseY + 2.6, z0 + 0.1, z1 - 0.1, 'canvas', C);
       else block(x0 + 0.1, x1 - 0.1, baseY + 0.1, baseY + 2.6, z1 - 0.14, z1 - 0.04, 'canvas', C);
     },
-    bench(x, z, baseY, len, a, color = 'frame') { oriented(x, z, baseY, 0.45, len, 0.55, a, color); },
+    bench(x, z, baseY, len, a, color = 'frame') {
+      oriented(x, z, baseY, 0.45, len, 0.55, a, color);
+      for (const u of [-len / 4, len / 4]) registerSeat(x + Math.cos(a) * u, z + Math.sin(a) * u, baseY + 0.45, -Math.sin(a), Math.cos(a), 'bench');
+    },
     // --- amenity furniture at any plan angle (a = direction the head / front faces) ---
     loungerAt(x, z, baseY, a) {
+      registerSeat(x, z, baseY + 0.34, Math.cos(a), Math.sin(a), 'lie');
       const c = Math.cos(a), s = Math.sin(a);
       oriented(x, z, baseY, 0.34, 2.0, 0.72, a, 'cushion');
       oriented(x + c * 0.72, z + s * 0.72, baseY + 0.34, 0.42, 0.5, 0.72, a, 'cushion');
     },
     sideTableAt(x, z, baseY) { column(x, z, baseY, 0.45, 0.22, 'metal', C); },
     daybed(x, z, baseY, a) {
+      registerSeat(x, z, baseY + 0.54, Math.cos(a), Math.sin(a), 'lie');
       oriented(x, z, baseY, 0.4, 2.2, 1.6, a, 'frame');
       oriented(x, z, baseY + 0.4, 0.14, 2.0, 1.4, a, 'cushion');
     },
@@ -320,7 +362,7 @@ export function partsKit(out) {
         for (let k = 0; k < n; k++) {
           const u = (k + 0.5) / n - 0.5;
           const sz = 0.8 + (k % 3) * 0.2, sh = 0.7 + (k % 2) * 0.35;
-          add('cone', x + c * u * len, baseY + h + sh / 2, z + s * u * len, sz, sh, sz, k % 2 ? 'shrub' : 'shrubDark', C);
+          add('bush', x + c * u * len, baseY + h + sh / 2, z + s * u * len, sz, sh, sz, k % 2 ? 'shrub' : 'shrubDark', C);
         }
       }
       return baseY + h;

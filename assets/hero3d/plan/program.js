@@ -9,7 +9,7 @@ import {
 } from './core.js';
 import { PODIUM_PLAN, PODIUM_PARKING, POOL, SPA } from './residential.js';
 import { OFFICE_GRID, OFFICE_BLOCKS, OFFICE_CORE, OFFICE_PARKING, OFFICE_BASE_RECT, OFFICE_BASE_TOP, OFFICE_PLANTERS, OFFICE_TERRACES, PLANTER } from './office.js';
-import { HOTEL, HOTEL_GROUND, HOTEL_DOORS, HOTEL_FRONT_TOP, HOTEL_CENTRE_TOP, HOTEL_WING_TOP } from './hotel.js';
+import { HOTEL, HOTEL_GROUND, HOTEL_DOORS, HOTEL_FRONT_TOP, HOTEL_TOWER_TOP, HOTEL_WING_TOP } from './hotel.js';
 import { FOUNTAIN } from './park.js';
 import { analyseCirculation } from './circulation.js';
 
@@ -45,38 +45,85 @@ function towerStructure(plan) {
   return plan.meta.towers.map((t) => {
     const body = plan.curved.find((c) => c.name === t.body);
     const suite = t.penthouse;
-    const cols = t.columns;
+    const cols = t.columns;                 // base ring (in the garage and on the amenity deck)
+    const rings = t.columnRings ?? [cols];  // one ring per floor: the structure turns with the plates
     const issues = [];
-    const spans = cols.map((c, k) => { const d = cols[(k + 1) % cols.length]; return Math.hypot(c[0] - d[0], c[1] - d[1]); });
-    // columns inside every occupied floorplate, clear of the core
+    const spans = cols.map((c, k) => { const d = cols[(k + 1) % cols.length]; return Math.hypot(c[0] - d[0], c[1] - d[1]); });   // the rotation preserves them, so one ring speaks for all
+    // columns inside their own floorplate, clear of the core; core inside every floor
     body.floorPlans.forEach((fp, g) => {
       const inset = offsetPlan(fp, -0.3);
-      cols.forEach(([x, z]) => { if (!insidePlan(x, z, inset)) issues.push(`column (${round(x, 1)}, ${round(z, 1)}) not 0.3 m inside floor ${g + 1}`); });
+      (rings[g] ?? cols).forEach(([x, z]) => {
+        if (!insidePlan(x, z, inset)) issues.push(`column (${round(x, 1)}, ${round(z, 1)}) not 0.3 m inside floor ${g + 1}`);
+        if (insidePlan(x, z, offsetPlan(t.core, 1.0))) issues.push(`column (${round(x, 1)}, ${round(z, 1)}) within 1 m of core on floor ${g + 1}`);
+      });
       t.core.forEach(([x, z]) => { if (!insidePlan(x, z, offsetPlan(fp, -0.5))) issues.push(`core outside floor ${g + 1}`); });
     });
-    cols.forEach(([x, z]) => { if (insidePlan(x, z, offsetPlan(t.core, 1.0))) issues.push(`column (${round(x, 1)}, ${round(z, 1)}) within 1 m of core`); });
-    // floor-to-floor lean of the glass line
+    // column inclination: how far each column travels horizontally from one floor to the next
+    let maxTilt = 0;
+    for (let g = 1; g < rings.length; g++) {
+      rings[g].forEach(([x, z], k) => {
+        const [px, pz] = rings[g - 1][k];
+        maxTilt = Math.max(maxTilt, Math.hypot(x - px, z - pz));
+      });
+    }
+    // floor-to-floor lean of the glass line. The plate turns about the core at every floor,
+    // so the structural measure is how far the wall moves radially at a given angle — the
+    // tangential slide of a rotating plan is not a lean.
     let maxStep = 0;
     for (let g = 1; g < body.floorPlans.length; g++) {
       body.floorPlans[g].forEach(([x, z], i) => {
         const [px, pz] = body.floorPlans[g - 1][i];
-        maxStep = Math.max(maxStep, Math.hypot(x - px, z - pz));
+        maxStep = Math.max(maxStep, Math.abs(Math.hypot(x - t.cx, z - t.cz) - Math.hypot(px - t.cx, pz - t.cz)));
       });
     }
     // slab cantilever beyond the column polygon, measured radially from the core centre
     let maxCant = 0, minDepth = Infinity;
     body.slabs.floors.forEach((f, g) => {
       const encl = body.floorPlans[g];
+      const ring = rings[g] ?? cols;   // each slab spans to its own floor's ring
       f.outer.forEach(([x, z], i) => {
         const a = Math.atan2(z - t.cz, x - t.cx);
         const r = Math.hypot(x - t.cx, z - t.cz);
-        maxCant = Math.max(maxCant, r - rayRadius(t.cx, t.cz, cols, a));
+        maxCant = Math.max(maxCant, r - rayRadius(t.cx, t.cz, ring, a));
         minDepth = Math.min(minDepth, r - Math.hypot(encl[i][0] - t.cx, encl[i][1] - t.cz));   // every slab is a balcony (the top floor's roof is the plinth)
       });
     });
+    // balcony balustrades and the privacy dividers between units: every divider panel must
+    // stand on the balcony itself — outside the glass line, inside the ribbon edge
+    const G = body.guards;
+    const mullion = t.divider?.mullion ?? 1.6;
+    const perFloor = {};
+    let strayDividers = 0, dividerH = 0, mullionOff = 0;
+    for (const d of G?.dividers ?? []) {
+      dividerH = Math.max(dividerH, d.h);
+      const k = Math.round(d.y / 3.2) - 1;
+      const slab = body.slabs.floors[k];
+      const encl = body.floorPlans[k];            // the floor below the balcony slab
+      const wall = body.floorPlans[k + 1];        // the wall standing on it — the glass this panel meets
+      perFloor[k] = (perFloor[k] ?? 0) + 1;
+      const onBalcony = slab && insidePlan(d.b[0], d.b[1], slab.outer) && !insidePlan(d.b[0], d.b[1], encl)
+        && insidePlan(d.a[0], d.a[1], slab.outer);
+      if (!onBalcony) strayDividers++;
+      // where the panel meets the glass, measured the way the facade shader measures its
+      // mullions: arc length along that wall's plan from its first vertex
+      if (wall) {
+        let run = 0, best = null;
+        for (let i = 0; i < wall.length; i++) {
+          const [ax, az] = wall[i], [bx, bz] = wall[(i + 1) % wall.length];
+          const ex = bx - ax, ez = bz - az, L2 = ex * ex + ez * ez;
+          const f = Math.max(0, Math.min(1, ((d.a[0] - ax) * ex + (d.a[1] - az) * ez) / (L2 || 1)));
+          const gap = Math.hypot(ax + ex * f - d.a[0], az + ez * f - d.a[1]);
+          if (!best || gap < best.gap) best = { gap, across: run + f * Math.sqrt(L2) };
+          run += Math.sqrt(L2);
+        }
+        const off = Math.abs(best.across / mullion - Math.round(best.across / mullion)) * mullion;
+        mullionOff = Math.max(mullionOff, off);
+      }
+    }
+    const dividerCounts = Object.values(perFloor);
     // core-to-column flat-plate span
     let maxCoreSpan = 0;
-    cols.forEach(([x, z]) => {
+    rings.flat().forEach(([x, z]) => {
       const a = Math.atan2(z - t.cz, x - t.cx);
       maxCoreSpan = Math.max(maxCoreSpan, Math.hypot(x - t.cx, z - t.cz) - rayRadius(t.cx, t.cz, t.core, a));
     });
@@ -91,20 +138,22 @@ function towerStructure(plan) {
       if (!insidePlan(x, z, offsetPlan(firstEncl, -0.3))) phIssues.push('core does not fit inside the penthouse');
       if (!insidePlan(x, z, offsetPlan(topEncl, -0.3))) phIssues.push('core does not reach the roof pavilion (private elevator arrival)');
     });
+    const topRing = rings[rings.length - 1] ?? cols;
     for (const L of suite.levels) {
       L.deck.forEach(([x, z]) => {
         const a = Math.atan2(z - t.cz, x - t.cx);
-        maxCant = Math.max(maxCant, Math.hypot(x - t.cx, z - t.cz) - rayRadius(t.cx, t.cz, cols, a));
+        maxCant = Math.max(maxCant, Math.hypot(x - t.cx, z - t.cz) - rayRadius(t.cx, t.cz, topRing, a));
       });
     }
     const duplex = suite.type === 'duplex';
     const basinRows = suite.basins.map((b) => {
-      const ring = duplex ? offsetPlan(cols, 0.45) : offsetPlan(cols, b.kind === 'spa' ? 0.65 : -0.3);
+      // the penthouse sits on the top floor, so its basins are checked against that floor's ring
+      const ring = duplex ? offsetPlan(topRing, 0.45) : offsetPlan(topRing, b.kind === 'spa' ? 0.65 : -0.3);
       const inRing = b.shell.every(([x, z]) => insidePlan(x, z, ring));
       const levelEncl = suite.enclosures.filter((e) => (duplex ? e.y1 > b.deckY + 0.5 && e.y0 < b.deckY + 0.5 : e.y0 <= b.deckY + 0.5 && e.y1 > b.deckY + 0.5));
       const clearGlass = b.shell.every(([x, z]) => !levelEncl.some((e) => insidePlan(x, z, offsetPlan(e.poly, 0.9))));
       const clearCore = b.shell.every(([x, z]) => !insidePlan(x, z, offsetPlan(t.core, 1.0)));
-      const clearColumns = duplex || cols.every(([cx0, cz0]) => b.shell.every(([x, z]) => Math.hypot(x - cx0, z - cz0) > t.columnSize / 2 + 0.3));
+      const clearColumns = duplex || topRing.every(([cx0, cz0]) => b.shell.every(([x, z]) => Math.hypot(x - cx0, z - cz0) > t.columnSize / 2 + 0.3));
       const notOverDoubleHeight = !suite.living || b.shell.every(([x, z]) => !insidePlan(x, z, offsetPlan(suite.living, 0.5)));
       const supported = duplex ? b.shell.every(([x, z]) => insidePlan(x, z, offsetPlan(suite.enclosures[0].poly, 0.5))) : inRing;
       const aboveRoof = b.soffitY >= b.zoneBase + 0.05;
@@ -133,7 +182,15 @@ function towerStructure(plan) {
       id: t.id, floors: t.floors, columns: cols.length, columnSize: t.columnSize,
       maxColumnSpacing: round(Math.max(...spans), 1), longSpans,
       maxCantilever: round(maxCant, 2), limit: t.maxCantilever, minBalconyDepth: round(minDepth, 2),
-      maxCoreToColumnSpan: round(maxCoreSpan, 1), maxLeanStep: round(maxStep, 3),
+      maxCoreToColumnSpan: round(maxCoreSpan, 1), maxLeanStep: round(maxStep, 3), leanLimit: t.leanLimit,
+      maxColumnTilt: round(maxTilt, 3), tiltLimit: t.tiltLimit, columnTiltDeg: round((Math.atan2(maxTilt, 3.2) * 180) / Math.PI, 1),
+      balcony: { guardH: t.guard?.h, glass: 'see-through, solid shoe and top rail', dividerH: round(dividerH, 2), dividerBays: t.divider?.bays,
+        mullion, mullionOffset: round(mullionOff, 3),
+        unitsPerFloor: dividerCounts.length
+          ? (Math.min(...dividerCounts) === Math.max(...dividerCounts) ? `${dividerCounts[0]}` : `${Math.min(...dividerCounts)}–${Math.max(...dividerCounts)}`)
+          : '0',
+        floorsDivided: dividerCounts.length, strayDividers },
+      plateTwist: t.plateTwist, plateTwistPerFloor: round(t.plateTwist / (t.floors - 1), 2), ribbonTwist: t.ribbonTwist,
       core: t.core, coreArea: round(polygonArea(t.core), 0),
       columnBaseY: 0, columnTopY: round(t.columnTopY, 2),
       transfers: t.transfers.map((tr) => ({ ...tr, outer: undefined, inner: undefined, area: round(polygonArea(tr.outer) - polygonArea(tr.inner), 0) })),
@@ -499,10 +556,10 @@ function hotelGraph() {
   // service must not be able to reach guest rooms except through declared doors
   const leak = [...bfs(null, edges.filter(([a, b]) => !HOTEL_DOORS.some(([x, y]) => (x === a && y === b) || (x === b && y === a))), 'Receiving + loading dock')]
     .filter((n) => rooms.find((r) => r.name === n).zone !== 'service');
-  const required = ['Refuse + recycling (compactor)', 'Kitchen stores (dry + cold)', 'Staff entrance + security', 'Service elevators (2) + service stair', 'Housekeeping + linen', 'Staff lockers, break room, HR', 'Main electrical / water / fire pump', 'Main kitchen', 'Pool-bar pantry'];
-  const guestRequired = ['Arrival lobby + bell desk', 'Lobby + reception', 'Guest elevators (centre)', 'Guest elevators (link)', 'Pool court', 'Restaurant (plaza)', 'Lobby bar + café', 'Fitness + spa changing'];
+  const required = ['Refuse + recycling (compactor)', 'Kitchen stores (dry + cold)', 'Staff entrance + security', 'Service elevators (2) + service stair', 'Housekeeping + linen', 'Staff lockers, break room, HR', 'Main electrical / water / fire pump', 'Main kitchen + pastry', 'Pool-bar pantry'];
+  const guestRequired = ['Arrival lobby + bell desk', 'Arrival gallery', 'Lobby + reception', 'Guest elevators (tower)', 'Guest elevators (link)', 'Pool court', 'Restaurant (plaza)', 'Lobby bar + café', 'Fitness + spa changing'];
   const inside = (r, plans) => plans.some((pl) => [[r[0] + 0.2, r[2] + 0.2], [r[1] - 0.2, r[3] - 0.2]].every(([x, z]) => insidePlan(x, z, offsetPlan(pl, 0.3))));
-  const outsideBuilding = rooms.filter((r) => !r.outdoor && !r.corridor && !inside(r.rect, [HOTEL.front, HOTEL.centre, HOTEL.rear, HOTEL.link])).map((r) => r.name);
+  const outsideBuilding = rooms.filter((r) => !r.outdoor && !r.corridor && !inside(r.rect, [HOTEL.front, HOTEL.tower, HOTEL.rear, HOTEL.link])).map((r) => r.name);
   return {
     rooms: rooms.map((r) => ({ name: r.name, zone: r.zone, area: round(rectArea(r.rect), 0) })),
     serviceReach: required.map((n) => ({ name: n, reachable: svc.has(n) })),
@@ -536,13 +593,19 @@ function programMetrics(plan) {
     return { id: t.id, floors: t.floors, penthouseLevels: t.penthouse.type === 'duplex' ? 2 : 1, typicalFloorplate: round(typ, 0), gfa: round(gfa, 0), units };
   });
   const bay = ASSUMPTIONS.hotelRoomBay;
+  // lengths come from the plans, so trimming a wing shows up in the count instead of being
+  // hidden behind a number typed in once
+  const spanX = (pl) => Math.max(...pl.map((q) => q[0])) - Math.min(...pl.map((q) => q[0]));
+  const spanZ = (pl) => Math.max(...pl.map((q) => q[1])) - Math.min(...pl.map((q) => q[1]));
   const keys = {
-    front: 6 * 2 * Math.floor((60 - 16 - 8) / bay),   // minus centrepiece width and a core
-    centre: 9 * 4,
-    rear: 5 * Math.floor((68 - 8) / bay),             // single-loaded rooms facing the court
-    link: 5 * 2 * Math.floor((21.5 - 8) / bay),
+    front: 6 * 2 * Math.floor((spanX(HOTEL.front) - spanX(HOTEL.tower) - 8) / bay),  // wing length, minus the tower's width and a core
+    tower: 11 * 4,                                     // 4 keys a floor on levels 2-12
+    rear: 5 * Math.floor((spanX(HOTEL.rear) - 8) / bay),   // single-loaded rooms facing the court
+    link: 5 * 2 * Math.floor((spanZ(HOTEL.link) - 8) / bay),
   };
-  const hotelGfa = polygonArea(HOTEL.front) * 7 + polygonArea(HOTEL.centre) * 3 + polygonArea(HOTEL.rear) * 6 + polygonArea(HOTEL.link) * 6;
+  // the tower's lower 7 floors sit inside the wing's envelope, so only its 5 upper floors
+  // are counted again on top of the wing
+  const hotelGfa = polygonArea(HOTEL.front) * 7 + polygonArea(HOTEL.tower) * 5 + polygonArea(HOTEL.rear) * 6 + polygonArea(HOTEL.link) * 6;
   const officeBlocks = OFFICE_BLOCKS.reduce((a, b) => a + rectArea(b.rect) * 3, 0);
   const officeLiner = (52 * 9 + 36 * 9 - 81) * 2 + 52 * 9 + 36 * 9 - 81 - 9.5 * 9.5;   // S/W liner on ground + two upper floors
   const officeGfa = officeBlocks + officeLiner;
@@ -552,7 +615,7 @@ function programMetrics(plan) {
   return {
     towers,
     residentialUnits: towers.reduce((a, t) => a + t.units, 0),
-    hotel: { keys, totalKeys: Object.values(keys).reduce((a, b) => a + b, 0), gfa: round(hotelGfa, 0), floors: { front: 7, centre: 10, rear: 6, link: 6 } },
+    hotel: { keys, totalKeys: Object.values(keys).reduce((a, b) => a + b, 0), gfa: round(hotelGfa, 0), floors: { front: 7, tower: 12, rear: 6, link: 6 } },
     office: { gfa: round(officeGfa, 0), nra: round(officeGfa * ASSUMPTIONS.officeEfficiency, 0), blocks: OFFICE_BLOCKS.map((b) => ({ name: b.name, floors: 3, plate: round(rectArea(b.rect), 0) })) },
     retail: { podium: round(retailPodium, 0), hotelFnb: round(hotelFnb, 0), office: officeRetail, total: round(retailPodium + hotelFnb + officeRetail, 0) },
   };
@@ -564,7 +627,7 @@ function cores(plan) {
   for (const t of plan.meta.towers) list.push({ building: t.id === 'A.t1' ? 'Tower 1' : 'Tower 2', name: 'central core', stairs: 2, passenger: 3, service: 1, area: round(polygonArea(t.core), 0), continuous: 'ground → upper penthouse roof (checked inside every floorplate)' });
   list.push({ building: 'Residential podium', name: 'east stair + lift', stairs: 1, passenger: 1, service: 0, area: round(rectArea(PODIUM_PARKING.cores[0].rect), 0), continuous: 'ground → amenity deck' });
   list.push({ building: 'Residential podium', name: 'north-west stair', stairs: 1, passenger: 0, service: 0, area: round(rectArea(PODIUM_PARKING.cores[1].rect), 0), continuous: 'ground → amenity deck' });
-  list.push({ building: 'Hotel', name: 'centrepiece guest core', stairs: 1, passenger: 3, service: 0, area: 48, continuous: `ground → level 10 (${HOTEL_CENTRE_TOP} m)` });
+  list.push({ building: 'Hotel', name: 'tower guest core', stairs: 1, passenger: 3, service: 0, area: 48, continuous: `ground → level 12 (${HOTEL_TOWER_TOP} m)` });
   list.push({ building: 'Hotel', name: 'link guest core', stairs: 1, passenger: 2, service: 0, area: 21, continuous: `ground → level 6 (${HOTEL_WING_TOP} m)` });
   list.push({ building: 'Hotel', name: 'service core (rear wing)', stairs: 1, passenger: 0, service: 2, area: 36, continuous: `ground → roof overrun (${HOTEL_WING_TOP} m)` });
   list.push({ building: 'Hotel', name: 'west service stair', stairs: 1, passenger: 0, service: 0, area: 12, continuous: 'ground → level 7' });

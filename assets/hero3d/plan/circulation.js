@@ -2,15 +2,82 @@
 // model's own geometry (plan/pedestrian.js and the built plan) — it does not establish ADA,
 // Florida Building Code, fire / egress or zoning compliance.
 import { HX, HZ, insidePlan, offsetPlan, inRect } from './core.js';
-import { NODES, ROUTES, ENTRANCES, CROSSINGS, FURNISHING, SURFACE, PLAZA_R, FOUNTAIN_CENTRE, pedestrianGeometry, sightZones, distToPoly } from './pedestrian.js';
+import { NODES, ROUTES, ENTRANCES, CROSSINGS, FURNISHING, SURFACE, PLAZA_R, LOOP_CLEAR, FOUNTAIN_CENTRE, pedestrianGeometry, pavedAt, sightZones, distToPoly } from './pedestrian.js';
 import { PODIUM_PLAN } from './residential.js';
+import { FOUNTAIN } from './park.js';
 import { HOTEL } from './hotel.js';
 import { canopyOf } from './planting.js';
 
 const round = (v, d = 2) => Math.round(v * 10 ** d) / 10 ** d;
 
+// Paved surfaces of different materials must never overlap: two of them shimmer against each
+// other where they meet. Same-material overlaps are invisible — the pattern comes from the
+// world position, so both shade identically — and are allowed.
+function pavingOverlaps() {
+  const { groups } = pedestrianGeometry();
+  const polys = [];
+  for (const [key, list] of Object.entries(groups)) {
+    const material = key.endsWith('Band') ? SURFACE.band.kind : SURFACE[key].kind;
+    for (const q of list) {
+      const xs = q.pts.map((r) => r[0]), zs = q.pts.map((r) => r[1]);
+      polys.push({ id: `${q.owner}[${key}]`, material, pts: q.pts, bb: [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)] });
+    }
+  }
+  const out = [];
+  for (let i = 0; i < polys.length; i++) for (let j = i + 1; j < polys.length; j++) {
+    const a = polys[i], b = polys[j];
+    if (a.material === b.material) continue;
+    const x0 = Math.max(a.bb[0], b.bb[0]), x1 = Math.min(a.bb[1], b.bb[1]);
+    const z0 = Math.max(a.bb[2], b.bb[2]), z1 = Math.min(a.bb[3], b.bb[3]);
+    if (x1 <= x0 || z1 <= z0) continue;
+    const n = 26, cell = ((x1 - x0) / n) * ((z1 - z0) / n);
+    let hit = 0;
+    for (let u = 0; u < n; u++) for (let v = 0; v < n; v++) {
+      const x = x0 + ((u + 0.5) * (x1 - x0)) / n, z = z0 + ((v + 0.5) * (z1 - z0)) / n;
+      if (insidePlan(x, z, a.pts) && insidePlan(x, z, b.pts)) hit++;
+    }
+    if (hit * cell > 0.05) out.push(`${a.id} × ${b.id} ${round(hit * cell, 1)} m²`);
+  }
+  return out;
+}
+
+// Grass has to meet the paving. The walks sit above the lawns and hide what runs beneath, so
+// a lawn edge either tucks under the path or stops well clear of it; what must not happen is
+// stopping a few centimetres short, which leaves a sliver of bare ground reading as a ragged
+// edge. This walks the outside of every path and counts the places grass sits just beyond a
+// gap of bare ground.
+function grassGaps(plan) {
+  const bb = (pts) => { const xs = pts.map((q) => q[0]), zs = pts.map((q) => q[1]); return [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)]; };
+  const grass = [];
+  for (const c of plan.curved.filter((q) => q.type === 'prisms' && (q.kind === 'lawn' || q.kind === 'bed'))) for (const part of c.parts) grass.push({ pts: part.pts, bb: bb(part.pts) });
+  for (const b of plan.boxes.filter((q) => q.kind === 'lawn' || q.kind === 'bed')) {
+    const pts = [[b.x - b.w / 2, b.z - b.d / 2], [b.x + b.w / 2, b.z - b.d / 2], [b.x + b.w / 2, b.z + b.d / 2], [b.x - b.w / 2, b.z + b.d / 2]];
+    grass.push({ pts, bb: bb(pts) });
+  }
+  const onGrass = (x, z) => grass.some((g) => x >= g.bb[0] && x <= g.bb[1] && z >= g.bb[2] && z <= g.bb[3] && insidePlan(x, z, g.pts));
+  const gaps = [];
+  for (const c of plan.curved.filter((q) => q.name.startsWith('W.'))) for (const part of c.parts) {
+    const pts = part.pts;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      const ex = b[0] - a[0], ez = b[1] - a[1], L = Math.hypot(ex, ez);
+      if (L < 0.4) continue;
+      const nx = ez / L, nz = -ex / L;
+      for (const t of [0.3, 0.7]) {
+        const px = a[0] + ex * t, pz = a[1] + ez * t;
+        for (const sgn of [1, -1]) {
+          if (pavedAt(px + nx * 0.16 * sgn, pz + nz * 0.16 * sgn) || onGrass(px + nx * 0.16 * sgn, pz + nz * 0.16 * sgn)) continue;
+          for (let d = 0.2; d <= 0.9; d += 0.1) if (onGrass(px + nx * d * sgn, pz + nz * d * sgn)) { gaps.push(`(${round(px, 1)}, ${round(pz, 1)})`); break; }
+        }
+      }
+    }
+  }
+  return gaps;
+}
+
 export function analyseCirculation(plan) {
   const { clear } = pedestrianGeometry();
+  const paving = { overlaps: pavingOverlaps(), grassGaps: grassGaps(plan), levels: [...new Set(Object.values(SURFACE).map((q) => q.top).filter((q) => q != null))] };
   const byId = Object.fromEntries(clear.map((c) => [c.id, c]));
   const zones = [
     ...clear.map((c) => ({ id: c.id, poly: c.poly })),
@@ -28,7 +95,7 @@ export function analyseCirculation(plan) {
   for (const e of ENTRANCES) for (const j of e.joins) edges.push([e.node, j, e.id]);
   for (const [k, n] of Object.entries(NODES)) if (n.kind === 'sidewalk') edges.push(['SIDEWALK', k, 'perimeter sidewalk']);
   // destinations served on a route's own length
-  const serves = { fountain: ['plazaN', 'plazaS'], cafePodium: ['retailEast'], cafeHotel: ['hotelCafe'], cafeRestaurant: ['hotelRestaurant'], cafeOffice: ['officeLobbyW'] };
+  const serves = { cafePodium: ['retailEast'], cafeHotel: ['hotelCafe'], cafeRestaurant: ['hotelRestaurant'], cafeOffice: ['officeLobbyW'], pavilion: ['promMarket'] };
   for (const [d, via] of Object.entries(serves)) for (const v of via) edges.push([d, v, 'furnishing zone beside the route']);
   const seen = new Set(['SIDEWALK']);
   const queue = ['SIDEWALK'];
@@ -73,11 +140,15 @@ export function analyseCirculation(plan) {
     return [[-1, -1], [1, -1], [1, 1], [-1, 1], [0, 0]].map(([u, v]) => [q.x + (u * q.sx / 2) * c + (v * q.sz / 2) * s, q.z - (u * q.sx / 2) * s + (v * q.sz / 2) * c]);
   };
   const arcadeBand = { outer: offsetPlan(PODIUM_PLAN, -1.45), inner: offsetPlan(PODIUM_PLAN, -3.45) };
-  const inClear = (x, y) => clear.some((c) => {
+  // The promenade and the spine run through the fountain plaza, so their ribbons pass over the
+  // reflecting pool. The pool is not walked on — people cross the plaza on the ring around it —
+  // so the basin and its coping are subtracted from every clear zone.
+  const inBasin = (x, y) => Math.hypot(x - FOUNTAIN.x, y - FOUNTAIN.z) < FOUNTAIN.basin + FOUNTAIN.coping + 0.15;
+  const inClear = (x, y) => !inBasin(x, y) && (clear.some((c) => {
     if (c.id === 'ARC') return insidePlan(x, y, arcadeBand.outer) && !insidePlan(x, y, arcadeBand.inner) && y > -44 && !(y < -31.5 && x < -60);
     return insidePlan(x, y, offsetPlan(c.poly, 0)) && distToPoly(x, y, c.poly) > 0.05;
   }) || ENTRANCES.some((e) => insidePlan(x, y, e.poly) && distToPoly(x, y, e.poly) > 0.05)
-    || Math.hypot(x - FOUNTAIN_CENTRE[0], y - FOUNTAIN_CENTRE[1]) < 12.6 && Math.hypot(x - FOUNTAIN_CENTRE[0], y - FOUNTAIN_CENTRE[1]) > 9.0;
+    || Math.hypot(x - FOUNTAIN_CENTRE[0], y - FOUNTAIN_CENTRE[1]) < LOOP_CLEAR[1] && Math.hypot(x - FOUNTAIN_CENTRE[0], y - FOUNTAIN_CENTRE[1]) > LOOP_CLEAR[0]);
   const ground = (q) => q.y - q.sy / 2 < 0.5 && Math.abs(q.x) < HX + 0.1 && Math.abs(q.z) < HZ + 0.1;
   // doors and portal frames on the storefront line belong to the buildings the routes enter
   const podiumEdge = offsetPlan(PODIUM_PLAN, -1.3);
@@ -125,13 +196,21 @@ export function analyseCirculation(plan) {
   }
 
   // --- private pools: no public clear zone enters the hotel pool court or the podium deck
-  const privateAreas = [{ name: 'hotel pool court', poly: [[1.8, -39], [54, -39], [54, -20], [1.8, -20]] }];
+  const privateAreas = [{ name: 'hotel pool court', poly: [[1.8, -39], [53.4, -39], [53.4, -20], [1.8, -20]] }];
   const privateIssues = clear.filter((c) => c.poly.some(([x, y]) => privateAreas.some((a) => insidePlan(x, y, a.poly)))).map((c) => c.name);
-  const hotelInside = clear.filter((c) => c.id !== 'ARC' && c.poly.some(([x, y]) => [HOTEL.front, HOTEL.centre, HOTEL.rear, HOTEL.link].some((p) => insidePlan(x, y, offsetPlan(p, -0.3))))).map((c) => c.name);
+  const hotelInside = clear.filter((c) => c.id !== 'ARC' && c.poly.some(([x, y]) => [HOTEL.front, HOTEL.tower, HOTEL.rear, HOTEL.link].some((p) => insidePlan(x, y, offsetPlan(p, -0.3))))).map((c) => c.name);
 
   // --- step-free: all routes flat within the site datum band; no stairs in any route
   const tops = [...new Set(ROUTES.map((r) => SURFACE[r.surface].top)), SURFACE.entry.top, SURFACE.plaza.top, 0.15];
   const stepFree = Math.max(...tops) - Math.min(...tops) <= 0.075;
+
+  // --- the fountain stands in the crossing, so each primary route has to pass it on both
+  //     sides with at least its own clear width left over on the plaza ring
+  const ringPass = ['P1', 'S1', 'S2'].map((id) => {
+    const r = ROUTES.find((q) => q.id === id);
+    const w = typeof r.width === 'function' ? r.width(FOUNTAIN_CENTRE[0], FOUNTAIN_CENTRE[1]) : r.width;
+    return { id, name: r.name, need: round(w, 2), have: round(PLAZA_R - (FOUNTAIN.basin + FOUNTAIN.coping), 2) };
+  });
 
   // --- widths
   const widths = ROUTES.map((r) => {
@@ -150,7 +229,7 @@ export function analyseCirculation(plan) {
 
   return {
     nodes: Object.keys(NODES).length, routes: ROUTES.length, reach, nodeIssues, ends, deadEnds, blockers: blockerList, trunkIssues, lowCanopies,
-    blockedEntrances, tightEntrances, conflicts, crossings, sightIssues, privateIssues, hotelInside, stepFree, tops, widths, darkNodes, darkCrossings,
+    blockedEntrances, tightEntrances, conflicts, crossings, sightIssues, privateIssues, hotelInside, stepFree, tops, widths, darkNodes, darkCrossings, paving, ringPass,
     furnishing: FURNISHING.map((f) => ({ id: f.id, kind: f.kind, name: f.name })),
   };
 }

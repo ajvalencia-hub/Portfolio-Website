@@ -183,7 +183,7 @@ export function officeParts(tier, rand) {
     const n = Math.round(Math.max(x1 - x0, z1 - z0) / 1.4);
     for (let k = 0; k < n; k++) {
       const f = (k + 0.5) / n;
-      add('cone', along ? x0 + (x1 - x0) * f : (x0 + x1) / 2, p.y + PLANTER.rim + 0.4, along ? (z0 + z1) / 2 : z0 + (z1 - z0) * f, 1.0, 0.8, 1.0, k % 2 ? 'shrub' : 'shrubDark', C);
+      add('bush', along ? x0 + (x1 - x0) * f : (x0 + x1) / 2, p.y + PLANTER.rim + 0.4, along ? (z0 + z1) / 2 : z0 + (z1 - z0) * f, 1.0, 0.8, 1.0, k % 2 ? 'shrub' : 'shrubDark', C);
     }
     if (p.hang) {
       const spacing = full ? 0.35 : 0.7;

@@ -9,10 +9,54 @@ import { PHASES } from '../config.js';
 import { window01, smootherstep } from '../sequence.js';
 import { DITHER_GLSL } from './facade-glsl.js';
 
+// deterministic hash: the same position always gives the same offset, so the duplicated
+// vertices of a non-indexed face stay welded and every bush keeps its own shape
+function hash3(x, y, z) {
+  const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453;
+  return s - Math.floor(s);
+}
+
+// A bush in the same language as the tree canopies: overlapping icosahedral lobes pushed
+// about by noise, so it reads as a clipped clump of foliage rather than a cone. Built to fill
+// a unit box, so a part's sx / sy / sz still set its spread and height, and turned per
+// instance (see below) so a hedge is not a row of identical shapes.
+function bushGeometry(full) {
+  const lobes = full
+    ? [[0, 0.05, 0, 0.34], [0.16, -0.07, 0.13, 0.26]]     // 40 faces: a clump, not a ball
+    : [[0, 0, 0, 0.44]];                                   // 20 faces on mobile
+  const pos = [];
+  lobes.forEach(([lx, ly, lz, r], k) => {
+    const g = new THREE.IcosahedronGeometry(r, 0);      // 20 faces, already non-indexed
+    const a = g.getAttribute('position');
+    for (let i = 0; i < a.count; i++) {
+      const vx = a.getX(i), vy = a.getY(i), vz = a.getZ(i);
+      const len = Math.hypot(vx, vy, vz) || 1;
+      const n = 0.72 + 0.42 * hash3(Math.round(vx * 100) + k * 17, Math.round(vy * 100), Math.round(vz * 100));
+      pos.push(lx + (vx / len) * r * n, ly + (vy / len) * r * n, lz + (vz / len) * r * n);
+    }
+  });
+  // fit the unit box the instance transform expects
+  let mx = 0, my = 0;
+  for (let i = 0; i < pos.length; i += 3) {
+    mx = Math.max(mx, Math.abs(pos[i]), Math.abs(pos[i + 2]));
+    my = Math.max(my, Math.abs(pos[i + 1]));
+  }
+  for (let i = 0; i < pos.length; i += 3) {
+    pos[i] = (pos[i] / mx) * 0.5;
+    pos[i + 1] = (pos[i + 1] / my) * 0.5;
+    pos[i + 2] = (pos[i + 2] / mx) * 0.5;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.computeVertexNormals();
+  return geo;
+}
+
 const SHAPES = {
   box: () => new THREE.BoxGeometry(1, 1, 1),
   cyl: () => new THREE.CylinderGeometry(0.5, 0.5, 1, 12),
   cone: () => new THREE.ConeGeometry(0.5, 1, 10),
+  bush: (full) => bushGeometry(full),
   // ramp wedge: full height at +x, zero at −x (unit box footprint)
   wedge: () => {
     const g = new THREE.BufferGeometry();
@@ -53,9 +97,11 @@ export function createParts(plan, palette, tier) {
         .replace('#include <color_fragment>', `#include <color_fragment>
           if (bayer4(gl_FragCoord.xy) + 0.03125 > uFill) discard;`);
     };
-    const mesh = new THREE.InstancedMesh(SHAPES[shape](), material, parts.length);
+    const mesh = new THREE.InstancedMesh(SHAPES[shape](tier.name !== 'mobile'), material, parts.length);
     parts.forEach((p, i) => {
-      m.compose(pos.set(p.x, p.y, p.z), q.setFromAxisAngle(up, p.rot || 0), scl.set(p.sx, p.sy, p.sz));
+      // bushes turn with their position, so no two neighbours read as the same shape
+      const spin = shape === 'bush' ? hash3(p.x, 0, p.z) * Math.PI * 2 : 0;
+      m.compose(pos.set(p.x, p.y, p.z), q.setFromAxisAngle(up, (p.rot || 0) + spin), scl.set(p.sx, p.sy, p.sz));
       mesh.setMatrixAt(i, m);
       mesh.setColorAt(i, color.set(palette[p.color] ?? palette.frame));
     });

@@ -1,7 +1,7 @@
 // Rendering-stability check: finds surfaces that share a plane (within a depth
 // tolerance) and overlap in area while facing the same way — the geometric cause of
 // z-fighting flicker. Covers massing boxes, instanced parts (boxes at right-angle
-// rotations, cylinder ends), curved prism and stack caps, ring and slab annuli.
+// rotations, cylinder ends), curved prism and stack caps, ring, guard and slab annuli.
 // Downward-facing surfaces are skipped (the camera stays above the model). Pairs with
 // the same material and colour are flagged separately: they cannot flicker visibly.
 //
@@ -73,6 +73,13 @@ export function coplanarFaces(plan, { insidePlan, tol = 0.012, minArea = 0.02 })
     } else if (c.pts) {
       add(faces.h, { y: top, dir: 1, poly: c.pts, holes: c.holes, src });
       add(faces.h, { y: base, dir: -1, poly: c.pts, holes: c.holes, src });
+    }
+    if (c.guards) {
+      const gsrc = { name: `${c.name} balcony guards`, color: c.guards.kind, layer: 'guards' };
+      for (const r of c.guards.rings) {
+        add(faces.h, { y: base + r.y + r.h, dir: 1, poly: r.outer, hole: r.inner, src: gsrc });
+        add(faces.h, { y: base + r.y, dir: -1, poly: r.outer, hole: r.inner, src: gsrc });
+      }
     }
     if (c.slabs) {
       const ssrc = { name: `${c.name} slabs`, color: c.slabs.kind, layer: 'slabs' };

@@ -4,10 +4,10 @@
 //   4 residential podium (liner units on street/plaza faces, screened parking with
 //     expressed ramps elsewhere) · 5 office floors · 6 office podium (office liner
 //     south/west, screened parking north/east) · 7 Art Deco hotel rooms
-//   8 mechanical screens · 9 storefront · 10 glass guard · 11 penthouse glazing
+//   8 mechanical screens · 9 storefront · 10 glass guard (see-through) · 11 penthouse glazing
 //   12 Art Deco hotel centrepiece (reeded piers around a central glazed slot)
 //   13 residential garage recess behind the wave screen · 14 perforated metal · 15 breeze block
-//   19 office crown glazing
+//   19 office crown glazing · 21 stacked glass balcony balustrades
 //   16–18 paving patterns on horizontal surfaces (square, running bond, concentric)
 // Everything resolves to three channels — glass coverage, white louvre screen
 // coverage and shade — then shares one material response (glass/water sheen,
@@ -105,9 +105,13 @@ const FACADE_GLSL = /* glsl */`
     float aaX = max(fwidth(across), 1e-4) * 0.75;
 
     if (glaze > 9.5 && glaze < 10.5) {
-      // glass guard: optional solid upstand (module.x), light glass, slim white top rail
-      float g = band(y, botY + gH, topY - 0.07, aaY);
-      return vec3(0.3 * g, 0.0, 1.0);
+      // glass guard: optional solid upstand (module.x), clear glass, slim white top rail
+      return vec3(band(y, botY + gH, topY - 0.07, aaY), 0.0, 1.0);
+    }
+    if (glaze > 20.5 && glaze < 21.5) {
+      // stacked balcony balustrades: one frameless glass panel per floor (module.y), each
+      // rising ramp.x from its shoe (module.x buried in the slab) to a slim white top rail
+      return vec3(band(mod(y - botY, fH), gH, ramp.x - 0.07, aaY), 0.0, 1.0);
     }
 
     float detail = 1.0 - smoothstep(0.16, 0.38, aaY / fH);
@@ -124,7 +128,9 @@ const FACADE_GLSL = /* glsl */`
     if (glaze < 1.5) {
       glass = mix(ribbon(fy, fH, across, aaY, aaX, detail, 0.5), storefront, ground);
     } else if (glaze < 2.5) {
-      // residential: floor-to-ceiling glass set back behind the balcony slab edge
+      // residential: floor-to-ceiling glass set back behind the balcony slab edge. The 1.6 m
+      // mullion spacing is WINDOW_MULLION in plan/residential.js, which sets the balcony
+      // privacy dividers out on the same lines — keep the two in step.
       float vision = band(fy, 0.32, fH - 0.22, aaY) * (1.0 - 0.75 * repLine(across, 1.6, 0.06, aaX));
       glass = mix(0.82, vision, detail);
       shade = 1.0 - 0.3 * band(fy, fH - 0.95, fH - 0.22, aaY) * detail;
@@ -156,16 +162,17 @@ const FACADE_GLSL = /* glsl */`
         glass = band(y, 0.35, gH - 1.0, aaY) * (1.0 - pier) * (1.0 - north) * (1.0 - 0.7 * repLine(across, 1.8, 0.05, aaX));
         shade = 1.0 - 0.08 * pier;
       } else {
-        // guest rooms: tall paired windows (sill at 0.45 m, head at 2.6 m) on a 3.6 m bay,
+        // guest rooms: tall paired windows (sill at 0.45 m, head at 2.6 m) on the 3.8 m room
+        // bay (FACADE_BAY in plan/hotel.js, which also sets out the modelled piers and fins),
         // each set in a shadowed reveal, a fluted pier every sixth bay, eyebrows above
-        float bayIdx = floor((across + 720.0) / 3.6);
-        float bay = mod(across + 720.0, 3.6);
+        float bayIdx = floor((across + 722.0) / 3.8);
+        float bay = mod(across + 722.0, 3.8);
         float pier = step(mod(bayIdx, 6.0), 0.5);
-        float win = band(bay, 0.55, 3.05, aaX) * band(fy, 0.45, 2.6, aaY);
-        float reveal = band(bay, 0.42, 3.18, aaX) * band(fy, 0.36, 2.66, aaY) - win;
-        win *= 1.0 - 0.85 * (1.0 - smoothstep(0.04, 0.04 + aaX, abs(bay - 1.8)));   // central mullion
+        float win = band(bay, 0.6, 3.2, aaX) * band(fy, 0.45, 2.6, aaY);
+        float reveal = band(bay, 0.46, 3.34, aaX) * band(fy, 0.36, 2.66, aaY) - win;
+        win *= 1.0 - 0.85 * (1.0 - smoothstep(0.04, 0.04 + aaX, abs(bay - 1.9)));   // central mullion
         win *= 1.0 - 0.6 * (1.0 - smoothstep(0.03, 0.03 + aaY, abs(fy - 2.2)));      // transom
-        float flutes = pier * band(bay, 0.5, 3.1, aaX) * repLine(bay, 0.65, 0.09, aaX);
+        float flutes = pier * band(bay, 0.55, 3.25, aaX) * repLine(bay, 0.65, 0.09, aaX);
         glass = mix(0.42, win * (1.0 - pier), detail);
         // reveal and eyebrow shadows give the white stucco controlled relief
         shade = (1.0 - 0.28 * band(fy, 2.62, 2.72, aaY) * detail) * (1.0 - 0.2 * flutes * detail) * (1.0 - 0.22 * max(reveal, 0.0) * (1.0 - pier) * detail);
@@ -204,15 +211,14 @@ const FACADE_GLSL = /* glsl */`
       float vision = band(fy, 0.35, fH - 0.1, aaY) * (1.0 - 0.7 * repLine(across, 1.8, 0.05, aaX));
       glass = mix(0.85, vision, detail);
     } else if (glaze > 12.5 && glaze < 13.5) {
-      // residential garage behind the wave screen: occupied liner glazing on the street and
-      // plaza faces; elsewhere the decks read as deep shadowed openings between white slab edges
-      if (nrm.z > 0.35 || nrm.x > 0.55) {
-        glass = ribbon(fy, fH, across, aaY, aaX, detail, 0.5);
-      } else {
-        float slabEdge = max(band(fy, 0.0, 0.32, aaY), band(fy, fH - 0.05, fH, aaY));
-        float pier = repLine(across, 8.4, 0.3, aaX);
-        shade = mix(0.34, 1.0, max(slabEdge, 0.55 * pier));
-      }
+      // Residential garage behind the wave screen. The screen wraps the whole podium, so the
+      // backdrop is one material the whole way round — deep shadowed deck openings between
+      // white slab edges — rather than switching to liner glazing on the street and plaza
+      // faces, which read as a second colour behind the same fins. The occupied liner units
+      // are still in the program (they displace stalls); they simply sit behind the screen.
+      float slabEdge = max(band(fy, 0.0, 0.32, aaY), band(fy, fH - 0.05, fH, aaY));
+      float pier = repLine(across, 8.4, 0.3, aaX);
+      shade = mix(0.34, 1.0, max(slabEdge, 0.55 * pier));
     } else if (glaze < 11.5) {
       // penthouse: tall frameless glazing between a slim sill and a deep white fascia
       float wall = band(y, botY + 0.3, topY - 0.7, aaY);
@@ -267,6 +273,8 @@ export function injectFacade(shader, o) {
       vec3 glassTone = mix(uGlassColor, uGlassColor * 1.3, smoothstep(${o.botY}, ${o.topY}, (${o.worldPos}).y));
       vec3 surface = mix(${o.base}, uScreen, fac.y);
       diffuseColor.rgb = mix(surface, glassTone, glass) * fac.z;
+      ${o.alpha ? `// glass guards are see-through: the frame, shoe and top rail stay solid
+      diffuseColor.a *= mix(1.0, ${o.alpha}, glass);` : ''}
       // water surfaces: soft ripples (concentric around a fountain or spa when ramp.w = 1)
       if (water > 0.5 && (${o.nrm}).y > 0.5) {
         vec2 wq = (${o.worldPos}).xz;

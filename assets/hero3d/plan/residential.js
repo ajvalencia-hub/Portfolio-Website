@@ -2,12 +2,16 @@
 // whose roof is a resort amenity level.
 //
 // Structure concept (visual model, not an engineered design):
-//   • each tower keeps ONE occupied floorplate shape; the glass line may lean at
-//     most ±0.35 m with the twist, so floors stack over a continuous central core
-//     and a fixed ring of perimeter columns that runs from the foundations to the
-//     penthouse roof — no transfer at tower floors
-//   • the twist is carried by the balcony ribbons, which rotate floor by floor
-//     within a cantilever limit measured from the column line
+//   • each tower keeps ONE occupied floorplate shape, and the whole structure turns with
+//     it: the plate rotates `plateTwist` degrees over the tower and the ring of perimeter
+//     columns rotates with every plate, so the columns are continuous but inclined — each
+//     leans COLUMN_TILT metres per floor about a vertical central core. The ring lands
+//     square on the podium's column lines at the base, so there is no transfer anywhere
+//   • the glass line still only leans a little floor to floor, because the plate turns
+//     about its own centre rather than stepping in and out
+//   • the twist is carried further by the balcony ribbons, which rotate faster than the
+//     floorplates within a cantilever limit measured from that floor's column line
+//   • each ribbon carries a glass balustrade, so every floor has a wraparound balcony
 //   • tower columns land on the podium's parking module lines (aisle edges and
 //     back-to-back stall lines), so they come down through the garage without
 //     transfers and without entering drive aisles
@@ -21,7 +25,7 @@ import { poolSpecs as sharedPool, spaSpecs as sharedSpa } from './pools.js';
 import {
   FLOOR, GROUND, RES, D2R, GLAZE, PODIUM_TOP, DECK_BUILDUP, DECK_Y, ARCADE,
   clamp, superellipse, roundedRectPlan, offsetPlan, arcSamples, insidePlan, polarRadius,
-  rayRadius, resampleByAngle, clipBand, circlePlan, inRect, partsKit, box,
+  rayRadius, resampleByAngle, smoothRadii, clipBand, circlePlan, inRect, partsKit, box,
 } from './core.js';
 
 export const PODIUM_PLAN = superellipse(-51, -1, 25, 50, 6, 160);
@@ -61,7 +65,7 @@ export const PODIUM_PARKING = {
     rises: [GROUND, FLOOR], landing: 'north', connects: 'aisle E north',
   },
   columnLines: [-70.65, -65.25, -57.55, -52.3, -47.05, -42.1, -39.35, -34.0],
-  // podium column rows at z = 3.8 ± 8.4 k: the rows at 12.2 and 20.6 frame the galleria
+  // podium column rows at z = 3.8 ± 8.4 k: the rows at -4.6 and 3.8 frame the galleria's east leg
   columnStep: 8.4, columnOrigin: 3.8,
   entry: { portal: [-64.6, -58.2], z: -1 - 50 + ARCADE, aisle: 'aisle W' },
   // ground floor: retail liner, lobbies, services and the approach to the ramp
@@ -78,14 +82,19 @@ export const PODIUM_PARKING = {
       { name: 'Tower 2 lobby (south entrance)', use: 'lobby', rect: [-55.5, -46.5, 31.5, 45.5] },
       { name: 'Electrical / water / pool plant', use: 'plant', rect: [-70.0, -58.5, -12.0, 10.0] },
       { name: 'Bicycle + resident storage', use: 'plant', rect: [-56.0, -48.5, -12.0, -4.0] },
-      // public galleria through the ground floor (east-west promenade), lined with shopfronts
-      { name: 'Galleria (public passage)', use: 'public', rect: [-76.0, -26.0, 12.9, 17.4] },
+      // Public galleria through the ground floor, lined with shopfronts. It enters on the east
+      // face in the middle of the tower base, on the promenade's axis and under the gap in the
+      // parking screen, then turns north inside the podium to clear the parking ramp and runs
+      // out to the west sidewalk on its original line.
+      { name: 'Galleria (public passage, east leg)', use: 'public', rect: [-37.5, -26.0, -1.25, 3.25] },
+      { name: 'Galleria (public passage, turn)', use: 'public', rect: [-37.5, -33.0, -1.25, 17.4] },
+      { name: 'Galleria (public passage, west leg)', use: 'public', rect: [-76.0, -33.0, 12.9, 17.4] },
       { name: 'Tower 2 lobby (galleria entrance)', use: 'lobby', rect: [-56.0, -47.5, 17.4, 24.3] },
     ],
   },
   // garage stair / lift cores that reach the amenity deck
   cores: [
-    { name: 'Podium stair + lift (east)', rect: [-33.6, -29.4, -2.0, 2.2] },
+    { name: 'Podium stair + lift (east)', rect: [-33.6, -29.4, 4.8, 9.0] },
     { name: 'Podium stair (north-west)', rect: [-74.6, -71.0, -21.0, -16.0] },
   ],
 };
@@ -101,10 +110,28 @@ const FORBIDDEN_FOR_COLUMNS = [
 // ---------------------------------------------------------------------------
 const MAX_CANTILEVER = 3.5;  // slab edge beyond the perimeter column line (geometric limit)
 const COLUMN = 0.6;          // perimeter column size (assumption, square)
+// How far a perimeter column may travel horizontally per 3.2 m floor as the structure
+// turns (a geometric allowance for the concept, comparable to built twisting towers —
+// not an engineered value). 0.45 m is about 8° off vertical.
+const COLUMN_TILT = 0.45;
+// Balcony balustrade: frameless glass panels, set in from the ribbon edge and started
+// just below the balcony paving so the shoe is buried in the slab.
+export const BALCONY_GUARD = { h: 1.15, thick: 0.05, inset: 0.12, embed: 0.06, shoe: 0.06 };
+const GUARD = BALCONY_GUARD;
+// how far (in plan degrees) a balcony edge is rounded where a limit creases it
+const BALCONY_ROUND = 14;
+// Privacy dividers between units. The residential glazing draws a mullion every MULLION
+// metres along each floor's glass line (plan/../layers/facade-glsl.js, glaze 2), measured
+// from the plan's first vertex — so a divider placed a whole number of bays along that same
+// line lands exactly on a mullion. Each one runs floor to soffit and out to the balustrade.
+export const WINDOW_MULLION = 1.6;   // keep in step with glaze 2 in layers/facade-glsl.js
+const MULLION = WINDOW_MULLION;
+const DIVIDER = { bays: 6, thick: 0.07, slab: 0.36, into: 0.02 };
 
-// Tower 1 — tall rounded triangle; balcony ribbons turn 72° over 22 floors.
+// Tower 1 — tall rounded triangle; the structure turns 1.7° per floor (36° over the tower)
+// and the balcony ribbons turn faster still, 72° over 22 floors.
 const TOWER1 = {
-  id: 'A.t1', cx: -52, cz: -29, floors: 22, twist: 72, lean: 0.25, perimeter: 0.35,
+  id: 'A.t1', cx: -52, cz: -29, floors: 22, twist: 72, plateTwist: 36, perimeter: 0.35,
   shape: { R: 13.2, a2: 0.05, p2: -10, a3: 0.12, p3: -90 },
   core: { w: 8.6, d: 7.4 },
   minDepth: 0.9,
@@ -120,10 +147,11 @@ const TOWER1 = {
   timing: [0.370, 0.104],
 };
 
-// Tower 2 — lower egg-shaped oval; ribbons ripple in a wave that climbs the tower.
+// Tower 2 — lower egg-shaped oval, its structure turning −1.6° per floor (−24° over the
+// tower, the same turn its ribbons make); ribbons ripple in a wave that climbs the tower.
 // Centred at x −52.3 so its column ring clears both garage drive aisles.
 const TOWER2 = {
-  id: 'A.t2', cx: -52.3, cz: 28, floors: 16, twist: -24, lean: 0.25, perimeter: 0.35,
+  id: 'A.t2', cx: -52.3, cz: 28, floors: 16, twist: -24, plateTwist: -24, perimeter: 0.35,
   shape: { R: 12.6, a1: 0.05, p1: 20, a2: 0.19, p2: 18 },   // a2 < 0.2 keeps the oval convex
   core: { w: 8.0, d: 7.0 },
   minDepth: 0.9,
@@ -209,32 +237,105 @@ function buildTower(cfg, N, tier) {
   const th = Array.from({ length: N }, (_, i) => (i / N) * Math.PI * 2);
   const plan = (rs, ox = 0, oz = 0) => rs.map((r, i) => [cx + ox + r * Math.cos(th[i]), cz + oz + r * Math.sin(th[i])]);
   const twist = (g) => (cfg.twist * (g - 1)) / (floors - 1);
-  const base = th.map((t) => polarRadius(shape, t));
+  const plate = (g) => (cfg.plateTwist * (g - 1)) / (floors - 1);
 
-  // occupied floorplates: one shape; the glass line leans a little with the twist
+  // occupied floorplates: one shape, turned about the core at every floor, so the plan itself
+  // twists while the glass line still only leans within `perimeter`
   const enc = [];
-  for (let g = 1; g <= floors; g++) {
-    enc.push(base.map((b, i) => b + clamp(cfg.lean * (polarRadius(shape, th[i] - twist(g) * D2R) - b), -cfg.perimeter, cfg.perimeter)));
-  }
-  const minEnc = base.map((_, i) => Math.min(...enc.map((e) => e[i])));
-  const columns = placeColumns(cx, cz, th, minEnc.map((r) => r - 0.5));
-  const colPoly = columns;  // sorted by angle
-  const colR = th.map((t) => rayRadius(cx, cz, colPoly, t));
+  for (let g = 1; g <= floors; g++) enc.push(th.map((t) => polarRadius(shape, t - plate(g) * D2R)));
+  // the structure turns with the plates: the base ring lands on the podium's column lines,
+  // and every floor above carries the same ring rotated with its plate, so each perimeter
+  // column inclines by a constant step (COLUMN_TILT metres per floor) about the vertical core
+  const columns = placeColumns(cx, cz, th, enc[0].map((r) => r - 0.5));
+  const spin = (pts, deg) => {
+    const c = Math.cos(deg * D2R), s = Math.sin(deg * D2R);
+    return pts.map(([x, z]) => [cx + (x - cx) * c - (z - cz) * s, cz + (x - cx) * s + (z - cz) * c]);
+  };
+  const colRings = Array.from({ length: floors }, (_, k) => spin(columns, plate(k + 1)));
+  const colRs = colRings.map((ring) => th.map((t) => rayRadius(cx, cz, ring, t)));
+  const colR = colRs[floors - 1];      // the penthouse sits on the top floor's ring
 
   const slabs = [];
+  const guards = [];
+  const dividers = [];
+  const guardStep = tier.name === 'mobile' ? 2 : 1;
+  const thin = (pts) => (guardStep === 1 ? pts : pts.filter((_, i) => i % guardStep === 0));
   for (let g = 1; g <= floors; g++) {
     const e = enc[g - 1];
     const up = g < floors ? enc[g] : null;
-    const outer = [], inner = [];
+    const outer = [], inner = [], loR = [], hiR = [];
     for (let i = 0; i < N; i++) {
       const eMax = up ? Math.max(e[i], up[i]) : e[i];
       const eMin = up ? Math.min(e[i], up[i]) : e[i];
       const lo = eMax + cfg.minDepth;
-      outer.push(up ? clamp(cfg.ribbon(th[i], g, eMax, shape, twist(g)), lo, Math.max(lo, colR[i] + MAX_CANTILEVER)) : e[i] + 0.6);
+      loR.push(lo);
+      hiR.push(Math.max(lo, colRs[g - 1][i] + MAX_CANTILEVER));
+      outer.push(up ? clamp(cfg.ribbon(th[i], g, eMax, shape, twist(g)), lo, hiR[i]) : e[i] + 0.6);
       inner.push(eMin - 0.25);
     }
+    // the cantilever and minimum-depth limits leave creases in the ribbon where they take
+    // over; round them off, then hold the limits again (the average stays inside them, so
+    // only the depth floor can need a nudge back)
+    if (up) {
+      const soft = smoothRadii(outer, BALCONY_ROUND);
+      for (let i = 0; i < N; i++) outer[i] = Math.min(Math.max(soft[i], loR[i]), hiR[i]);
+      const soft2 = smoothRadii(outer, BALCONY_ROUND * 0.6);
+      for (let i = 0; i < N; i++) outer[i] = Math.min(Math.max(soft2[i], loR[i]), hiR[i]);
+    }
+    // privacy dividers: one panel per unit boundary, standing on a mullion of this floor's
+    // glass line and running out, square to the facade, to the balustrade. They belong to the
+    // floor, so they turn with it and spiral up the tower.
+    if (g < floors) {
+      // the wall standing on this slab belongs to the floor above it (stackGeometry draws the
+      // band g·FLOOR → (g+1)·FLOOR from enc[g]), and that is the line the facade measures its
+      // mullions along — so the panels must be set out on it, not on the floor below's plan
+      const gPts = plan(enc[g]);
+      const outPts = plan(outer);
+      const step = MULLION * DIVIDER.bays;
+      // the panel reaches from the glass out to the balustrade, square to the wall
+      const reach = (x, z, nx, nz) => {
+        let lo = 0, hi = MAX_CANTILEVER + cfg.minDepth + 2;
+        if (!insidePlan(x + nx * 0.1, z + nz * 0.1, outPts)) return 0;
+        while (hi - lo > 0.01) { const m = (lo + hi) / 2; if (insidePlan(x + nx * m, z + nz * m, outPts)) lo = m; else hi = m; }
+        return lo;
+      };
+      // the top balcony's ceiling is the penthouse plinth, which has no ribbon slab under it
+      const clear = (g === floors - 1 ? FLOOR : FLOOR - DIVIDER.slab) + DIVIDER.into;
+      let run = 0, next = step;
+      for (let i = 0; i < N; i++) {
+        const [ax, az] = gPts[i], [bx, bz] = gPts[(i + 1) % N];
+        const len = Math.hypot(bx - ax, bz - az);
+        while (next < run + len) {
+          const f = (next - run) / len;
+          const x = ax + (bx - ax) * f, z = az + (bz - az) * f;
+          // square to the wall, not to the radius, so the panel meets the glass exactly on
+          // the mullion (a radial panel would slide along the wall where the plan is lobed)
+          let nx = (bz - az) / len, nz = -(bx - ax) / len;
+          if (nx * (x - cx) + nz * (z - cz) < 0) { nx = -nx; nz = -nz; }
+          const d = reach(x, z, nx, nz) - GUARD.inset;
+          if (d > 0.5) {
+            dividers.push({
+              a: [x - nx * 0.06, z - nz * 0.06], b: [x + nx * d, z + nz * d],
+              y: g * FLOOR - 0.02, h: clear, t: DIVIDER.thick,
+            });
+          }
+          next += step;
+        }
+        run += len;
+      }
+    }
     // the top floor's roof is the penthouse plinth (no separate roof slab sharing its plane)
-    if (g < floors) slabs.push({ y: g * FLOOR, thick: 0.36, outer: plan(outer), inner: plan(inner) });
+    if (g < floors) {
+      slabs.push({ y: g * FLOOR, thick: 0.36, outer: plan(outer), inner: plan(inner) });
+      // glass balustrade along the balcony edge: frameless panels on a slim shoe, set in from
+      // the slab edge and started just below the paving so no face shares the slab's plane
+      // (coarser plan on mobile — a 1.15 m rail does not need the full floorplate resolution)
+      guards.push({
+        y: g * FLOOR - GUARD.embed, h: GUARD.h + GUARD.embed,
+        outer: thin(plan(outer.map((r) => r - GUARD.inset))),
+        inner: thin(plan(outer.map((r) => r - GUARD.inset - GUARD.thick))),
+      });
+    }
   }
 
   const specs = [];
@@ -243,6 +344,10 @@ function buildTower(cfg, N, tier) {
     name: bodyName, type: 'stack', kind: 'glass', glaze: GLAZE.residential, module: RES, parent: 'A.podium', y0: 0,
     h: floors * FLOOR, floorH: FLOOR, floorPlans: enc.map((r) => plan(r)), pts: plan(enc[0]),
     start: cfg.timing[0], dur: cfg.timing[1], slabs: { kind: 'slab', floors: slabs },
+    guards: {
+      kind: 'frame', glaze: GLAZE.guardStack, module: [GUARD.embed + GUARD.shoe, FLOOR],
+      ramp: [GUARD.h + GUARD.embed, 0, 0, 0], rings: guards, dividers,
+    },
   });
 
   const core = roundedRectPlan(cx - cfg.core.w / 2, cz - cfg.core.d / 2, cx + cfg.core.w / 2, cz + cfg.core.d / 2, 0.6);
@@ -251,7 +356,7 @@ function buildTower(cfg, N, tier) {
   const t0 = cfg.timing[0] + cfg.timing[1];
   const gen = cfg.penthouse.generator === 'tall' ? tallPenthouse : shortPenthouse;
   const suite = gen({
-    id, cx, cz, N, th, top, colR, columns, core, topY, bodyName, t0, maxCantilever: MAX_CANTILEVER, floors,
+    id, cx, cz, N, th, top, colR, columns: colRings[floors - 1], core, topY, bodyName, t0, maxCantilever: MAX_CANTILEVER, floors,
     ribbon: (t, g, eMax = 0) => cfg.ribbon(t, g, eMax, shape, twist(g)),
   }, cfg.penthouse, tier);
   specs.push(...suite.specs);
@@ -259,7 +364,10 @@ function buildTower(cfg, N, tier) {
     specs,
     penthouse: suite,
     meta: {
-      id, cx, cz, N, floors, topY, body: bodyName, core, columns, columnSize: COLUMN,
+      // `columns` is the base ring (the one that lands in the garage and on the amenity deck);
+      // `columnRings` carries every floor's ring, each the base ring turned with its plate
+      id, cx, cz, N, floors, topY, body: bodyName, core, columns, columnRings: colRings, columnSize: COLUMN,
+      plateTwist: cfg.plateTwist, ribbonTwist: cfg.twist, leanLimit: cfg.perimeter, tiltLimit: COLUMN_TILT, guard: { ...GUARD }, divider: { ...DIVIDER, mullion: MULLION },
       // perimeter columns stop at the plinth (T2) or continue through PH1 to the crown (T1);
       // the core rises to the private elevator arrival on the roof
       columnTopY: cfg.penthouse.generator === 'tall' ? suite.meta.phTopY : topY, coreTopY: suite.meta.roofTopY,
@@ -383,16 +491,17 @@ export function residentialMasses(tier) {
 // each rising and falling in a long wave that echoes the tower balcony ribbons and
 // swelling in depth for shadow; phase offsets between fins make the waves drift up the
 // facade. Fins are ~80% open for natural ventilation and conceal parked cars. Breaks
-// keep the residential lobbies (signage panels) and the garage stair cores open.
+// keep the garage stair cores open; the wave runs unbroken past the lobbies below it.
 // ---------------------------------------------------------------------------
 export const GARAGE_SCREEN = {
   levels: [GROUND + 0.55, PODIUM_TOP - 0.55],
   amplitude: 0.3, wavelength: 22, depthWavelength: 34, depth: [0.45, 1.0], thick: 0.14,
+  // The wave runs unbroken past the lobbies — the entrances are at ground level, below the
+  // screen, and a gap with a signage panel in it only interrupted the pattern. Breaks are
+  // kept where the garage stair cores need an opening.
   breaks: [
-    { name: 'Tower 2 lobby (south)', at: [-50, 49], width: 9, sign: true },
-    { name: 'Tower 1 lobby (west)', at: [-76, -28], width: 9, sign: true },
     { name: 'Garage stair (north-west)', at: [-76, -18.5], width: 4.5 },
-    { name: 'Garage stair + lift (east)', at: [-26, 0.1], width: 5 },
+    { name: 'Galleria east portal (over the passage head)', at: [-26, 1.0], width: 5.6 },
   ],
 };
 function nearestOnPlan(plan, [x, z]) {
@@ -457,7 +566,8 @@ export function residentialParts(tier, towers, rand) {
   const nearest = (samples, test, x, z) => samples.filter(test).reduce((a, b) => (Math.hypot(b.x - x, b.z - z) < Math.hypot(a.x - x, a.z - z) ? b : a));
   for (const s of arcSamples(PODIUM_PLAN, 8.4)) {
     if (s.nz < -0.5 && s.x > -68 && s.x < -28) continue;  // keep the garage and loading frontage clear
-    if (Math.abs(s.nx) > 0.9 && Math.abs(s.z - 15.15) < 3.4) continue;   // galleria mouths
+    if (s.nx < -0.9 && Math.abs(s.z - 15.15) < 3.4) continue;              // galleria west portal
+    if (s.nx > 0.9 && Math.abs(s.z - 1.0) < 3.6) continue;                 // galleria east portal
     column(s.x - s.nx * 1.0, s.z - s.nz * 1.0, 0, GROUND, 0.38);
   }
   const podiumFine = arcSamples(PODIUM_PLAN, 0.5);
@@ -467,19 +577,11 @@ export function residentialParts(tier, towers, rand) {
     const tx = -s.nz, tz = s.nx;
     for (const side of [-1, 1]) column(s.x + s.nx * 2.2 + tx * 5.6 * side, s.z + s.nz * 2.2 + tz * 5.6 * side, 0, 4.35, 0.1, 'metal');
   }
-  // wave-screen breaks at the lobbies: a flat white signage panel (no lettering) set back
-  // in the opening, with a charcoal sign band and a slim warm light line under it
-  for (const b of garageScreenBreaks().filter((q) => q.sign)) {
-    alongFacade(b, 0.25, GROUND + 0.5, 5.4, b.width - 1.4, 0.3, 'frame');
-    alongFacade(b, 0.45, GROUND + 3.0, 0.9, b.width - 3.2, 0.12, 'charcoal');
-    alongFacade(b, 0.45, GROUND + 2.86, 0.06, b.width - 3.4, 0.08, 'lamp', C);
-  }
-
   // galleria portals on both storefront lines: a tall dark opening in a white frame with a
   // warm soffit light and a blank sign plaque (the passage runs 4.5 m wide under the decks)
   const storeFine = arcSamples(offsetPlan(PODIUM_PLAN, -ARCADE), 0.25);
   for (const side of [-1, 1]) {
-    const s = nearest(storeFine, (q) => q.nx * side > 0.9, side > 0 ? -29.5 : -72.5, 15.15);
+    const s = nearest(storeFine, (q) => q.nx * side > 0.9, side > 0 ? -29.5 : -72.5, side > 0 ? 1.0 : 15.15);
     alongFacade(s, 0.05, 0, 4.4, 4.5, 0.3, 'void');
     for (const u of [-1, 1]) add('box', s.x - s.nx * 0.1 + -s.nz * u * 2.6, 2.2, s.z - s.nz * 0.1 + s.nx * u * 2.6, 0.4, 4.4, 0.5, 'frame', 'solid', Math.atan2(-s.nx, -s.nz));
     alongFacade(s, 0.33, 4.4, 0.56, 5.3, 0.56, 'frame');
@@ -601,7 +703,7 @@ export function residentialParts(tier, towers, rand) {
     if (lobbyAxis || poolEdge || northService || cores) continue;
     alongFacade(s, 0, DECK_Y, 0.6, 3.0, 0.9, 'frame', C);
     alongFacade(s, 0, DECK_Y + 0.6, 0.08, 2.7, 0.6, 'planter', C);
-    add('cone', s.x, DECK_Y + 1.05, s.z, 1.0, 0.8, 1.0, k % 3 ? 'shrub' : 'shrubDark', C);
+    add('bush', s.x, DECK_Y + 1.05, s.z, 1.0, 0.8, 1.0, k % 3 ? 'shrub' : 'shrubDark', C);
     k++;
   }
 

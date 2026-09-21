@@ -8,9 +8,14 @@ import * as THREE from 'three';
 import { PHASES, BUILT } from '../config.js';
 import { clamp01, window01, smootherstep, lerp } from '../sequence.js';
 import { injectFacade, DITHER_GLSL } from './facade-glsl.js';
+import { GLAZE } from '../plan/core.js';
 import { planNormals, offsetPlan } from '../site-plan.js';
 
 const FLOOR = 3.2;
+// balustrade glazing: which glaze codes are see-through, and how much of what is behind
+// them shows through the pane
+const GLASS_GUARDS = new Set([GLAZE.guard, GLAZE.guardStack]);
+const GUARD_ALPHA = 0.3;
 const UP = new THREE.Vector3(0, 1, 0);
 const DOWN = new THREE.Vector3(0, -1, 0);
 
@@ -145,6 +150,45 @@ function slabGeometry(floors) {
       outward.set(na[0] + nc[0], 0, na[2] + nc[2]);
       B.quad([[A[0], bottom, A[1]], [C[0], bottom, C[1]], [C[0], top, C[1]], [A[0], top, A[1]]], [na, nc, nc, na], ZERO4, outward);
     }
+  }
+  return B.geometry();
+}
+
+// Glass balustrades stacked up a tower: one open ring per balcony, merged into a single
+// mesh. Each ring is { y (bottom), h, outer, inner } in the body's local frame.
+function guardsGeometry(rings) {
+  const B = makeBuilder();
+  for (const r of rings) {
+    wall(B, r.outer, r.y, r.y + r.h, 1);
+    wall(B, r.inner, r.y, r.y + r.h, -1);
+    annulus(B, r.outer, r.inner, r.y + r.h, true);
+    annulus(B, r.outer, r.inner, r.y, false);
+  }
+  return B.geometry();
+}
+
+// Balcony privacy dividers: a thin upright panel between one unit's balcony and the next,
+// running out from the glass line to the balustrade. { a, b, y, h, t } in the body's frame.
+function dividersGeometry(panels) {
+  const B = makeBuilder();
+  const facing = new THREE.Vector3();
+  for (const p of panels) {
+    const [ax, az] = p.a, [bx, bz] = p.b;
+    const dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz) || 1;
+    const ux = dx / L, uz = dz / L, nx = -uz, nz = ux;
+    const h = p.t / 2, y0 = p.y, y1 = p.y + p.h;
+    const at = (e, sgn) => [ax + ux * e * L + nx * sgn * h, az + uz * e * L + nz * sgn * h];
+    for (const sgn of [1, -1]) {
+      const [x0, z0] = at(0, sgn), [x1, z1] = at(1, sgn);
+      const n = [nx * sgn, 0, nz * sgn];
+      facing.set(n[0], 0, n[2]);
+      B.quad([[x0, y0, z0], [x1, y0, z1], [x1, y1, z1], [x0, y1, z0]], [n, n, n, n], [0, L, L, 0], facing);
+    }
+    const [ex, ez] = at(1, 1), [fx, fz] = at(1, -1);      // outer end
+    facing.set(ux, 0, uz);
+    B.quad([[ex, y0, ez], [fx, y0, fz], [fx, y1, fz], [ex, y1, ez]], [[ux, 0, uz], [ux, 0, uz], [ux, 0, uz], [ux, 0, uz]], ZERO4, facing);
+    const top = [at(0, 1), at(1, 1), at(1, -1), at(0, -1)].map(([x, z]) => [x, y1, z]);
+    B.quad(top, FLAT_UP, ZERO4, UP);
   }
   return B.geometry();
 }
@@ -347,6 +391,63 @@ function ditherMaterial(color, uFill) {
   return material;
 }
 
+// Shared facade material: the procedural facade shading with this surface's glaze code,
+// module, ramp and world height range, faded in by its own uFill (dither).
+function facadeMaterial(palette, kind, opt) {
+  const uniforms = {
+    uFill: opt.uFill ?? { value: 0 },
+    uGlaze: { value: opt.glaze },
+    uModule: { value: new THREE.Vector2(opt.module[0], opt.module[1]) },
+    uRamp: { value: new THREE.Vector4(...(opt.ramp || [0, 0, 0, 0])) },
+    uBotY: { value: opt.botY },
+    uTopY: { value: opt.topY },
+  };
+  // glass guards (balcony and terrace balustrades) are the one see-through surface in the
+  // model: the pane blends with what is behind it, while its shoe and top rail stay solid
+  const seeThrough = GLASS_GUARDS.has(opt.glaze);
+  const material = new THREE.MeshStandardMaterial({
+    color: palette[kind] ?? palette.concrete, roughness: 0.92, metalness: 0,
+    transparent: seeThrough, opacity: 1,
+  });
+  if (seeThrough) uniforms.uGlassAlpha = { value: GUARD_ALPHA };
+  material.extensions = { derivatives: true };
+  // The CAD ribs and floor rings (LineSegments, which polygon offset cannot move) lie
+  // exactly on these surfaces. Pushing the fill back slightly lets the lines win
+  // deterministically instead of flickering through depth-precision ties.
+  material.polygonOffset = true;
+  material.polygonOffsetFactor = 1;
+  material.polygonOffsetUnits = 1;
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms);
+    injectFacade(shader, {
+      vertexDecl: `
+        attribute float aAcross;
+        varying float vAcross;
+        varying vec3 vWPos;
+        varying vec3 vNrm;`,
+      vertexBody: `
+        vAcross = aAcross;
+        vNrm = normal;
+        vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`,
+      fragmentDecl: `
+        uniform float uFill;
+        uniform float uGlaze;
+        uniform vec2 uModule;
+        uniform vec4 uRamp;
+        uniform float uBotY;
+        uniform float uTopY;
+        ${seeThrough ? 'uniform float uGlassAlpha;' : ''}
+        varying float vAcross;
+        varying vec3 vWPos;
+        varying vec3 vNrm;`,
+      fill: 'uFill', glaze: 'uGlaze', base: 'diffuseColor.rgb', worldPos: 'vWPos', across: 'vAcross',
+      nrm: 'vNrm', botY: 'uBotY', topY: 'uTopY', module: 'uModule', ramp: 'uRamp', screen: palette.screen,
+      alpha: seeThrough ? 'uGlassAlpha' : null,
+    });
+  };
+  return { material, uniforms };
+}
+
 // ---------------------------------------------------------------------------
 
 export function createCurves(plan, palette, tier) {
@@ -369,54 +470,42 @@ export function createCurves(plan, palette, tier) {
       : stack ? stackGeometry(spec.floorPlans, spec.floorH) : prismGeometry(spec.pts, spec.h, spec.holes);
 
     // facade surface (static at its final height, shown once the massing turns solid)
-    const uniforms = {
-      uFill: { value: 0 },
-      uGlaze: { value: spec.glaze },
-      uModule: { value: new THREE.Vector2(spec.module[0], spec.module[1]) },
-      uRamp: { value: new THREE.Vector4(...(spec.ramp || [0, 0, 0, 0])) },
-      uBotY: { value: finalBase },
-      uTopY: { value: finalBase + spec.h },
-    };
-    const fillMaterial = new THREE.MeshStandardMaterial({ color: palette[spec.kind] ?? palette.concrete, roughness: 0.92, metalness: 0 });
-    fillMaterial.extensions = { derivatives: true };
-    // The CAD ribs and floor rings (LineSegments, which polygon offset cannot move) lie
-    // exactly on these surfaces. Pushing the fill back slightly lets the lines win
-    // deterministically instead of flickering through depth-precision ties.
-    fillMaterial.polygonOffset = true;
-    fillMaterial.polygonOffsetFactor = 1;
-    fillMaterial.polygonOffsetUnits = 1;
-    fillMaterial.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, uniforms);
-      injectFacade(shader, {
-        vertexDecl: `
-          attribute float aAcross;
-          varying float vAcross;
-          varying vec3 vWPos;
-          varying vec3 vNrm;`,
-        vertexBody: `
-          vAcross = aAcross;
-          vNrm = normal;
-          vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`,
-        fragmentDecl: `
-          uniform float uFill;
-          uniform float uGlaze;
-          uniform vec2 uModule;
-          uniform vec4 uRamp;
-          uniform float uBotY;
-          uniform float uTopY;
-          varying float vAcross;
-          varying vec3 vWPos;
-          varying vec3 vNrm;`,
-        fill: 'uFill', glaze: 'uGlaze', base: 'diffuseColor.rgb', worldPos: 'vWPos', across: 'vAcross',
-        nrm: 'vNrm', botY: 'uBotY', topY: 'uTopY', module: 'uModule', ramp: 'uRamp', screen: palette.screen,
-      });
-    };
+    const { material: fillMaterial, uniforms } = facadeMaterial(palette, spec.kind, {
+      glaze: spec.glaze, module: spec.module, ramp: spec.ramp, botY: finalBase, topY: finalBase + spec.h,
+    });
     const fill = new THREE.Mesh(geometry, fillMaterial);
     fill.position.y = waves ? 0 : finalBase;   // wave screens are built in world space
-    fill.castShadow = shadows;
+    fill.castShadow = shadows && !GLASS_GUARDS.has(spec.glaze);   // clear glass casts no shadow here
     fill.receiveShadow = shadows;
     group.add(fill);
     item.uniforms = uniforms;
+
+    // balcony balustrades: every floor's glass ring in one mesh, shaded by the stacked
+    // guard glaze (its own world base so the panel repeats once per floor)
+    if (spec.guards && spec.guards.rings.length) {
+      const G = spec.guards;
+      const botY = finalBase + G.rings[0].y;
+      const { material, uniforms: gu } = facadeMaterial(palette, G.kind, {
+        glaze: G.glaze, module: G.module, ramp: G.ramp, uFill: uniforms.uFill,
+        botY, topY: finalBase + G.rings.at(-1).y + G.rings.at(-1).h,
+      });
+      const guards = item.guards = new THREE.Mesh(guardsGeometry(G.rings), material);
+      guards.position.y = finalBase;
+      guards.castShadow = false;   // clear glass
+      guards.receiveShadow = shadows;
+      group.add(guards);
+      item.guardUniforms = gu;
+      if (G.dividers?.length) {
+        const dm = facadeMaterial(palette, G.dividerKind ?? 'frame', {
+          glaze: 0, module: [0, FLOOR], uFill: uniforms.uFill, botY, topY: finalBase + spec.h,
+        });
+        const panels = item.dividers = new THREE.Mesh(dividersGeometry(G.dividers), dm.material);
+        panels.position.y = finalBase;
+        panels.castShadow = shadows;
+        panels.receiveShadow = shadows;
+        group.add(panels);
+      }
+    }
 
     if (spec.slabs) {
       item.slabFill = { value: 0 };
@@ -489,6 +578,8 @@ export function createCurves(plan, palette, tier) {
       item.uniforms.uFill.value = fillA;
       item.fill.visible = fillA > 0;
       if (item.slabFill) { item.slabFill.value = fillA; item.slabs.visible = fillA > 0; }
+      if (item.guards) item.guards.visible = fillA > 0;
+      if (item.dividers) item.dividers.visible = fillA > 0;
       if (item.lightFill) { item.lightFill.value = fillA; item.lights.visible = fillA > 0; }
     }
   }

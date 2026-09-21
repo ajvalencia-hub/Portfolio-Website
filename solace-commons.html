@@ -55,8 +55,7 @@
     --font-title: 'Clash Display', 'Archivo Black', 'Arial Black', sans-serif;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background-color: var(--concrete-base);
-    background-image: linear-gradient(rgba(231,225,212,0.20), rgba(231,225,212,0.20)), url('assets/tex/holefree.jpg'); background-repeat: repeat; background-size: 100% 100%, 1672px 1882px; background-position: top left, center 95px;
+  html, body { margin: 0; padding: 0;
     color: var(--ink); font-family: var(--font-mono); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
   main { max-width: 1480px; margin: 0 auto; }
   .frame { position: relative; }
@@ -68,7 +67,7 @@
   .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
   .accent { color: var(--orange); } .green { color: var(--green); }
 
-  header.top { position: sticky; top: 0; z-index: 40; background-color: var(--concrete-base); background-image: linear-gradient(rgba(231,225,212,0.33), rgba(231,225,212,0.33)), url('assets/tex/holefree.jpg'); background-repeat: repeat; background-size: 100% 100%, 1672px 1882px; background-position: top left, center 95px; border-bottom: 2px solid var(--ink); box-shadow: 0 10px 22px -6px rgba(31,29,24,0.28); }
+  header.top { position: sticky; top: 0; z-index: 40; border-bottom: 2px solid var(--ink); box-shadow: 0 10px 22px -6px rgba(31,29,24,0.28); }
   .top-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 56px; max-width: 1480px; margin: 0 auto; }
   .top-left { display: flex; align-items: center; gap: 18px; }
   .top-brand { display: flex; align-items: center; gap: 13px; }
@@ -89,8 +88,6 @@
   .nav-toggle[aria-expanded="true"] .bars span:nth-child(2) { opacity: 0; }
   .nav-toggle[aria-expanded="true"] .bars span:nth-child(3) { top: 6px; transform: rotate(-45deg); }
   .mobile-nav { display: none; flex-direction: column; position: absolute; top: 100%; left: 0; right: 0; z-index: 39;
-    background-color: var(--concrete-base, var(--paper)); background-image: linear-gradient(rgba(231,225,212,0.33), rgba(231,225,212,0.33)), url('assets/tex/holefree.jpg');
-    background-repeat: repeat; background-size: 100% 100%, 1672px 1882px; background-position: top left, center 95px;
     border-bottom: 2px solid var(--ink); box-shadow: 0 14px 24px -8px rgba(31,29,24,0.3); }
   .mobile-nav.open { display: flex; }
   .mobile-nav a { padding: 17px 22px; min-height: 44px; display: flex; align-items: center; font-size: 15px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); border-top: 1px solid var(--line); transition: color 140ms ease, background 140ms ease; }
@@ -322,7 +319,6 @@
     </header>
 <main>
   <div class="frame">
-
 
     <div class="crumb">
       <a href="home.html#work">&larr; Selected Work</a>

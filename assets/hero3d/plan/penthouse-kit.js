@@ -194,6 +194,9 @@ export function furnitureKit(K, palms) {
       rects: () => [{ a: 0.27, b: 0.11, la: 3.9, lb: 3.2, top: 0.75 }],
       build: (f, D) => {
         box(f, 0, -1.0, D, 0.7, 3.2, 0.85, 'cushion');
+        const out = [Math.cos(f.t), Math.sin(f.t)];
+        for (const a of [-0.6, 0.6]) K.seat(...f.p(a, -1.0), D + 0.45, ...out);
+        for (const a of [-0.2, 1.1]) K.seat(...f.p(a, 1.25), D + 0.45, -out[0], -out[1]);
         box(f, -1.2, 0.0, D, 0.7, 0.85, 1.4, 'cushion');
         box(f, 0.4, 0.05, D, 0.36, 1.3, 0.8, 'charcoal');
         for (const a of [-0.2, 1.1]) box(f, a, 1.25, D, 0.72, 0.8, 0.8, 'cushion');
@@ -205,7 +208,7 @@ export function furnitureKit(K, palms) {
       rects: () => [{ a: 0, b: 0, la: 3.6, lb: 2.3, top: 0.85 }],
       build: (f, D) => {
         box(f, 0, 0, D, 0.75, 3.0, 1.05, 'frame');
-        for (const a of [-1.05, -0.35, 0.35, 1.05]) for (const b of [-0.9, 0.9]) box(f, a, b, D, 0.85, 0.46, 0.46, 'cushion');
+        for (const a of [-1.05, -0.35, 0.35, 1.05]) for (const b of [-0.9, 0.9]) { box(f, a, b, D, 0.85, 0.46, 0.46, 'cushion'); K.seat(...f.p(a, b), D + 0.45, -Math.cos(f.t) * Math.sign(b), -Math.sin(f.t) * Math.sign(b)); }
       },
     },
     // summer kitchen: stone counter with grill and sink inserts against a wall, bar stools
@@ -226,7 +229,7 @@ export function furnitureKit(K, palms) {
     // pair of lounge chairs and a side table
     chairs: {
       rects: () => [{ a: 0, b: 0, la: 2.8, lb: 1.2, top: 0.75 }],
-      build: (f, D) => { for (const a of [-0.8, 0.8]) box(f, a, 0, D, 0.72, 0.85, 0.85, 'cushion'); K.sideTableAt(...f.p(0, 0.1), D); },
+      build: (f, D) => { for (const a of [-0.8, 0.8]) { box(f, a, 0, D, 0.72, 0.85, 0.85, 'cushion'); K.seat(...f.p(a, 0), D + 0.45, Math.cos(f.t), Math.sin(f.t)); } K.sideTableAt(...f.p(0, 0.1), D); },
     },
     // built-in planter with tall grasses and dense shrubs (a wind and privacy buffer)
     planter: {
@@ -240,7 +243,7 @@ export function furnitureKit(K, palms) {
           const grass = k % 3 !== 1;
           const [x, z] = f.p(a, (k % 2 ? 0.12 : -0.12) * depth);
           if (grass) K.add('cone', x, D + h + 0.55, z, 0.34, 1.1, 0.34, k % 2 ? 'shrubLight' : 'shrub', C);
-          else K.add('cone', x, D + h + 0.35, z, 0.7, 0.7, 0.7, 'shrubDark', C);
+          else K.add('bush', x, D + h + 0.35, z, 0.7, 0.7, 0.7, 'shrubDark', C);
         }
       },
     },
