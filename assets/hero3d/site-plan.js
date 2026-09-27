@@ -202,7 +202,7 @@ function streetCars(tier, rand) {
   const P = PITCH_Z / 2 - 5.3, Q = PITCH_X / 2 - 5.3;   // 2.4 m parking lane against the 13 m curb-to-curb street
   const parked = [
     ...[-64, -57.2, -36, 40.4, 47.2, 58].map((x) => [x, P, HEAD.west]),        // south street (clear of the office drop-off)
-    ...[-46, -39.2, 5, 11.8, 34].map((z) => [-Q, z, HEAD.north]),            // west street (clear of the tower 1 drop-off)
+    ...[-46, -39.2, 5, 11.8, 34].map((z) => [-Q, z, HEAD.north]),            // west street (clear of the tower 2 drop-off)
     ...[-20, 12, 18.8].map((x) => [x, -P, HEAD.east]),                        // north street
     ...[33].map((z) => [Q, z, HEAD.south]),                                   // east street
   ];

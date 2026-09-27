@@ -152,7 +152,16 @@ export function analyseCirculation(plan) {
   const ground = (q) => q.y - q.sy / 2 < 0.5 && Math.abs(q.x) < HX + 0.1 && Math.abs(q.z) < HZ + 0.1;
   // doors and portal frames on the storefront line belong to the buildings the routes enter
   const podiumEdge = offsetPlan(PODIUM_PLAN, -1.3);
-  const inStore = (q) => (insidePlan(q.x, q.z, offsetPlan(PODIUM_PLAN, -3.3)) && q.color !== 'metal')
+  // an entrance door's lining, leaves, rails and threshold belong to the building it opens,
+  // the same way the podium's storefront doors do; only slim pieces close to a door node
+  // qualify, so this cannot excuse anything actually left standing on the walk
+  // portal nodes sit on the podium edge while their doors stand on the storefront line one
+  // arcade depth behind, so they reach further than a door set straight into a facade
+  const doorNodes = Object.values(NODES).filter((n) => n.kind === 'door' || (n.kind === 'junction' && /portal/i.test(n.name)))
+    .map((n) => ({ at: n.at, r: n.kind === 'door' ? 2.8 : 5.2 }));
+  const inDoor = (q) => Math.min(q.sx, q.sz) <= 0.25 && ['frame', 'guardGlass', 'metal', 'stone', 'lamp'].includes(q.color)
+    && doorNodes.some((n) => Math.hypot(q.x - n.at[0], q.z - n.at[1]) < n.r);
+  const inStore = (q) => inDoor(q) || (insidePlan(q.x, q.z, offsetPlan(PODIUM_PLAN, -3.3)) && q.color !== 'metal')
     || (q.shape === 'cyl' && q.sx > 0.7 && q.sy > 4 && !insidePlan(q.x, q.z, podiumEdge) && insidePlan(q.x, q.z, PODIUM_PLAN));   // the arcade's own columns (2.1 m clear kept)
   const blockers = partsLow.filter((q) => ground(q) && !inStore(q) && footprint(q).some(([x, y]) => inClear(x, y)));
   const blockerList = blockers.map((q) => `${q.color} ${q.shape} (${round(q.x, 1)}, ${round(q.z, 1)})`);

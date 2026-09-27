@@ -46,8 +46,8 @@ export const stations = (side) => {
 // paved breaks through the tree lawn: entrances, paths meeting the street, curb cuts
 const OPENINGS = {
   n: [[-79, -75], [-11.2, -4.8], [75, 79]],                                     // crosswalk landings, spine (paseo)
-  s: [[-79, -75], [-55, -45], [-11.2, -4.8], [18.6, 34.2], [75, 79]], // landings, tower 2 lobby, spine gate, office walk + lobby
-  w: [[-33, -23], [12.2, 18.1]],                                              // tower 1 lobby, galleria
+  s: [[-79, -75], [-55, -45], [-11.2, -4.8], [18.6, 34.2], [75, 79]], // landings, tower 1 lobby, spine gate, office walk + lobby
+  w: [[-33, -23], [12.2, 18.1]],                                              // tower 2 lobby, galleria
   e: [[-2.5, 4.5]],                                                            // promenade
 };
 // the sidewalk's straight run ends where the curb return begins, so everything laid out in
@@ -135,8 +135,8 @@ export function streetscapeSlabs() {
 export const CROSSWALK_SETBACK = HALF_ROAD + 7.5;
 // paved entrance zones on the sidewalk walk: [side, from, to]
 export const ENTRANCE_ZONES = [
-  ['s', -54.0, -46.0],   // tower 2 lobby (south)
-  ['w', -32.0, -24.0],   // tower 1 lobby (west)
+  ['s', -54.0, -46.0],   // tower 1 lobby (south)
+  ['w', -32.0, -24.0],   // tower 2 lobby (west)
   ['s', 24.5, 33.5],     // office lobby
   ['w', 12.6, 17.7],     // galleria (promenade west end)
   ['e', -2.2, 4.2],       // promenade east end
@@ -145,7 +145,7 @@ export const ENTRANCE_ZONES = [
 ];
 // marked drop-off lay-bys in the kerbside parking lane: [side, from, to]
 export const DROP_OFFS = [
-  ['w', -35.0, -21.0],   // residential tower 1 arrivals
+  ['w', -35.0, -21.0],   // residential tower 2 arrivals
   ['s', 23.0, 35.0],     // office lobby
 ];
 

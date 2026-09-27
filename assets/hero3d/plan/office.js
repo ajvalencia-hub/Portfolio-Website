@@ -242,6 +242,10 @@ export function officeParts(tier, rand) {
   // detailed vehicle entrances (framed portals below the east garage piers at +5.6 m):
   // two car-lift bays with an entry / exit island, and the loading dock
   const X = fixtureKit(K);
+  // office lobby thresholds: the main door under the south canopy, and the park door on the
+  // west face facing the promenade
+  X.entranceDoor({ x: 29.25, z: 47.5, nx: 0, nz: 1, W: 4.2, H: 3.4, leaves: 4, full: tier.name !== 'mobile' });
+  X.entranceDoor({ x: 24.5, z: 43.0, nx: -1, nz: 0, W: 3.0, H: 3.2, leaves: 2, full: tier.name !== 'mobile' });
   const [e0, e1] = OFFICE_PARKING.entry.curb;
   X.vehicleEntrance({ x: 74.2, z: (e0 + e1) / 2, nx: 1, nz: 0, W: e1 - e0 - 2, H: 4.6, maxHead: 5.58, lifts: true, apron: 4.0 });
   X.vehicleEntrance({ x: 74.2, z: 45.0, nx: 1, nz: 0, W: 6.0, H: 4.6, maxHead: 5.58, lanes: 0, apron: 4.0 });

@@ -330,8 +330,8 @@ export function hotelParts(tier) {
   // --- the hospitality base ---------------------------------------------------------------
   // Visible doors: the guest entrance between the piers, and the restaurant and bar with
   // their own openings on the wing, so the base reads as one frontage with three thresholds.
-  block(towerPiers[0] + 0.6, towerPiers[1] - 0.6, 0, 3.4, -5.30, -5.21, 'void');
-  for (const x of [32.2, 43.6]) block(x - 1.5, x + 1.5, 0, 3.2, -7.64, -7.54, 'void');
+  // They are built as real entrances (reveal, surround, transom, leaves) by the fixture kit
+  // further down, not as dark panels painted on the glass.
   // entrance marquee: slim columns, charcoal sign band (no lettering), warm light line
   for (const [x, z] of [[9.8, -2.8], [23.9, -2.6]]) column(x, z, 0, 4.5, 0.12, 'metal');  // under the marquee's outer corners, clear of the forecourt and the walk
   block(13.5, 20.5, 4.62, 5.02, -2.60, -2.48, 'charcoal');
@@ -415,6 +415,12 @@ export function hotelParts(tier) {
   // with blank panels at both drive mouths, trench drains across the drive, a valet
   // podium and key kiosk under the porte-cochère, bollards and a luggage cart
   const X = fixtureKit(K);
+  // --- entrance doors -----------------------------------------------------------------------
+  // Four thresholds on three faces. Conceptual only: leaf swing, clear widths, hardware and
+  // accessible approach are not designed.
+  X.entranceDoor({ x: (towerPiers[0] + towerPiers[1]) / 2, z: TOWER_FACE.z, nx: 0, nz: 1, W: towerPiers[1] - towerPiers[0] - 1.2, H: 3.4, leaves: 2, full });
+  for (const x of [32.2, 43.6]) X.entranceDoor({ x, z: -7.6, nx: 0, nz: 1, W: 3.0, H: 3.2, leaves: 2, full });
+  X.entranceDoor({ x: 66, z: -28, nx: 1, nz: 0, W: 4.0, H: 3.0, leaves: 2, full });
   // pylons stand on the planted island between the entry and exit cuts, outside both sight triangles
   for (const [z, drain] of [[-31.6, -39.2], [-20.4, -12.8]]) {
     block(79.56, 79.86, 0.06, 2.7, z - 0.45, z + 0.45, 'charcoal', C);
@@ -435,7 +441,7 @@ export function hotelParts(tier) {
   block(60.5, 63.5, 0, 3.0, -51.2, -50.8, 'void');
   block(41.2, 42.8, 0, 2.4, -51.2, -50.8, 'void');
   block(49.0, 59.0, 4.45, 4.75, -53.6, -51.0, 'frame');
-  block(65.8, 66.2, 0, 3.0, -30, -26, 'void');                         // bell desk / luggage door on the arrival court
+  // guest arrival doors on the arrival court are built with the fixture kit below
   // pool court (deck top HOTEL_POOL.deckY)
   const D = HOTEL_POOL.deckY;
   const pairs = full ? [14.2, 19.4, 24.6, 29.8, 35.0] : [16.8, 27.2];

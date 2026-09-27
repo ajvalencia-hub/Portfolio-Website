@@ -272,8 +272,9 @@ for (const tier of TIERS) {
   const capTop = cTop['M.parapet'];
   check('Pavilions', `${T} the garden café is one low storey: ${round(pav.MARKET.hallH, 1)} m enclosure under a ${round(capTop, 1)} m roof edge (was a 6.4 m hall under a 2.6 m clerestory reaching 9.0 m), with nothing occupying the roof`,
     capTop >= 4.8 && capTop <= 5.2 && pav.MARKET.hallH >= 3.8 && pav.MARKET.hallH <= 4.2 && !cv['M.clerestory'], `${round(capTop, 1)} m`);
-  const doorsOn = (x0, x1, z0, z1) => p.parts.filter((q) => q.color === 'void' && q.x > x0 && q.x < x1 && q.z > z0 && q.z < z1);
-  const custDoors = doorsOn(-1, 16.6, 34, 47), svcDoors = doorsOn(-1, 16.6, 48.5, 51);
+  // customer doors are glazed entrance screens; the service door is still a dark panel
+  const doorsOn = (color, x0, x1, z0, z1) => p.parts.filter((q) => q.color === color && q.x > x0 && q.x < x1 && q.z > z0 && q.z < z1);
+  const custDoors = doorsOn('guardGlass', -1, 16.6, 34, 47).filter((q) => q.sy > 1.6), svcDoors = doorsOn('void', -1, 16.6, 48.5, 51);
   const svcClearOfPark = svcDoors.every((q) => q.z > 48.5) && svcR[2] >= 44 && svcR[1] <= 15.6;
   check('Pavilions', `${T} customers enter from the spine and the office walk (${custDoors.length} doors) while restocking and refuse use one discreet door on the south perimeter into a screened holding space — no service path crosses the lawn or the plaza`,
     custDoors.length >= 2 && svcDoors.length === 1 && svcClearOfPark, `${custDoors.length} public, ${svcDoors.length} service`);
@@ -487,6 +488,29 @@ for (const tier of TIERS) {
   const cornerStray = p.boxes.filter((b) => b.name.startsWith('S.verge') || b.name.startsWith('S.apron'))
     .filter((b) => [[-1, -1], [1, -1], [1, 1], [-1, 1]].some(([u, v]) => !insidePlan(b.x + (u * b.w) / 2, b.z + (v * b.d) / 2, walkRing.pts)));
   check('Ground', `${T} tree lawns and driveway aprons stay behind the ${street.CURB_R} m curb returns`, cornerStray.length === 0, cornerStray.map((b) => b.name).join(' '));
+
+  // --- entrance doors ---------------------------------------------------------------------
+  // Every principal pedestrian entrance is a built door — a recessed opening with a white
+  // lining, a glazed transom over a bar, and glazed leaves with stiles, rails and handles —
+  // rather than a dark panel painted on the storefront. The galleria lobby door is the one
+  // exception: the passage is modelled as rooms, with no wall to hang a door on.
+  // Not checked here: leaf swing, clear widths, hardware and accessible approach.
+  const doorNodes = Object.entries(ped.NODES).filter(([k, n]) => (n.kind === 'door' && k !== 't2LobbyGalleria')
+    || (n.kind === 'junction' && /east portal/i.test(n.name)));   // the galleria's park-facing portal is an entrance too
+  // a portal's doors stand one arcade depth behind its node on the podium edge
+  const reach = (n, r) => (n.kind === 'junction' ? r + 1.8 : r);
+  const nearDoor = (n, color, r) => p.parts.filter((q) => q.color === color && q.y - q.sy / 2 < 4.6 && Math.hypot(q.x - n.at[0], q.z - n.at[1]) < reach(n, r));
+  const undoored = doorNodes.filter(([, n]) => nearDoor(n, 'guardGlass', 3.6).length < 3
+    || nearDoor(n, 'frame', 3.6).length < 2 || nearDoor(n, 'metal', 3.6).length < 4
+    || nearDoor(n, 'void', 3.0).length > 0);
+  const leaves = p.parts.filter((q) => q.color === 'guardGlass' && q.y - q.sy / 2 < 0.4 && q.sy > 1.6 && q.sy < 3.0);
+  check('Entrances', `${T} every principal entrance is glazed throughout — screen, leaves and transom — with no dark panel: ${doorNodes.length} entrances, ${leaves.length} glass leaves in metal stiles and rails`,
+    undoored.length === 0 && leaves.length >= 20, undoored.map(([k]) => k).join(' '));
+  // the assembly is all but flush, so nothing of it stands in the way on the walk
+  const doorParts = doorNodes.flatMap(([, n]) => p.parts.filter((q) => Math.hypot(q.x - n.at[0], q.z - n.at[1]) < reach(n, 3.6) && q.y - q.sy / 2 < 4.6
+    && ['guardGlass', 'metal', 'stone', 'lamp'].includes(q.color)));
+  check('Entrances', `${T} the leaves, transoms, thresholds and linings stay in the plane of the facade`,
+    doorParts.length > 0 && W.blockers.length === 0);
 
   // --- rendering stability: no overlapping visible surfaces sharing a plane ---------------
   const cop = coplanarFaces(p, { insidePlan });
@@ -870,6 +894,7 @@ md.push('| Office cantilevers | 2.4–3.0 m slab-edge cantilevers at offsets; no
 md.push(`| Resort pool basin | Soffit ${round(res.POOL.basinSoffitY, 2)} m leaves ${rpk.pool.clearHeight} m clear over P-L3 aisles/stalls with a ${res.POOL.mepAllowance} m allowance; ${rpk.pool.supportingColumns} podium columns under/near the basin. | Pool engineer and structural engineer: water/soil loads, basin slab depth, drainage falls, balance tank and plant room location, waterproofing, and beam depths over P-L3. Health-department pool rules. |`);
 md.push('| Planting loads | Planter depths modelled; loads not computed. | Saturated soil and tree loads, drainage and irrigation design, wind uplift on palms, landscape architect species selection. |');
 md.push(`| Parking supply and circulation | ${rpk.total + A.parking.office.total} modelled stalls vs ${rng2(dsum)} estimated demand; ramps and lifts geometric only. | Parking/traffic consultant: shared-parking study, valet/off-site options, ramp transitions and sight lines, car-lift capacity and queuing, accessible and van stalls, EV and bicycle requirements. |`);
+md.push('| Building entrances | Every principal pedestrian entrance is a built door rather than a dark panel painted on the storefront, and glazed throughout: a glass screen fills the opening, glass leaves in slim metal stiles and rails with vertical pull handles stand in front of it, and the transom over them is glass too. A white lining frames it all but flush, on a stone threshold, with a light line in the head reveal. Twelve entrances carry one (two hotel restaurant fronts, the hotel guest entrance and bell desk, both office lobby doors, both market hall doors, both tower lobbies and both podium stair doors); the galleria lobby door is the exception, because the passage is modelled as rooms with no wall to hang a door on. Conceptual only: leaf swing, clear widths, hardware, thresholds and accessible approach are not designed, and no accessibility standard is claimed. |');
 md.push(`| Hotel pool court wall | The court's west side was a 21 m opaque service bar dressed in piers and a cornice; decorating it never stopped it being a service shed on a public walk, so it was removed rather than restyled, and servicing was replanned down the arrival wing instead. The open side of the U is now closed by a garden wall standing in the plane of the two wing ends, x = ${round(hotel.COURT_WALL.x, 1)}: ${round(hotel.COURT_WALL.z1 - hotel.COURT_WALL.z0, 1)} m long at ${round(hotel.COURT_WALL.h + hotel.COURT_WALL.coping, 1)} m, one ${round(hotel.COURT_WALL.thick, 2)} m leaf with nothing above it, lapped into each wing's corner, with a single gate the hotel controls, so the west elevation runs unbroken from one wing to the other and nothing projects in front of them. The pool deck came back to the same line, giving up ${round((6.0 - 1.8) * (hotel.HOTEL_POOL.court[3] - hotel.HOTEL_POOL.court[2]) * -1)} m² of court; that ground is now lawn on the public side of the wall and carries the planting. Vines are trained over the coping and hang down both faces, and on the paseo side a grove of trees, palms and shrubs stands in front of the wall, so what the walk reads is planting rather than masonry. This is a deliberate reversal of the earlier planted-edge scheme, which kept the garden's upper space open to view: the pool is now screened outright. Conceptual only: wall construction, footings, lateral support, barrier height, gate hardware, opening sizes and climbability are not designed or verified, and no pool-barrier standard is claimed. |`);
 md.push(`| Hotel arrival and frontage | Two front doors, one route. The park-facing marquee under the tower is the civic pedestrian entrance and the east porte-cochère is the vehicular one; both reach the same reception desk at (${hotel.RECEPTION[0]}, ${hotel.RECEPTION[1]}) and the same lift door on a declared ${hotel.GUEST_ROUTE.width} m clear passage that turns south of the tower core and then runs up its west side. The route is tested as a route — sampled along its centreline and both edges against the lift core, the indoor seating band and every service room — rather than as a row of touching rectangles, which is what the earlier assertion did; the "unbroken 50 m sightline" it implied was never supported by the geometry and the claim has been withdrawn. Indoor seating sits between the passage and the glazing (${round(hotel.DINING_BAND[3] - hotel.DINING_BAND[2], 1)} m deep over ${round(hotel.DINING_BAND[1] - hotel.DINING_BAND[0], 0)} m), which is also where the park view is. Back of house runs behind in its own band and touches the guest side only at the two declared kitchen doors. Conceptual clear-passage allowance only: no accessibility, egress or occupancy conclusion is claimed. |`);
 md.push(`| Hotel facade | The guest-room facade shader ran on a 3.6 m bay while the plan's room module was 3.8 m, so no modelled pier ever stood on a window line. Both now come from ${hotel.FACADE_BAY} m, and the shader's phase constant is an exact multiple of it, so bay boundaries fall on perimeter run = 0. Piers and fins are placed by \`bayLines()\`, which walks the same perimeter coordinate the shader uses (\`across\` in layers/curves.js) instead of guessing world-x positions beside it. The tower takes a central emphasis — two reeded piers on bay lines running unbroken from the marquee through the crown, with quieter flanks outside them — and the wing stays horizontal: fins on the same lines but stopped well below the parapet, continuous eyebrows, and one crown band. |`);

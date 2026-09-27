@@ -78,20 +78,20 @@ const intoPlaza = (deg, d = 1.8) => [F[0] + (PLAZA_R - d) * Math.cos(deg * D2R),
 export const NODES = {
   // public sidewalks (property line)
   swGalleria: { at: [-HX, GALLERIA.z], kind: 'sidewalk', name: 'West sidewalk at the galleria' },
-  swT1: { at: [-HX, -28], kind: 'sidewalk', name: 'West sidewalk at the Tower 1 lobby' },
+  swT1: { at: [-HX, -28], kind: 'sidewalk', name: 'West sidewalk at the Tower 2 lobby' },
   sePromenade: { at: [HX, PROMENADE_Z], kind: 'sidewalk', name: 'East sidewalk at the promenade' },
   ssGate: { at: [SPINE_X, HZ], kind: 'sidewalk', name: 'South sidewalk at the park gate' },
-  ssT2: { at: [-50, HZ], kind: 'sidewalk', name: 'South sidewalk at the Tower 2 lobby' },
+  ssT2: { at: [-50, HZ], kind: 'sidewalk', name: 'South sidewalk at the Tower 1 lobby' },
   ssOfficeWalk: { at: [20.2, HZ], kind: 'sidewalk', name: 'South sidewalk at the office walk' },
   ssOffice: { at: [29.25, HZ], kind: 'sidewalk', name: 'South sidewalk at the office lobby' },
   snPaseo: { at: [SPINE_X, -HZ], kind: 'sidewalk', name: 'North sidewalk at the paseo' },
   // doors
-  t1Lobby: { at: [-72.5, -28], kind: 'door', name: 'Tower 1 lobby (west entrance)', building: 'residential' },
-  t2Lobby: { at: [-50, 45.6], kind: 'door', name: 'Tower 2 lobby (south entrance)', building: 'residential' },
-  t2LobbyGalleria: { at: [-51.75, 17.4], kind: 'door', name: 'Tower 2 lobby (galleria entrance)', building: 'residential' },
+  t1Lobby: { at: [-72.5, -28], kind: 'door', name: 'Tower 2 lobby (west entrance)', building: 'residential' },
+  t2Lobby: { at: [-50, 45.6], kind: 'door', name: 'Tower 1 lobby (south entrance)', building: 'residential' },
+  t2LobbyGalleria: { at: [-51.75, 17.4], kind: 'door', name: 'Tower 1 lobby (galleria entrance)', building: 'residential' },
   amenityLift: { at: [-29.5, 6.8], kind: 'door', name: 'Podium stair + lift to the amenity deck (residents)', building: 'residential' },
   nwStair: { at: [-72.5, -18.5], kind: 'door', name: 'Podium stair (north-west)', building: 'residential' },
-  hotelMain: { at: [14, -5.25], kind: 'door', name: 'Hotel main entrance (tower lobby)', building: 'hotel' },
+  hotelMain: { at: [17.0, -5.25], kind: 'door', name: 'Hotel main entrance (tower lobby)', building: 'hotel' },   // centred between the two reeded piers, where the doors are
   hotelRestaurant: { at: [31, -7.65], kind: 'door', name: 'Hotel restaurant', building: 'hotel' },
   hotelCafe: { at: [45, -7.65], kind: 'door', name: 'Hotel lobby bar + café', building: 'hotel' },
   hotelArrival: { at: [66, -28], kind: 'door', name: 'Hotel guest arrival (bell desk)', building: 'hotel' },
@@ -122,7 +122,7 @@ export const NODES = {
   paseoCrossM: { at: [SPINE_X, -15.5], kind: 'junction', name: 'Paseo cross walk (middle)' },
   arcadeN: { at: [-27.75, -44], kind: 'junction', name: 'East arcade (north end)' },
   arcadeM: { at: [-27.75, -15.5], kind: 'junction', name: 'East arcade at the middle cross walk' },
-  arcadeSW: { at: [-74.25, -31.5], kind: 'junction', name: 'West arcade at the Tower 1 forecourt' },
+  arcadeSW: { at: [-74.25, -31.5], kind: 'junction', name: 'West arcade at the Tower 2 forecourt' },
   gardenWalkN: { at: [71.05, -20], kind: 'junction', name: 'Hotel arrival court' },
   promHotelE: { at: [58.6, PROMENADE_Z], kind: 'junction', name: 'Promenade at the hotel café frontage' },
   promGarden: { at: [71.05, PROMENADE_Z], kind: 'junction', name: 'Promenade at the hotel garden walk' },
@@ -134,7 +134,7 @@ export const NODES = {
 const lerp = (a, b, t) => a + (b - a) * t;
 const arcadeCentre = () => {
   // covered arcade: 3.5 m between the podium edge and the storefront line, from the east
-  // face at the north cross walk, round the south face, to the Tower 1 forecourt on the west
+  // face at the north cross walk, round the south face, to the Tower 2 forecourt on the west
   const s = arcSamples(offsetPlan(PODIUM_PLAN, -1.75), 1.0);
   let startI = s.reduce((best, q, i) => (q.nx > 0.9 && Math.abs(q.z + 44) < Math.abs(s[best].z + 44) && q.nx > 0.9 ? i : best), s.findIndex((q) => q.nx > 0.9));
   // run the arcade a few metres further round the corner so the north cross walk lands on it
@@ -155,7 +155,7 @@ export const ROUTES = [
     pts: [[-HX, GALLERIA.z], [-48, GALLERIA.z], [-38.6, GALLERIA.z], [GALLERIA.turnX, 12.2], [GALLERIA.turnX, 5.0], [-31.5, PROMENADE_Z], [-26, PROMENADE_Z], [-14, PROMENADE_Z], [0, PROMENADE_Z], [20, PROMENADE_Z], [50, PROMENADE_Z], [HX, PROMENADE_Z]],
     width: (x) => (x <= -22 ? GALLERIA.width : x >= -6 ? 6.0 : lerp(GALLERIA.width, 6.0, (x + 22) / 16)),
     nodes: ['swGalleria', 'galleriaW', 'retailGalleria', 't2LobbyGalleria', 'galleriaE', 'plazaW', 'fountain', 'plazaE', 'promMarket', 'hotelRestaurant', 'promOfficeWalk', 'promHotelE', 'promGarden', 'sePromenade'],
-    destinations: ['Galleria shopfronts', 'Tower 2 lobby (galleria entrance)', 'Podium retail (east arcade)', 'Central park and fountain plaza', 'Market hall', 'Hotel restaurant, main entrance and café', 'Office walk', 'Hotel garden walk'],
+    destinations: ['Galleria shopfronts', 'Tower 1 lobby (galleria entrance)', 'Podium retail (east arcade)', 'Central park and fountain plaza', 'Market hall', 'Hotel restaurant, main entrance and café', 'Office walk', 'Hotel garden walk'],
     covered: [[-76, -26]], lights: { spacing: 16, sides: 'both', offset: 0.7, kind: 'ped', skip: [[-80, -20]] }, setback: 0.7,
   },
   {
@@ -215,8 +215,8 @@ export const ROUTES = [
 
 // textured entrance zones (polygons) at every principal door
 export const ENTRANCES = [
-  { id: 'E-T1', name: 'Tower 1 lobby forecourt', node: 't1Lobby', poly: rect(-HX, -32.8, -72.7, -24.4), joins: ['swT1', 'arcadeSW'] },
-  { id: 'E-T2', name: 'Tower 2 lobby forecourt', node: 't2Lobby', poly: rect(-54.2, 49.1, -45.8, HZ), joins: ['ssT2', 't2Lobby'] },
+  { id: 'E-T1', name: 'Tower 2 lobby forecourt', node: 't1Lobby', poly: rect(-HX, -32.8, -72.7, -24.4), joins: ['swT1', 'arcadeSW'] },
+  { id: 'E-T2', name: 'Tower 1 lobby forecourt', node: 't2Lobby', poly: rect(-54.2, 49.1, -45.8, HZ), joins: ['ssT2', 't2Lobby'] },
   { id: 'E-HOTEL', name: 'Hotel entrance forecourt (under the marquee)', node: 'hotelMain', poly: roundedRectPlan(11.0, -5.2, 22.0, -2.1, 0.5), joins: ['promMarket'] },   // at the tower's base, between it and the promenade
   { id: 'E-OFFS', name: 'Office lobby forecourt', node: 'officeLobbyS', poly: rect(24.5, 47.6, 33.5, HZ), joins: ['ssOffice'] },
   { id: 'E-OFFW', name: 'Office park entrance', node: 'officeLobbyW', poly: rect(21.6, 39.4, 24.45, 47.6), joins: ['officeLobbyW', 'officeLobbyS'] },   // meets the office walk and the south forecourt edge to edge
@@ -242,8 +242,8 @@ export const FURNISHING = [
   { id: 'F-BIKE-GAL', kind: 'bike', name: 'Bicycle stands (galleria east)', at: [-23.5, -5.2], count: 4, along: 'x' },
   { id: 'F-BIKE-MKT', kind: 'bike', name: 'Bicycle stands (market hall, spine side)', at: [-4.0, 36.2], count: 4, along: 'x' },
   { id: 'F-BIKE-HOTEL', kind: 'bike', name: 'Bicycle stands (hotel entrance)', at: [53.8, -3.4], count: 3, along: 'x' },
-  { id: 'F-BIKE-T2', kind: 'bike', name: 'Bicycle stands (tower 2 forecourt)', at: [-40.0, 52.6], count: 4, along: 'x' },
-  { id: 'F-BIKE-T1', kind: 'bike', name: 'Bicycle stands (tower 1 forecourt)', at: [-78.3, -38.0], count: 4, along: 'z' },
+  { id: 'F-BIKE-T2', kind: 'bike', name: 'Bicycle stands (tower 1 forecourt)', at: [-40.0, 52.6], count: 4, along: 'x' },
+  { id: 'F-BIKE-T1', kind: 'bike', name: 'Bicycle stands (tower 2 forecourt)', at: [-78.3, -38.0], count: 4, along: 'z' },
   { id: 'F-BIKE-OFFS', kind: 'bike', name: 'Bicycle stands (office lobby)', at: [36.2, 52.6], count: 3, along: 'x' },
 ];
 

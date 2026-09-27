@@ -4,6 +4,10 @@
 //   bollard    — 0.9 m path bollard light (park paths, pedestrian-only ends)
 //   bikeHoops  — inverted-U bicycle stands
 //   litterBin  — slim charcoal receptacle beside seating
+//   entranceDoor — a real entrance rather than a dark panel on the glass: recessed reveal,
+//                white surround standing proud of the facade, glazed transom over a
+//                horizontal bar, and a set of glazed leaves with stiles, rails and vertical
+//                pull handles, on a stone threshold, with a light line in the head reveal
 //   vehicleEntrance — detailed garage / car-lift portal: white frame standing proud of the
 //                facade, warm soffit light, blank signage plaque, striped clearance gantry,
 //                entry / exit island with card readers and barrier arms, wheel guards,
@@ -53,6 +57,44 @@ export function fixtureKit(K) {
       }
     },
     litterBin(x, z, baseY) { column(x, z, baseY, 0.9, 0.27, 'charcoal', C); },
+    // Pedestrian entrance on a facade. (x, z): centre of the opening on the facade line;
+    // (nx, nz): outward normal; W x H: the clear opening. `leaves` glazed doors fill the
+    // width below the transom bar, handles meeting in the middle. Conceptual only: leaf
+    // swing, clear widths, hardware, thresholds and accessible approach are not designed.
+    // Local frame: a along the facade, d outward. Nothing shares a plane with the facade —
+    // the reveal and the leaves straddle it, the surround stands proud of it.
+    entranceDoor({ x, z, nx, nz, W, H, leaves = 2, y = 0.03, full = true }) {
+      const ux = -nz, uz = nx, ang = Math.atan2(uz, ux);
+      const P = (a, d) => [x + ux * a + nx * d, z + uz * a + nz * d];
+      const bx = (a, d, y0, h, la, ld, color, phase = 'solid') => oriented(...P(a, d), y0, h, la, ld, ang, color, phase);
+      const dd = 0.01;                                       // the plane the leaves hang in
+      const tH = Math.min(H - 0.55, 2.62);                   // transom bar: the leaves stay a door high
+      // The entrance is glazed throughout: a glass screen fills the opening, the leaves are
+      // glass in slim metal stiles and rails in front of it, and the transom over them is
+      // glass too — no dark panel anywhere. The white lining frames it all, standing just
+      // proud of the facade. Depths are spaced so no two different-coloured faces share a
+      // plane. Conceptual only: leaf swing, clear widths, hardware, thresholds and
+      // accessible approach are not designed.
+      bx(0, -0.16, y, H + 0.20 - y, W + 0.44, 0.04, 'guardGlass');                            // glazed screen behind
+      for (const s of [-1, 1]) bx(s * (W / 2 + 0.09), 0.03, 0, H + 0.18, 0.18, 0.18, 'frame');    // jamb linings
+      bx(0, 0.03, H + 0.02, 0.16, W + 0.36, 0.18, 'frame');                                   // head lining
+      if (full) bx(0, 0.03, H - 0.02, 0.035, W - 0.4, 0.10, 'lamp', C);                       // light line in the head
+      bx(0, dd, tH, 0.10, W - 0.02, 0.12, 'metal');                                           // transom bar
+      bx(0, dd, tH + 0.06, H - tH - 0.08, W - 0.10, 0.03, 'guardGlass');                      // transom glazing
+      const leafW = (W - 0.12) / leaves;
+      for (let k = 0; k < leaves; k++) {
+        const a = -W / 2 + 0.06 + leafW * (k + 0.5);
+        bx(a, dd, y + 0.14, tH - y - 0.18, leafW - 0.11, 0.03, 'guardGlass');                 // glazed leaf
+        for (const s of [-1, 1]) bx(a + s * (leafW / 2 - 0.04), dd, y, tH - y, 0.08, 0.09, 'metal');   // stiles
+        bx(a, dd, tH - 0.08, 0.08, leafW - 0.08, 0.09, 'metal');                              // top rail
+        bx(a, dd, y, 0.16, leafW - 0.08, 0.09, 'metal');                                      // bottom rail
+        if (full) {
+          const hs = k < leaves / 2 ? 1 : -1;                                                 // handles meet at the middle
+          bx(a + hs * (leafW / 2 - 0.18), 0.085, y + 0.92, 1.06, 0.04, 0.04, 'metal', C);
+        }
+      }
+      bx(0, -0.01, y - 0.09, 0.16, W + 0.3, 0.16, 'stone', C);                                // threshold
+    },
     // Vehicle entrance on a facade. (x, z): centre of the opening on the facade line;
     // (nx, nz): outward normal; W × H: clear opening (the dark opening itself is modelled by
     // the building); maxHead: underside of anything above (arcade soffit, panels).

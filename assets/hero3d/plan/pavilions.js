@@ -18,6 +18,7 @@
 // Conceptual massing only — no structure, envelope, servicing or code compliance is
 // designed or verified here.
 import { GLAZE, roundedRectPlan, offsetPlan, insidePlan, box, partsKit } from './core.js';
+import { fixtureKit } from './fixtures.js';
 import { onRoute, ENTRANCES, inFurnishing } from './pedestrian.js';
 
 // The hall was pulled out of the middle of the southern lawn and set on the park's
@@ -108,8 +109,10 @@ export function pavilionParts(tier) {
     if (carry < 0) carry = 0;
   }
   // door reveals on the two public faces and the discreet service door on the south
-  block(0.25, 0.45, 0, 3.0, 40.4, 43.6, 'void');                 // spine (west) entrance
-  block(15.15, 15.35, 0, 3.0, 39.4, 42.6, 'void');               // office walk (east) entrance
+  // the two hall entrances, built as real doors on the hall's own face
+  const XF = fixtureKit(K);
+  XF.entranceDoor({ x: 0.0, z: 42.0, nx: -1, nz: 0, W: 3.2, H: 3.0, leaves: 2, full });
+  XF.entranceDoor({ x: 15.6, z: 41.0, nx: 1, nz: 0, W: 3.2, H: 3.0, leaves: 2, full });
   block(11.6, 13.8, 0, 2.6, 49.55, 49.72, 'void');               // service door, south perimeter
   for (const [x0, x1, z] of [[2.0, 13.6, 34.6], [2.0, 13.6, 49.8]]) block(x0, x1, M.canopy.y - 0.08, M.canopy.y - 0.04, z - 0.06, z + 0.06, 'lamp', C);
   // one café counter with its back-of-house wall behind it, then flexible seating: the rows

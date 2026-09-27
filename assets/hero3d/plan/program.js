@@ -484,7 +484,8 @@ function deckRoutes(plan) {
     ...obstaclesFrom(deckParts, DECK_Y - 0.5, POOL.terraceY + 0.1, (q) => insidePlan(q.x, q.z, PODIUM_PLAN)),
     { poly: offsetPlan(plan.meta.pool.outline, 0.5), bbox: [-73, -47, -7.5, 7.5] },
     { circle: [SPA.x, SPA.z, SPA.r + SPA.coping], bbox: [SPA.x - 2, SPA.x + 2, SPA.z - 2, SPA.z + 2] },
-    { poly: t1, bbox: [-68, -36, -45, -13] }, { poly: t2, bbox: [-68, -34, 12, 44] },
+    // tower 1 (tall) now stands south, tower 2 (lower) north
+    { poly: t1, bbox: [-68, -34, 12, 44] }, { poly: t2, bbox: [-68, -36, -45, -13] },
   ];
   const steps = [-46.2, -45.2, -10.1, 10.1];
   const rampRect = [-60.6, -54.8, 12.3, 14.2];
@@ -492,8 +493,8 @@ function deckRoutes(plan) {
   const walkable = (x, z) => (insidePlan(x, z, deckIn) ? (insidePlan(x, z, terrace) ? 1 : true) : false);
   const doorOn = (pl, zFrom, dir) => { let z = zFrom; while (insidePlan(walk.x, z, pl)) z += dir * 0.2; return [walk.x, z + dir * 0.6]; };
   const nodes = [
-    { name: 'Tower 1 deck lobby', at: doorOn(t1, walk.z - walk.d / 2, 1) },
-    { name: 'Tower 2 deck lobby', at: doorOn(t2, walk.z + walk.d / 2, -1) },
+    { name: 'Tower 2 deck lobby', at: doorOn(t2, walk.z - walk.d / 2, 1) },
+    { name: 'Tower 1 deck lobby', at: doorOn(t1, walk.z + walk.d / 2, -1) },
     { name: 'Podium stair + lift (east)', at: [-34.4, 0.1] },
     { name: 'Podium stair (north-west)', at: [-70.4, -18.5] },
     { name: 'Pool terrace (east end, beside the sun shelf)', at: [-47.0, 0] },
@@ -502,7 +503,7 @@ function deckRoutes(plan) {
     { name: 'South lounging row', at: [-59.5, 7.4] },
     { name: 'Outdoor dining + barbecue', at: [-40.0, -8.2] },
     { name: 'Shaded lounge', at: [-40.0, 9.5] },
-    { name: 'Wellness terrace + spa', at: [-57.5, 39.2] },
+    { name: 'Wellness terrace + spa', at: [-54.5, 42.0] },
     { name: 'Quiet garden', at: [-52.0, -46.2] },
   ];
   const routes = gridRoutes({ bounds: [-77, -25, -52, 50], walkable, obstacles, clear: 1.5, nodes, start: nodes[0], transitionOk });

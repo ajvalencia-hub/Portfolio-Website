@@ -78,8 +78,8 @@ export const PODIUM_PARKING = {
     rooms: [
       { name: 'Residential loading dock', use: 'service', rect: [-39.4, -33.4, -46.0, -38.5] },
       { name: 'Residential refuse + recycling', use: 'service', rect: [-39.4, -33.4, -38.5, -33.0] },
-      { name: 'Tower 1 lobby (west entrance)', use: 'lobby', rect: [-72.5, -56.3, -32.0, -25.0] },
-      { name: 'Tower 2 lobby (south entrance)', use: 'lobby', rect: [-55.5, -46.5, 31.5, 45.5] },
+      { name: 'Tower 2 lobby (west entrance)', use: 'lobby', rect: [-72.5, -56.3, -32.0, -25.0] },
+      { name: 'Tower 1 lobby (south entrance)', use: 'lobby', rect: [-55.5, -46.5, 31.5, 45.5] },
       { name: 'Electrical / water / pool plant', use: 'plant', rect: [-70.0, -58.5, -12.0, 10.0] },
       { name: 'Bicycle + resident storage', use: 'plant', rect: [-56.0, -48.5, -12.0, -4.0] },
       // Public galleria through the ground floor, lined with shopfronts. It enters on the east
@@ -89,7 +89,7 @@ export const PODIUM_PARKING = {
       { name: 'Galleria (public passage, east leg)', use: 'public', rect: [-37.5, -26.0, -1.25, 3.25] },
       { name: 'Galleria (public passage, turn)', use: 'public', rect: [-37.5, -33.0, -1.25, 17.4] },
       { name: 'Galleria (public passage, west leg)', use: 'public', rect: [-76.0, -33.0, 12.9, 17.4] },
-      { name: 'Tower 2 lobby (galleria entrance)', use: 'lobby', rect: [-56.0, -47.5, 17.4, 24.3] },
+      { name: 'Tower 1 lobby (galleria entrance)', use: 'lobby', rect: [-56.0, -47.5, 17.4, 24.3] },
     ],
   },
   // garage stair / lift cores that reach the amenity deck
@@ -129,9 +129,11 @@ const MULLION = WINDOW_MULLION;
 const DIVIDER = { bays: 6, thick: 0.07, slab: 0.36, into: 0.02 };
 
 // Tower 1 — tall rounded triangle; the structure turns 1.7° per floor (36° over the tower)
-// and the balcony ribbons turn faster still, 72° over 22 floors.
+// and the balcony ribbons turn faster still, 72° over 22 floors. It stands at the SOUTH end
+// of the podium (the two towers were swapped: the tall one now closes the view from the park
+// and the promenade, the lower one holds the north end over the garage entrance).
 const TOWER1 = {
-  id: 'A.t1', cx: -52, cz: -29, floors: 22, twist: 72, plateTwist: 36, perimeter: 0.35,
+  id: 'A.t1', cx: -52, cz: 28, floors: 22, twist: 72, plateTwist: 36, perimeter: 0.35,
   shape: { R: 13.2, a2: 0.05, p2: -10, a3: 0.12, p3: -90 },
   core: { w: 8.6, d: 7.4 },
   minDepth: 0.9,
@@ -149,9 +151,10 @@ const TOWER1 = {
 
 // Tower 2 — lower egg-shaped oval, its structure turning −1.6° per floor (−24° over the
 // tower, the same turn its ribbons make); ribbons ripple in a wave that climbs the tower.
-// Centred at x −52.3 so its column ring clears both garage drive aisles.
+// Centred at x −52.3 so its column ring clears both garage drive aisles. It stands at the
+// NORTH end of the podium.
 const TOWER2 = {
-  id: 'A.t2', cx: -52.3, cz: 28, floors: 16, twist: -24, plateTwist: -24, perimeter: 0.35,
+  id: 'A.t2', cx: -52.3, cz: -29, floors: 16, twist: -24, plateTwist: -24, perimeter: 0.35,
   shape: { R: 12.6, a1: 0.05, p1: 20, a2: 0.19, p2: 18 },   // a2 < 0.2 keeps the oval convex
   core: { w: 8.0, d: 7.0 },
   minDepth: 0.9,
@@ -380,7 +383,11 @@ function buildTower(cfg, N, tier) {
 
 // ---------------------------------------------------------------------------
 // Resort pool: long axis east–west (site x), matching the hotel pool, set across
-// the deck between tower 1 (north) and tower 2 (south). Wide swimming area with
+// the deck between the two towers. It reads as sitting toward the podium's west side, and
+// it does — but it is already as far east as it can go: the basin stops 1.45 m short of the
+// parking ramp below (PODIUM_PARKING.ramp, x -46.6 to -37.6), which runs the full 30 m
+// between the towers and cannot be spanned by a 1.45 m deep basin. Moving the pool further
+// east means moving that ramp. Wide swimming area with
 // rounded ends, entry steps at the west end and a sun shelf at the east end.
 // Depths, basin slab and build-up are explicit conceptual parameters.
 // ---------------------------------------------------------------------------
@@ -527,8 +534,9 @@ function garageWaveScreen(tier) {
   };
 }
 
-// the deck walk runs north–south just east of the pool terrace, from inside tower 1's
-// deck lobby to inside tower 2's
+// The walk between the two tower deck lobbies runs north–south just east of the pool
+// terrace. Its ends are found from whichever tower stands at each end, so swapping the two
+// towers over does not invert it.
 export const DECK_WALK = { x0: -45.0, x1: -42.0 };
 function walkEnds() {
   const x = (DECK_WALK.x0 + DECK_WALK.x1) / 2;
@@ -538,7 +546,9 @@ function walkEnds() {
     while (inside(z)) z += dir * 0.1;
     return z - dir * 0.6;
   };
-  return [edge(TOWER1, 1), edge(TOWER2, -1)];
+  const north = TOWERS.reduce((a, b) => (a.cz <= b.cz ? a : b));
+  const south = TOWERS.find((t) => t !== north);
+  return [edge(north, 1), edge(south, -1)];
 }
 
 export function residentialSlabs() {
@@ -580,9 +590,15 @@ export function residentialParts(tier, towers, rand) {
   // galleria portals on both storefront lines: a tall dark opening in a white frame with a
   // warm soffit light and a blank sign plaque (the passage runs 4.5 m wide under the decks)
   const storeFine = arcSamples(offsetPlan(PODIUM_PLAN, -ARCADE), 0.25);
+  const X = fixtureKit(K);
   for (const side of [-1, 1]) {
     const s = nearest(storeFine, (q) => q.nx * side > 0.9, side > 0 ? -29.5 : -72.5, side > 0 ? 1.0 : 15.15);
-    alongFacade(s, 0.05, 0, 4.4, 4.5, 0.3, 'void');
+    // The east portal is the condo's front door on the park: it faces the fountain plaza
+    // straight down the promenade's axis, so it is glazed like the other entrances — a glass
+    // screen with four leaves under a tall transom — rather than left as a dark opening. The
+    // west portal stays an opening: it gives onto the service street, not the park.
+    if (side > 0) X.entranceDoor({ x: s.x, z: s.z, nx: s.nx, nz: s.nz, W: 4.5, H: 4.4, leaves: 4, full });
+    else alongFacade(s, 0.05, 0, 4.4, 4.5, 0.3, 'void');
     for (const u of [-1, 1]) add('box', s.x - s.nx * 0.1 + -s.nz * u * 2.6, 2.2, s.z - s.nz * 0.1 + s.nx * u * 2.6, 0.4, 4.4, 0.5, 'frame', 'solid', Math.atan2(-s.nx, -s.nz));
     alongFacade(s, 0.33, 4.4, 0.56, 5.3, 0.56, 'frame');
     alongFacade(s, 0.4, 4.32, 0.05, 4.2, 0.25, 'lamp', C);
@@ -598,7 +614,18 @@ export function residentialParts(tier, towers, rand) {
   facadeDoor(dock[0] + 1.8, 4.5, 4.6);                                                        // residential loading (clear of the curved corner)
   // detailed vehicle entrances under the arcade soffit: framed garage portal with an
   // entry / exit island, card readers, barrier arms and a clearance gantry; framed loading door
-  const X = fixtureKit(K);
+  // --- residential entrance doors -----------------------------------------------------------
+  // The two tower lobbies on the street faces, and the two podium stair / lift doors, built
+  // on the storefront line so they read as thresholds rather than dark panels on the glass.
+  for (const [test, px, pz, W, H, leaves] of [
+    [(q) => q.nx < -0.9, -72.5, -28.0, 3.6, 3.4, 2],      // tower 2 lobby, west face
+    [(q) => q.nz > 0.9, -50.0, 49.0, 3.6, 3.4, 2],        // tower 1 lobby, south face
+    [(q) => q.nx < -0.9, -72.5, -18.5, 1.5, 2.6, 1],      // podium stair, north-west
+    [(q) => q.nx > 0.9, -26.0, 6.8, 1.8, 2.6, 1],         // podium stair + lift to the amenity deck
+  ]) {
+    const s = nearest(storeFine, test, px, pz);
+    X.entranceDoor({ x: s.x, z: s.z, nx: s.nx, nz: s.nz, W, H, leaves, full });
+  }
   for (const [cx, W, H, lanes] of [[(p0 + p1) / 2, p1 - p0, 4.2, 2], [dock[0] + 1.8, 4.5, 4.6, 0]]) {
     const s = nearest(baseFine, (q) => q.nz < -0.5, cx, -60);
     X.vehicleEntrance({ x: s.x, z: s.z, nx: s.nx, nz: s.nz, W, H, maxHead: GROUND, lanes, apron: ARCADE + 0.4 });
@@ -633,10 +660,10 @@ export function residentialParts(tier, towers, rand) {
     bed(x0, x1, 11.55, 12.45, PT, 0.55, { shrubs: true });
   }
   for (const z of [-5.8, 5.8]) { bed(-74.6, -73.0, z - 0.8, z + 0.8, PT, 0.9); deckPalm(-73.8, z, 0.9, 7 + rand() * 1.5, PT); }
-  for (const z of [-10.4, 10.4]) { bed(-49.2, -47.8, z - 0.7, z + 0.7, PT, 0.9); deckPalm(-48.5, z, 0.9, 6.5 + rand(), PT); }
+  for (const z of [-9.4, 9.4]) { bed(-47.6, -46.2, z - 0.7, z + 0.7, PT, 0.9); deckPalm(-46.9, z, 0.9, 6.5 + rand(), PT); }   // drawn in: the south tower's balconies now overhang the terrace's south edge
   // layered beds framing the pool terrace at deck level (low: beneath the balconies)
   for (const [x0, x1] of [[-72.5, -66.0], [-64.5, -58.0], [-56.5, -50.0]]) bed(x0, x1, -15.2, -13.4, DECK_Y, 0.6, { shrubs: true });
-  for (const [x0, x1] of [[-72.5, -66.0], [-52.5, -47.0]]) bed(x0, x1, 13.4, 15.2, DECK_Y, 0.6, { shrubs: true });
+  for (const [x0, x1] of [[-72.5, -66.0], [-64.0, -58.5]]) bed(x0, x1, 13.4, 15.2, DECK_Y, 0.6, { shrubs: true });   // clear of the tall tower's plate, which now stands south
 
   // --- low deck lights: both edges of the walk between the tower lobbies, and the pool
   //     terrace corners and steps (warm white, no glare at eye level)
@@ -674,20 +701,22 @@ export function residentialParts(tier, towers, rand) {
   for (const z of [-34.0, -24.0, 22.0, 33.0]) deckTree(-30.2, z);
 
   // --- wellness terrace (south, visible from the hero view) ------------------------------
-  pergola(-72.0, -63.0, 38.0, 44.0, DECK_Y);
-  block(-70.8, -68.8, DECK_Y, DECK_Y + 0.55, 39.2, 40.2, 'cushion', C);                   // treatment daybeds
-  block(-66.6, -64.6, DECK_Y, DECK_Y + 0.55, 39.2, 40.2, 'cushion', C);
+  // Pushed clear of the tall tower now standing over it: its balcony ribbons reach z 40.7,
+  // so the pergola and the daybeds sit south of that line rather than under the overhang.
+  pergola(-70.0, -62.0, 41.0, 45.6, DECK_Y);
+  block(-69.5, -67.5, DECK_Y, DECK_Y + 0.55, 41.5, 42.5, 'cushion', C);                   // treatment daybeds
+  block(-65.5, -63.5, DECK_Y, DECK_Y + 0.55, 41.5, 42.5, 'cushion', C);
   for (const x of [-53.0, -50.6, -48.2, -45.8, -43.4]) lounger(x, 44.6, DECK_Y, 'z', 1);
   umbrella(-51.8, 46.0, DECK_Y, 2.6); umbrella(-44.6, 46.0, DECK_Y, 2.6);
   bed(-41.5, -36.5, 40.5, 42.0, DECK_Y, 0.6, { shrubs: true });
-  bed(-62.2, -59.8, 43.3, 45.7, DECK_Y, 0.6, { shrubs: true });
+  bed(-60.5, -58.1, 43.3, 45.7, DECK_Y, 0.6, { shrubs: true });
   palmPlanter(-38.2, 44.4, 1.6, 0.9);
   palmPlanter(-73.2, 34.0, 1.6, 0.9);
 
   // --- west flanks beside the towers: low layered beds beneath the balconies ----------------
   for (const [z0, z1] of [[-41.0, -35.0], [-32.0, -26.0], [17.0, 23.0], [26.0, 31.0]]) bed(-73.6, -72.0, z0, z1, DECK_Y, 0.6, { shrubs: true });
 
-  // --- quiet garden (north, behind tower 1) ------------------------------------------------
+  // --- quiet garden (north, behind tower 2) ------------------------------------------------
   bed(-64.0, -54.0, -48.6, -47.0, DECK_Y, 0.6, { shrubs: true });
   bed(-50.0, -40.0, -48.6, -47.0, DECK_Y, 0.6, { shrubs: true });
   K.bench(-58.0, -45.6, DECK_Y, 3.0, 0); K.bench(-46.0, -45.6, DECK_Y, 3.0, 0);
