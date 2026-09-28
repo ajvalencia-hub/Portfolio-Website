@@ -24,6 +24,8 @@ const ped = await load('plan/pedestrian.js');
 const street = await load('plan/streetscape.js');
 const { analyseSite, ASSUMPTIONS } = await load('plan/program.js');
 const planting = await load('plan/planting.js');
+const mus = await load('plan/museum.js');
+const grounds = await load('plan/grounds.js');
 const { coplanarFaces } = await import(pathToFileURL(join(here, 'coplanar.mjs')).href);
 const rendering = {};
 const { insidePlan, offsetPlan, polygonArea, inRect, rectOverlap, PODIUM_TOP, DECK_Y } = core;
@@ -224,79 +226,535 @@ for (const tier of TIERS) {
     widthAtCrossing('P1') >= 5.8 && widthAtCrossing('S1') >= 4.5 && widthAtCrossing('S2') >= 4.5);
   check('Circulation', `${T} each primary route passes the fountain basin with at least its own clear width left on the plaza ring either side`,
     W.ringPass.every((r) => r.have >= r.need - 0.001), W.ringPass.map((r) => `${r.id} needs ${r.need} has ${r.have}`).join('; '));
-  // the flexible lawn: the largest rectangle inside the declared lawn that no trunk,
-  // building, paved route or furnishing zone intrudes on
-  const FL = park.FLEX_LAWN;
-  const obstacles = [
-    ...p.trees.filter((t) => t.y < 1.2).map((t) => [t.x, t.z]),
-    ...p.palms.filter((t) => t.y < 1.2).map((t) => [t.x, t.z]),
-  ].filter(([x, z]) => x > FL[0] && x < FL[1] && z > FL[2] && z < FL[3]);
-  const lawnOpen = !obstacles.length
-    && !ped.ROUTES.some((r) => ped.routeCentreline(r).some(([x, z]) => x > FL[0] && x < FL[1] && z > FL[2] && z < FL[3]))
-    && ![pav.MARKET.plan, offsetPlan(pav.MARKET.plan, pav.MARKET.canopy.out), pav.PAVILION.roof, hotel.HOTEL.front]
-      .some((pl) => pl.some(([x, z]) => x > FL[0] && x < FL[1] && z > FL[2] && z < FL[3]))
-    && Math.hypot(Math.max(FL[0], Math.min(ped.FOUNTAIN_CENTRE[0], FL[1])) - ped.FOUNTAIN_CENTRE[0],
-      Math.max(FL[2], Math.min(ped.FOUNTAIN_CENTRE[1], FL[3])) - ped.FOUNTAIN_CENTRE[1]) >= ped.PLAZA_R;
-  check('Park', `${T} one flexible lawn measuring ${round(FL[1] - FL[0], 1)} × ${round(FL[3] - FL[2], 1)} m is clear of trunks, paths, furnishing zones and buildings (target ≈ 22 × 18 m)`,
-    lawnOpen && FL[1] - FL[0] >= 18 && FL[3] - FL[2] >= 18, `${obstacles.length} obstructions`);
+  // The park's open ground. There was a garden room west of the spine and one 22 × 18 m
+  // flexible lawn east of it until the art museum was built on the lawn; the museum was then
+  // grown out to the park's own boundary on its west, east and south sides, so both rooms are
+  // the building. Two things are checked: that it really does reach those three edges, and
+  // that the edges it must not take are still open — the plaza's walking ring and the planted
+  // margin in front of it on the north, the office walk's paving on the east, and the gate
+  // approach between the south face and the property line.
+  const MUR = mus.MUSEUM_RECT;
+  const bx = [Math.min(...park.LAWN_BOUNDARY.map((q) => q[0])), Math.max(...park.LAWN_BOUNDARY.map((q) => q[0])), Math.max(...park.LAWN_BOUNDARY.map((q) => q[1]))];
+  // the east edge is the office coffee bar's terrace, not the office walk: the terrace sits on
+  // the park's east margin, so the building stops on its edge and the seating survives
+  const terrace = ped.FURNISHING.find((f) => f.id === 'F-OFFICE').rect;
+  const atEdges = [MUR[0] - bx[0], terrace[0] - MUR[1], bx[2] - MUR[3]];
+  check('Park', `${T} the museum reaches the park's edges: its west face is on the boundary (${round(atEdges[0], 2)} m), its south face on the park's frontage (${round(atEdges[2], 2)} m) and its east face on the edge of the office coffee bar's terrace (${round(atEdges[1], 2)} m), which holds that margin`,
+    atEdges.every((g) => g >= 0 && g <= 0.35),
+    `west ${round(atEdges[0], 2)}, east ${round(atEdges[1], 2)}, south ${round(atEdges[2], 2)}`);
+  // and on the north it comes out to the plaza itself: the ground floor's face is an arc
+  // concentric with the fountain, a plantable strip outside the paved ring, and the corners
+  // either side of the spine are filled rather than cut off by a straight line
+  const arcClear = mus.MUSEUM.arcR - ped.PLAZA_R;
+  const concentric = [-15, -12, -8, -4, -1].map((x) => Math.hypot(x - ped.FOUNTAIN_CENTRE[0], mus.museumNorthAt(x) - ped.FOUNTAIN_CENTRE[1]));
+  check('Park', `${T} the museum comes out to the plaza's round edge: the ground floor's north face is an arc ${round(arcClear, 1)} m outside the ${round(ped.PLAZA_R, 1)} m paved ring, concentric with the fountain to ${Math.round(Math.max(...concentric.map((r) => Math.abs(r - mus.MUSEUM.arcR))) * 1000)} mm, so both corners beside the spine are built`,
+    arcClear >= 1.0 && arcClear <= 2.5 && Math.max(...concentric.map((r) => Math.abs(r - mus.MUSEUM.arcR))) < 0.01
+    && mus.museumNorthAt(-16) < mus.MUSEUM.zb - 1.5 && mus.museumNorthAt(0) < mus.MUSEUM.zb - 1.5,
+    `arc R ${round(mus.MUSEUM.arcR, 2)}, clear ${round(arcClear, 2)}`);
+  // What it still may not take: the plaza's paved ring and the two mouths that meet it from the
+  // east and west (their palm pairs stand in front of the apron's flanks), and the gate approach
+  // between the south face and the property line.
+  const mouthPalms = p.palms.filter((q) => q.y < 1.2 && q.x > -23 && q.x < 19 && q.z > 4 && q.z < 9);
+  const mouthClear = mouthPalms.length ? Math.min(...mouthPalms.map((q) => mus.museumNorthAt(q.x) - q.z)) : 0;
+  const gateGap = core.HZ - MUR[3];
+  check('Park', `${T} the edges it may not take are still open: the plaza's ${round(ped.PLAZA_R, 1)} m paved ring, ${round(mouthClear, 1)} m in front of the apron for the palms marking the promenade's two plaza mouths, and ${round(gateGap, 1)} m of gate approach between the south face and the property line`,
+    arcClear >= 1.0 && mouthPalms.length === 2 && mouthClear >= 2.6 && gateGap >= 4.0,
+    `arc ${round(arcClear, 1)}, mouth palms ${mouthPalms.length} with ${round(mouthClear, 1)} m, gate ${round(gateGap, 1)}`);
+  // nothing the park plants may end up inside the building: the shrub, tree and palm routines
+  // all test `blocked`, but the beds and lawns they stand in are separate surfaces
+  const bedsInside = cv['P.beds'].parts.filter((q) => q.pts.some(([x, z]) => mus.museumHolds(x, z, -0.3)));
+  // measured at grade only: the museum's own roof garden and terrace beds are inside its
+  // footprint by design, and they are checked separately in the Museum section
+  const plantedInside = [...p.trees, ...p.palms, ...p.parts.filter((q) => q.shape === 'bush')]
+    .filter((q) => (q.y ?? 0) < mus.MUSEUM.ground && mus.museumHolds(q.x, q.z));
+  check('Park', `${T} the park's planting stops at the museum: no bed, shrub, tree or palm left standing inside the galleries when the building grew over their ground`,
+    bedsInside.length === 0 && plantedInside.length === 0,
+    `${bedsInside.length} beds, ${plantedInside.length} plants, e.g. ${plantedInside.slice(0, 3).map((q) => `(${round(q.x, 1)}, ${round(q.z, 1)})`).join(' ')}`);
   const parkWindow = (q) => q.x > -23 && q.x < 19 && q.z > -13 && q.z < 52;
   const canopies2 = p.trees.filter((t) => t.y < 1.2 && parkWindow(t));
-  const want = tier.name === 'mobile' ? [7, 10] : [12, 16];
-  check('Park', `${T} the park carries ${canopies2.length} canopy trees (target ${want[0]}–${want[1]} on ${tier.name}), palms used only as axial and entrance markers`,
-    canopies2.length >= want[0] && canopies2.length <= want[1] && p.palms.filter((q) => q.y < 1.2 && parkWindow(q)).length <= canopies2.length,
-    `${canopies2.length} trees, ${p.palms.filter((q) => q.y < 1.2 && parkWindow(q)).length} palms`);
-  const hallBB = [Math.min(...pav.MARKET.plan.map((q) => q[0])), Math.max(...pav.MARKET.plan.map((q) => q[0])), Math.min(...pav.MARKET.plan.map((q) => q[1])), Math.max(...pav.MARKET.plan.map((q) => q[1]))];
-  const blocksAxis = (hallBB[2] < ped.PROMENADE_Z + 3.5 && hallBB[3] > ped.PROMENADE_Z - 3.5) || (hallBB[0] < ped.SPINE_X + 2.6 && hallBB[1] > ped.SPINE_X - 2.6);
-  check('Park', `${T} the market hall (${Math.round(Math.abs(polygonArea(pav.MARKET.plan)))} m²) holds the park's south-east edge and blocks neither primary axis`,
-    !blocksAxis && hallBB[0] >= 0 && hallBB[3] <= 50.6, `x ${round(hallBB[0], 1)}–${round(hallBB[1], 1)}, z ${round(hallBB[2], 1)}–${round(hallBB[3], 1)}`);
+  // The counts fell as the museum grew, and the bosque went with the garden room it stood in.
+  // The park's south half is the building now, so what has to hold is the planting round what
+  // is left: canopy trees in the two sector lawns above the promenade and in the wedge between
+  // the plaza's east mouth and the apron's corner, a planted frontage on the museum's street
+  // side like its neighbours', and palms still marking the plaza's mouths.
+  const want = tier.name === 'mobile' ? [3, 10] : [4, 16];
+  const wedge = canopies2.filter((t) => t.x > 2.9 && t.z > 4 && t.z < mus.MUSEUM.zn);
+  const frontage = p.trees.filter((t) => t.y < 1.2 && t.x > -22 && t.x < 19 && t.z > mus.MUSEUM.z1 && t.z < core.HZ);
+  check('Park', `${T} the park keeps its planting structure: ${canopies2.length} canopy trees round the plaza (target ${want[0]}–${want[1]} on ${tier.name}, down from 12–16 before the museum took park ground), ${wedge.length} in the wedge by the plaza's east mouth and ${frontage.length} street trees on the museum's south frontage`,
+    canopies2.length >= want[0] && canopies2.length <= want[1] && wedge.length >= 1 && frontage.length >= 3,
+    `${canopies2.length} trees, ${wedge.length} in the wedge, ${frontage.length} on the frontage, ${p.palms.filter((q) => q.y < 1.2 && parkWindow(q)).length} palms`);
+  // --- no bare ground between the buildings --------------------------------------------------
+  // The block's base paving lies under everything; wherever no lawn, route or building covers
+  // it, it shows through as a bare grey patch. One sat in the hotel's south-west corner garden
+  // beside the fountain, in the pocket between the hotel's west end and the paseo garden.
+  // Every point in the gardens flanking the paseo must now be lawn, paving or building.
+  // measured on the lawn outlines the renderer actually draws, which are pushed out under the
+  // adjacent paving, not on the raw rectangles behind them
+  const lawnPolys = ['G.lawns', 'P.lawns'].flatMap((n) => cv[n].parts.map((q) => q.pts));
+  const onLawn = (x, z) => lawnPolys.some((pl) => insidePlan(x, z, pl));
+  const CWall = hotel.COURT_WALL;
+  const solidHere = (x, z) => [hotel.HOTEL.front, hotel.HOTEL.tower, hotel.HOTEL.rear, hotel.HOTEL.link]
+    .some((pl) => insidePlan(x, z, pl))
+    || (Math.abs(x - CWall.x) <= CWall.thick / 2 + 0.3 && z >= CWall.z0 - 0.3 && z <= CWall.z1 + 0.3);
+  const bare = [];
+  // the pocket itself: between the paseo walk and the hotel's west face, north of the court wall
+  for (let x = -6; x <= 5.6; x += 0.4) for (let z = -20.4; z <= -11.8; z += 0.4) {
+    if (onLawn(x, z) || solidHere(x, z) || ped.pavedAt(x, z)) continue;
+    bare.push(`(${round(x, 1)}, ${round(z, 1)})`);
+  }
+  check('Ground', `${T} no bare base paving shows between the hotel's west end and the paseo gardens: every point is lawn, walk or building`,
+    bare.length === 0, bare.slice(0, 4).join(' '));
+
+  // --- the art museum over the spine ----------------------------------------------------------
+  // A three-storey glass pavilion built astride the park's north–south walk: two volumes at
+  // grade either side of it, the two gallery floors bridging across above. The walk keeps its
+  // line, its width and its clear zone; the crossing has to stay open and high.
+  // Not checked here: structure and the bridge transfer, fire separation and egress, glazing
+  // support, environmental control and daylight on art — none of that is designed.
+  const MU = mus.MUSEUM;
+  const spineW = ped.ROUTES.find((r) => r.id === 'S1').width;
+  const zoneW = [ped.SPINE_X - spineW / 2, ped.SPINE_X + spineW / 2];
+  const storeys = [[0, MU.ground], [mus.MUSEUM_L2, MU.floor], [mus.MUSEUM_L3, MU.floor]];
+  const tallestNeighbour = Math.min(office.OFFICE_BLOCK_TOPS.at(-1), hotel.HOTEL_FRONT_TOP);
+  check('Museum', `${T} the museum is exactly three storeys: ${storeys.map(([, h]) => round(h, 1)).join(' + ')} m to a ${round(mus.MUSEUM_TOP, 1)} m parapet, below the ${round(tallestNeighbour, 1)} m of its nearest neighbours`,
+    storeys.length === 3 && mus.MUSEUM_TOP < tallestNeighbour && !cv['X.l4'] && mus.MUSEUM_ROOF + MU.slab + MU.parapet === mus.MUSEUM_TOP,
+    `${round(mus.MUSEUM_TOP, 2)} m`);
+  // the ground splits either side of the walk; the upper floors span it
+  const spans = (pl) => Math.min(...pl.map((q) => q[0])) <= zoneW[0] && Math.max(...pl.map((q) => q[0])) >= zoneW[1];
+  const clearsZone = (pl) => Math.max(...pl.map((q) => q[0])) <= zoneW[0] || Math.min(...pl.map((q) => q[0])) >= zoneW[1];
+  check('Museum', `${T} the walk runs between two ground volumes and under the bridge: the ${round(MU.gapE - MU.gapW, 1)} m passage holds the spine's ${round(spineW, 1)} m clear zone, and both gallery floors span it`,
+    clearsZone(mus.MUSEUM_GROUND_W) && clearsZone(mus.MUSEUM_GROUND_E) && spans(cv['X.l2'].pts) && spans(cv['X.l3'].pts)
+    && MU.gapW < zoneW[0] && MU.gapE > zoneW[1]);
+  // nothing of the museum stands in the crossing below head height
+  const inCrossing = (x, z) => x > zoneW[0] && x < zoneW[1] && z > MU.zn - 0.5 && z < MU.z1 + 0.5;
+  const lowInWalk = p.parts.filter((q) => q.y - q.sy / 2 < 4.4 && partCorners(q).some(([x, z]) => inCrossing(x, z)) && q.color !== 'lamp');
+  const boxInWalk = p.boxes.filter((b) => b.group !== 'L' && b.y0 < 4.4 && inCrossing(b.x, b.z));
+  check('Museum', `${T} nothing stands in the crossing: no column, planter, wall, canopy or art below ${round(MU.ground, 1)} m anywhere in the spine's clear zone`,
+    lowInWalk.length === 0 && boxInWalk.length === 0,
+    `${lowInWalk.length} parts, ${boxInWalk.length} boxes`);
+  // the passage is lit and shaded rather than a bare gap
+  const soffitLights = p.parts.filter((q) => q.color === 'lamp' && Math.abs(q.y - MU.ground) < 0.2
+    && q.x > MU.gapW && q.x < MU.gapE && q.z > MU.zb && q.z < MU.z1);
+  check('Museum', `${T} the passage reads as a room to walk through: a shaded soffit with ${soffitLights.length} recessed light lines over the crossing`,
+    soffitLights.length >= 1);
+  // Every floor is floored. This is a plain requirement anywhere else in the model and never
+  // worth checking, because the other envelopes are opaque; here the glass is see-through, so
+  // a missing plate shows as the park's grass and the sky running on through the galleries.
+  const plates = p.curved.filter((c) => /^X\.(floor|deck)/.test(c.name));
+  const plateAt = (x, z, y) => plates.some((c) => c.y0 + c.h > y - 0.35 && c.y0 + c.h <= y + 0.01 && insidePlan(x, z, c.pts));
+  let noFloor = 0, fSampled = 0;
+  for (let x = MU.x0; x <= MU.x1; x += 0.6) {
+    for (let z = MU.zn; z <= MU.z1; z += 0.6) {
+      const fLevels = [
+        [mus.MUSEUM_FOOTPRINTS.some((pl) => insidePlan(x, z, offsetPlan(pl, -0.8))), ped.WALK_TOP],
+        [insidePlan(x, z, offsetPlan(mus.MUSEUM_L2_PLAN, -0.8)), mus.MUSEUM_L2],
+        [insidePlan(x, z, offsetPlan(mus.MUSEUM_L3_PLAN, -0.8)), mus.MUSEUM_L3],
+      ];
+      for (const [on, y] of fLevels) {
+        if (!on) continue;
+        fSampled++;
+        if (!plateAt(x, z, y)) noFloor++;
+      }
+    }
+  }
+  check('Museum', `${T} every floor is floored and every terrace decked: ${plates.length} plates cover all ${fSampled} sample points, the ground ones stone and flush with the walk outside at ${round(ped.WALK_TOP, 2)} m`,
+    noFloor === 0 && plates.length >= 7, `${noFloor} of ${fSampled} points with nothing under them`);
+
+  // --- the section: it steps down to the street and to the plaza -------------------------
+  // Three storeys at the back, two, one, then the frontage garden. The apron is the plaza
+  // step and it has to stay a single storey: it stands between the hero camera and the
+  // fountain, and a ray from the fountain clears 5 m of apron but not 15 m of bar.
+  const deckTops = [mus.MUSEUM_DECK1, mus.MUSEUM_DECK2, mus.MUSEUM_DECK3];
+  // Everything the section does, it does toward the park: the third floor steps back from the
+  // second, the second from the apron, and the apron is a single storey out to the plaza. The
+  // street elevation is the opposite — flush at all three storeys, nothing stepped.
+  const apronTop = Math.max(...p.curved.filter((c) => /^X\.deck1/.test(c.name)).map((c) => c.y0 + c.h));
+  const southFaces = ['X.groundE', 'X.l2', 'X.l3'].map((n) => Math.max(...cv[n].pts.map((q) => q[1])));
+  const flushSouth = Math.max(...southFaces) - Math.min(...southFaces);
+  check('Museum', `${T} the section steps down to the park and is flush to the street: ${round(MU.z3n - MU.zb, 1)} m of terrace as the third floor steps back from the second, then the apron's single ${round(MU.ground, 1)} m storey out to the plaza, ${round(mus.MUSEUM_TOP - apronTop, 1)} m below the parapet — while the three south faces line up to ${Math.round(flushSouth * 1000)} mm`,
+    MU.z3n - MU.zb >= 2.5 && apronTop < MU.ground + 0.6 && apronTop < mus.MUSEUM_TOP - 9
+    && flushSouth < 0.02
+    && !p.curved.some((c) => /^X\.(l2|l3)$/.test(c.name) && Math.min(...c.pts.map((q) => q[1])) < MU.zb),
+    `park step ${round(MU.z3n - MU.zb, 1)} m, south faces within ${Math.round(flushSouth * 1000)} mm, apron ${round(apronTop, 2)} m`);
+
+  // --- rounded corners --------------------------------------------------------------------
+  // Every plan the museum draws is cornered on MUSEUM.corner. Measured rather than asserted:
+  // walk each outline and check no vertex turns more than a sixth of a right angle at once.
+  const worstTurn = (pl) => {
+    let worst = 0;
+    for (let i = 0; i < pl.length; i++) {
+      const a = pl[(i - 1 + pl.length) % pl.length], b = pl[i], c = pl[(i + 1) % pl.length];
+      const t0 = Math.atan2(b[1] - a[1], b[0] - a[0]), t1 = Math.atan2(c[1] - b[1], c[0] - b[0]);
+      let d = Math.abs(t1 - t0); if (d > Math.PI) d = 2 * Math.PI - d;
+      worst = Math.max(worst, d);
+    }
+    return worst;
+  };
+  const outlines = [mus.MUSEUM_PLAN, mus.MUSEUM_L2_PLAN, mus.MUSEUM_L3_PLAN, mus.MUSEUM_GROUND_W, mus.MUSEUM_GROUND_E];
+  const sharpest = Math.max(...outlines.map(worstTurn));
+  check('Museum', `${T} every corner is rounded on a ${round(MU.corner, 1)} m radius: across all ${outlines.length} outlines the sharpest turn between two segments is ${Math.round((sharpest * 180) / Math.PI)}°, never a square corner`,
+    MU.corner >= 2.0 && sharpest < Math.PI / 5, `${Math.round((sharpest * 180) / Math.PI)}° sharpest`);
+
+  // --- the vertical core: the circular stair and the lift ----------------------------------
+  // The stair is one flight per storey, not an endless helix: each flight has to divide its own
+  // storey into equal risers and arrive on a landing, and every floor the drum passes through
+  // has to be cut open for it. The lift beside it has to serve the same four levels and stay
+  // under the stair head. Treads are the short pieces, landings and thresholds the long ones.
+  const stairStone = p.parts.filter((q) => q.color === 'stone' && q.shape === 'box' && q.sy < 0.12
+    && Math.hypot(q.x - MU.stair.x, q.z - MU.stair.z) < MU.stair.r + 0.2);
+  const treads = stairStone.filter((q) => q.sx < 1.3);
+  const wantLandings = [ped.WALK_TOP, mus.MUSEUM_L2, mus.MUSEUM_L3, mus.MUSEUM_DECK3];
+  const landingPads = stairStone.filter((q) => q.sx >= 1.3);
+  const served = wantLandings.filter((y) => landingPads.some((l) => Math.abs(l.y - y) < 0.16));
+  // and each flight has to arrive where its landing is: the top tread under a level must be
+  // within a quarter turn of a landing pad at that level, or the helix has missed the floor
+  const bearing = (q) => Math.atan2(q.z - MU.stair.z, q.x - MU.stair.x);
+  const angTo = (a, b) => Math.abs(((a - b + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+  const misses = wantLandings.slice(1).filter((y) => {
+    const below = stairStone.filter((q) => q.sx < 1.3 && q.y < y - 0.05 && q.y > y - 0.45);
+    const pads = landingPads.filter((q) => Math.abs(q.y - y) < 0.16);
+    if (!below.length || !pads.length) return true;
+    const top = below.reduce((a, b) => (a.y >= b.y ? a : b));
+    return !pads.some((pad) => angTo(bearing(top), bearing(pad)) < 0.7);
+  });
+  const tY = treads.map((q) => q.y).sort((a, b) => a - b);
+  const climb = tY.length ? tY.at(-1) - tY[0] : 0;
+  // a gap bigger than a riser is only allowed where the stair crosses a floor and lands
+  const gaps = tY.slice(1).map((y, i2) => [tY[i2], y - tY[i2]]);
+  const badGaps = gaps.filter(([y0, g]) => g > 0.22 && !wantLandings.some((L) => y0 < L && y0 + g > L));
+  const spinsAround = new Set(treads.map((q) => Math.round(((Math.atan2(q.z - MU.stair.z, q.x - MU.stair.x) + Math.PI * 2) % (Math.PI * 2)) / (Math.PI / 4)) % 8)).size;
+  // and it stands in the larger of the two wings, where a drum costs the least floor
+  const wings = [['west', mus.MUSEUM_GROUND_W], ['east', mus.MUSEUM_GROUND_E]].map(([n, pl]) => ({ n, a: Math.abs(polygonArea(pl)), pl }));
+  const bigger = wings[0].a >= wings[1].a ? wings[0] : wings[1];
+  check('Museum', `${T} the circular stair is solved floor by floor: ${treads.length} treads through ${spinsAround} of 8 compass positions, landing on all ${served.length} of ${wantLandings.length} levels (${wantLandings.map((y) => round(y, 2)).join(', ')} m) with every flight arriving on its own landing, and no gap between treads bigger than a riser except where it lands, standing in the ${bigger.n} wing`,
+    treads.length >= 60 && spinsAround === 8 && served.length === wantLandings.length && badGaps.length === 0
+    && misses.length === 0
+    && tY[0] <= ped.WALK_TOP + 0.3 && tY.at(-1) >= mus.MUSEUM_DECK3 - 0.4
+    && insidePlan(MU.stair.x, MU.stair.z, bigger.pl),
+    `${treads.length} treads, ${served.length} landings, ${badGaps.length} bad gaps, ${round(climb, 1)} m climb`);
+  // the head is open: the glass above the roof is a curved wall with a doorway in it, not a
+  // sealed cylinder with a door drawn on the inside
+  const head = p.curved.find((c) => c.name === 'X.stairHead');
+  const headAng = head ? head.pts.slice(0, head.pts.length / 2)
+    .map((q) => ((Math.atan2(q[1] - MU.stair.z, q[0] - MU.stair.x) - MU.stair.land + Math.PI * 4) % (Math.PI * 2))) : [];
+  const opening = head ? (Math.PI * 2 - (Math.max(...headAng) - Math.min(...headAng))) : 0;
+  const clearDoor = 2 * MU.stair.r * Math.sin(opening / 2);
+  // and the lift head is open the same way, on the same bearing, so you leave both by the same
+  // side of the core. Both walls are also checked to wind the way the rest of the model does,
+  // or the glass would be built facing inward and read inside-out.
+  const liftHead = p.curved.find((c) => c.name === 'X.liftHead');
+  const signed = (pl) => pl.reduce((t2, [x, z], i2) => { const [nx, nz] = pl[(i2 + 1) % pl.length]; return t2 + x * nz - nx * z; }, 0) / 2;
+  const bearingOfGap = (c, cx, cz) => {
+    const a2 = c.pts.slice(0, c.pts.length / 2).map((q) => Math.atan2(q[1] - cz, q[0] - cx));
+    return ((a2[0] + a2.at(-1)) / 2 + Math.PI * 3) % (Math.PI * 2);
+  };
+  const headsAgree = head && liftHead
+    && Math.abs(bearingOfGap(head, MU.stair.x, MU.stair.z) - bearingOfGap(liftHead, MU.lift.x, MU.lift.z)) < 0.12;
+  check('Museum', `${T} both heads are ways out, not lids: the stair's is a curved glass wall with a ${Math.round((opening * 180) / Math.PI)}° doorway — ${round(clearDoor, 2)} m clear — and the lift's is walled on three sides with the fourth open, both facing ${Math.round((bearingOfGap(head, MU.stair.x, MU.stair.z) * 180) / Math.PI)}° and capped by plates lapped past their shafts`,
+    !!head && clearDoor > 1.5 && opening < 1.4 && !!liftHead && headsAgree
+    && signed(head.pts) > 0 && signed(liftHead.pts) > 0
+    && ['X.stairCap', 'X.liftCap'].every((n) => p.curved.some((c) => c.name === n && Math.abs(c.y0 + c.h - mus.MUSEUM_CORE_TOP) < 0.01)),
+    `${round(clearDoor, 2)} m stair opening, heads agree ${!!headsAgree}`);
+
+  // the floors are actually cut where the core passes through them
+  const cored = p.curved.filter((c) => /^X\.(floorE|deck1E|floor2|deck2|deck3)$/.test(c.name));
+  const holed = cored.filter((c) => (c.holes || []).length > 0);
+  const stairHoled = cored.filter((c) => (c.holes || []).some((h) => h.some(([x, z]) => Math.hypot(x - MU.stair.x, z - MU.stair.z) < MU.stair.r + 0.1)));
+  check('Museum', `${T} the core passes through openings, not through slab: ${holed.length} of the ${cored.length} plates it crosses are cut, ${stairHoled.length} of them for the stair drum and the rest for the lift shaft`,
+    holed.length === cored.length && stairHoled.length === cored.length);
+  // the lift: a shaft beside the drum, serving every level, and no taller than the stair head
+  const shaftParts = p.curved.filter((c) => /^X\.lift/.test(c.name));
+  const shaft = shaftParts.find((c) => c.name === 'X.lift');
+  const shaftTop = shaftParts.length ? Math.max(...shaftParts.map((c) => c.y0 + c.h)) : 0;
+  const liftDoors = p.parts.filter((q) => q.color === 'charcoal' && Math.abs(q.x - MU.lift.x) < MU.lift.w
+    && Math.abs(q.z - MU.lift.z) < MU.lift.d && q.sy > 1.5);
+  const liftServes = wantLandings.filter((y) => liftDoors.some((q) => Math.abs(q.y - q.sy / 2 - y) < 0.2));
+  const apart = Math.hypot(MU.lift.x - MU.stair.x, MU.lift.z - MU.stair.z) - MU.stair.r - Math.max(MU.lift.w, MU.lift.d) / 2;
+  check('Museum', `${T} a lift stands beside the drum and serves the same four levels: ${liftServes.length} sets of landing doors, ${round(apart, 2)} m clear of the stair, both heads open to the west and topping out together at ${round(mus.MUSEUM_CORE_TOP, 2)} m, ${round(mus.MUSEUM_CORE_TOP - mus.MUSEUM_DECK3, 1)} m above the roof garden`,
+    !!shaft && liftServes.length === wantLandings.length && apart > 0.15 && apart < 3.5
+    && Math.abs(shaftTop - mus.MUSEUM_CORE_TOP) < 0.01
+    && Math.abs(Math.max(...p.curved.filter((c) => /^X\.stair/.test(c.name)).map((c) => c.y0 + c.h)) - mus.MUSEUM_CORE_TOP) < 0.01
+    && insidePlan(MU.lift.x, MU.lift.z, mus.MUSEUM_GROUND_E),
+    `${liftServes.length} levels, ${round(apart, 2)} m apart, top ${round(shaftTop, 2)}`);
+
+  // --- the roof garden ---------------------------------------------------------------------
+  const onRoof = (q) => Math.abs(q.y - mus.MUSEUM_DECK3) < 4.0 && q.y > mus.MUSEUM_DECK3 - 0.2
+    && q.x > MU.x0 && q.x < MU.x1 && q.z > MU.z3n && q.z < MU.z1;
+  // foliage is not all one shape any more: the grasses and the coontie are cones
+  const roofShrubs = p.parts.filter((q) => ['bush', 'cone'].includes(q.shape) && q.color !== 'canvas' && onRoof(q));
+  const roofBeds = p.parts.filter((q) => q.color === 'planter' && onRoof(q));
+  const roofPalms = p.palms.filter((q) => q.y > mus.MUSEUM_DECK3 - 0.2 && q.y < mus.MUSEUM_DECK3 + 1);
+  // The loop itself: one continuous run of paving round the garden, wide enough to walk, with
+  // nothing planted in it. Measured off the paving slabs the garden actually emits — their ends
+  // have to meet, and no soil may stand within half the clear width of any of their centres.
+  // the loop's own slabs: laid across the walk's width, so they are the ones whose short side is
+  // the clear width. The sculpture clearings are paved too, and are not part of this.
+  const walk = p.parts.filter((q) => q.color === 'stone' && q.shape === 'box'
+    && Math.abs(q.y - (mus.MUSEUM_DECK3 + 0.045)) < 0.02 && q.sz > 1.7 && q.sz < 2.3 && q.sx > 1.0);
+  const soilRounds = p.parts.filter((q) => q.color === 'planter' && q.shape === 'cyl' && Math.abs(q.y - (mus.MUSEUM_DECK3 + 0.16)) < 0.1);
+  const walkW = walk.length ? Math.min(...walk.map((q) => q.sz)) : 0;
+  // is a point inside one of the loop's slabs? measured along and across the slab's own axis
+  const inWalk = (x, z, shrink = 0) => walk.some((w) => {
+    const a2 = -(w.rot || 0), ux = Math.cos(a2), uz = Math.sin(a2);
+    const dx = x - w.x, dz = z - w.z;
+    return Math.abs(dx * ux + dz * uz) < w.sx / 2 - shrink && Math.abs(-dx * uz + dz * ux) < w.sz / 2 - shrink;
+  });
+  const blocked2 = soilRounds.filter((b) => inWalk(b.x, b.z) || walk.some((w) => Math.hypot(b.x - w.x, b.z - w.z) < b.sx / 2 + 0.2 && inWalk(b.x, b.z, -b.sx / 2)));
+  // the run is continuous if every slab meets another at each end
+  const lonely = walk.filter((q) => walk.filter((o) => o !== q && Math.hypot(o.x - q.x, o.z - q.z) < q.sx * 0.65 + 2.4).length < 2);
+  check('Museum', `${T} the garden has one continuous walking loop: ${walk.length} paving slabs ${round(walkW, 2)} m wide running unbroken from the core round the garden and back, with no bed standing in any of them`,
+    walk.length >= (tier.name === 'mobile' ? 14 : 22) && walkW >= 1.8 && blocked2.length === 0 && lonely.length === 0,
+    `${walk.length} slabs, ${round(walkW, 2)} m wide, ${blocked2.length} blocked, ${lonely.length} orphaned`);
+
+  // Six sculptures, each on its own base, each different from the others. Counted by the plinths
+  // they stand on and the materials above them, so a repeated primitive would not pass for a set.
+  const plinths = p.parts.filter((q) => q.shape === 'box' && ['stone', 'charcoal'].includes(q.color)
+    && Math.abs(q.y - q.sy / 2 - (mus.MUSEUM_DECK3 + 0.07)) < 0.02 && q.sx > 1.5 && q.sz > 1.5);
+  const artPieces = plinths.map((q) => p.parts.filter((o) => Math.abs(o.x - q.x) < q.sx / 2 + 1.4 && Math.abs(o.z - q.z) < q.sz / 2 + 1.4
+    && o.y > q.y + q.sy / 2 && o.y < q.y + 4.5 && ['frame', 'metal', 'stone', 'charcoal'].includes(o.color)));
+  const artKinds = new Set(artPieces.flat().map((o) => `${o.shape}|${o.color}`));
+  check('Museum', `${T} the garden carries ${plinths.length} sculptures, each on its own base and each made of different stuff: ${artKinds.size} shape-and-material combinations across ${artPieces.flat().length} pieces, none of them standing in the walk`,
+    plinths.length >= 5 && plinths.length <= 7 && artKinds.size >= 5
+    && artPieces.every((set) => set.length > 0)
+    && !plinths.some((q) => inWalk(q.x, q.z)),
+    `${plinths.length} plinths, ${artKinds.size} kinds`);
+
+  // How much of the garden is actually planted. The brief for this roof is a planted ground with
+  // paths cut through it rather than paving with beds on it, so the soil is measured against the
+  // usable garden area — inside the parapet's maintenance margin, less the two cascade pools,
+  // the reflecting pool and the core. Sampled on a 0.4 m grid over the real footprints.
+  const gx0 = MU.x0 + 1.0, gx1 = MU.x1 - 1.0, gz0 = MU.z3n + 0.9, gz1 = MU.z1 - 1.1;
+  const soil = p.parts.filter((q) => q.color === 'planter' && q.shape === 'cyl' && Math.abs(q.y - (mus.MUSEUM_DECK3 + 0.16)) < 0.1);
+  const roofPools = mus.museumPools().filter(([, , , , y]) => Math.abs(y - mus.MUSEUM_DECK3) < 0.01);
+  let usable = 0, green = 0;
+  for (let x = gx0; x <= gx1; x += 0.4) {
+    for (let z = gz0; z <= gz1; z += 0.4) {
+      if (roofPools.some(([a2, b2, c2, d2]) => x > a2 && x < b2 && z > c2 && z < d2)) continue;
+      if (Math.hypot(x - MU.stair.x, z - MU.stair.z) < MU.stair.r + 0.6) continue;
+      if (Math.abs(x - MU.lift.x) < MU.lift.w / 2 + 0.6 && Math.abs(z - MU.lift.z) < MU.lift.d / 2 + 0.6) continue;
+      usable++;
+      if (soil.some((q) => Math.hypot(q.x - x, q.z - z) < q.sx / 2)) green++;
+    }
+  }
+  const cover = usable ? green / usable : 0;
+  check('Museum', `${T} the roof reads as planted ground with paths cut through it: ${Math.round(cover * 100)} % of the ${Math.round(usable * 0.16)} m² of usable garden is soil, the rest the walking loop, the sculpture clearings, the seats and the water`,
+    cover >= 0.5 && cover <= 0.72, `${Math.round(cover * 100)} % planted`);
+
+  check('Museum', `${T} the roof is a garden: ${roofBeds.length} beds carrying ${roofShrubs.length} shrubs and ${roofPalms.length} palms over ${Math.round(Math.abs(polygonArea(mus.MUSEUM_L3_PLAN)))} m² of deck, with the stair head and the cascade pool kept clear of it`,
+    roofBeds.length >= (tier.name === 'mobile' ? 8 : 16) && roofShrubs.length >= (tier.name === 'mobile' ? 40 : 140)
+    && roofPalms.length >= 1
+    && !roofShrubs.some((q) => Math.hypot(q.x - MU.stair.x, q.z - MU.stair.z) < MU.stair.r),
+    `${roofBeds.length} beds, ${roofShrubs.length} shrubs, ${roofPalms.length} palms`);
+
+  // --- the two cascades ---------------------------------------------------------------------
+  // One on each wing, both on the park elevation: a pool on every level the section steps down
+  // to, a sheet linking each pair, from the roof to a basin at grade. Each is checked against
+  // the wing it belongs to, so neither can drift onto the wrong one — and the street elevation
+  // is checked to carry no water at all, because that face is meant to be flush and dry.
+  const wantPools = [mus.MUSEUM_DECK3, mus.MUSEUM_DECK2, mus.MUSEUM_DECK1, 0.4];
+  const fallWings = [['west', mus.MUSEUM_GROUND_W, MU.fallW.x], ['east', mus.MUSEUM_GROUND_E, MU.fallE.x]];
+  // still water is a merged prism set per level, drawn to a rounded outline; each declared pool
+  // has to have a surface at its own level and a bottom under it
+  const waterSpecs = p.curved.filter((c) => /^X\.water/.test(c.name));
+  const stillWater = waterSpecs.flatMap((c) => c.parts.map((part) => {
+    const xs = part.pts.map((q) => q[0]), zs = part.pts.map((q) => q[1]);
+    return { x: (Math.min(...xs) + Math.max(...xs)) / 2, z: (Math.min(...zs) + Math.max(...zs)) / 2, y0: c.y0, h: c.h };
+  }));
+  const beds = p.parts.filter((q) => q.color === 'basinBed');
+  const falls = fallWings.map(([side, pl, cx]) => {
+    const near = (q) => Math.abs(q.x - cx) < MU.fallE.w;
+    const pools = stillWater.filter(near).map((b) => ({ y: b.y0 + b.h }))
+      .concat(p.parts.filter((q) => q.color === 'basin' && near(q)).map((q) => ({ y: q.y })))
+      .sort((a, b) => b.y - a.y);
+    const sheets = p.parts.filter((q) => q.color === 'basinFall' && q.sy > 1.0 && near(q))
+      .map((q) => ({ top: q.y + q.sy / 2, bot: q.y - q.sy / 2 })).sort((a, b) => b.top - a.top);
+    const onDeck = wantPools.map((y) => pools.some((q) => Math.abs(q.y - y) < 0.35));
+    const linked = sheets.length === 3 && sheets.every((sh, i) => Math.abs(sh.top - wantPools[i]) < 0.4 && Math.abs(sh.bot - wantPools[i + 1]) < 0.55);
+    const low = pools.length ? Math.min(...pools.map((q) => q.y)) : 99;
+    const bedded = stillWater.filter(near).every((b) => beds.some((q) => Math.abs(q.x - b.x) < 0.4 && Math.abs(q.z - b.z) < 0.4 && Math.abs(q.y - (b.y0 - 0.05)) < 0.2));
+    return {
+      side, pools, sheets, low, levels: onDeck.filter(Boolean).length,
+      area: Math.abs(polygonArea(pl)),
+      ok: onDeck.every(Boolean) && linked && low < 0.6 && bedded && insidePlan(cx, MU.zb + 2, pl),
+    };
+  });
+  // water on the street elevation, which there must be none of — the garden's own reflecting
+  // pool is up on the roof, so anything at deck level is not what this is looking for
+  const streetWater = [...p.parts.filter((q) => ['basin', 'basinFall'].includes(q.color)), ...stillWater.map((b) => ({ ...b, y: b.y0 }))]
+    .filter((q) => q.z > MU.zb + 12 && q.x > MU.x0 && q.x < MU.x1 && q.y < mus.MUSEUM_DECK3 - 0.5);
+  check('Museum', `${T} a cascade comes down each wing on the park face, every basin with a bottom under its water, and none of it on the street face: ${falls.map((r) => `${r.side} wing (${Math.round(r.area)} m²) ${r.levels}/${wantPools.length} levels, ${r.sheets.length} falls of ${r.sheets.map((q) => round(q.top - q.bot, 1)).join('/')} m ending at ${round(r.low, 2)} m`).join('; ')}; ${streetWater.length} pieces of water on the street half`,
+    falls.every((r) => r.ok) && streetWater.length === 0,
+    `${falls.map((r) => `${r.side}: ${r.pools.length} pools, ${r.sheets.length} falls`).join('; ')}; street ${streetWater.length}`);
+  // and the street frontage carries planting the whole way along, with no bay cut out of it
+  const frontageRun = grounds.GROUND_LAWNS.filter(([n]) => /museumSouth/.test(n));
+  const frontageWidth = frontageRun.reduce((t, [, x0, x1]) => t + (x1 - x0), 0);
+  check('Museum', `${T} the street frontage runs unbroken: ${frontageRun.length} strip of planting ${round(frontageWidth, 1)} m along the ${round(MU.x1 - MU.x0, 1)} m face, with no bay opened in it for water`,
+    frontageRun.length === 1 && frontageWidth >= (MU.x1 - MU.x0) - 0.1,
+    `${frontageRun.length} strips, ${round(frontageWidth, 1)} m`);
+
+  // --- the curtain wall -----------------------------------------------------------------------
+  // Seamless, floor-to-ceiling glass: every museum glass volume on the wide pane module, and the
+  // glaze drawing each pane the full storey height with only a flush joint between panes — no
+  // spandrel band, transom, fin or bay-to-bay tint.
+  const museumGlass = p.curved.filter((c) => /^X\./.test(c.name) && c.glaze === core.GLAZE.museum);
+  const glazeSrc = readFileSync(join(hero, 'layers', 'facade-glsl.js'), 'utf8');
+  const museumBranch = glazeSrc.slice(glazeSrc.indexOf('if (glaze > 21.5 && glaze < 22.5)'), glazeSrc.indexOf('if (glaze > 20.5 && glaze < 21.5)')).replace(/\/\/.*$/gm, '');
+  const fullHeight = /band\(y, botY \+ 0\.015, topY - 0\.015, aaY\)/.test(museumBranch) && !/tran|fin|tint =|0\.26|0\.34/.test(museumBranch);
+  check('Museum', `${T} the curtain wall is seamless floor-to-ceiling glass: ${museumGlass.length} glass volumes on a ${round(mus.MUSEUM_PANE, 2)} m pane, each pane the full storey height with a flush joint and no spandrel, transom, fin or tint variation`,
+    museumGlass.length >= 5 && museumGlass.every((c) => c.module[0] === mus.MUSEUM_PANE) && mus.MUSEUM_PANE >= 3.0 && fullHeight,
+    `${museumGlass.map((c) => `${c.name}:${c.module[0]}`).join(', ')}; full height ${fullHeight}`);
+
+  // Flush floor edges: every floor plate, slab band and the roof parapet stops at the glass —
+  // no vertex of any of them more than 30 mm outside the glass of the storey it belongs to —
+  // so the elevation reads as uninterrupted glass, not glass between projecting white ledges.
+  const glassOf = (n) => p.curved.find((c) => c.name === n)?.pts ?? [];
+  const edgeSets = [
+    ['X.floorW', glassOf('X.groundW')], ['X.deck1W', glassOf('X.groundW')],
+    ['X.floorE', glassOf('X.groundE')], ['X.deck1E', glassOf('X.groundE')],
+    ['X.floor2', glassOf('X.l2')], ['X.deck2', glassOf('X.l2')], ['X.deck3', glassOf('X.l3')],
+  ].map(([n, g]) => [n, glassOf(n), g]);
+  const l2c = p.curved.find((c) => c.name === 'X.l2'), l3c = p.curved.find((c) => c.name === 'X.l3');
+  edgeSets.push(['X.l2 band', l2c?.slabs?.floors?.[0]?.outer ?? [], l2c?.pts ?? []], ['X.l3 band', l3c?.slabs?.floors?.[0]?.outer ?? [], l3c?.pts ?? []],
+    ['X.parapet', p.curved.find((c) => c.name === 'X.parapet')?.pts ?? [], l3c?.pts ?? []]);
+  const plateProud = edgeSets.map(([n, pts, g]) => {
+    const lim = offsetPlan(g, 0.03);
+    return [n, pts.length, pts.filter(([x, z]) => !insidePlan(x, z, lim)).length];
+  });
+  check('Museum', `${T} the floor plates stop flush with the glass: ${plateProud.length} plates, slab bands and the parapet, ${plateProud.reduce((t, r) => t + r[2], 0)} vertices standing more than 30 mm proud of the glass (the edge ${round(mus.PLATE_EDGE, 3)} m in from the plan line and the glass 0.3 m, so 15 mm proud on the straight and 21 mm across a rounded corner)`,
+    plateProud.every(([, n, bad]) => n > 0 && bad === 0) && mus.PLATE_EDGE < 0.3 - 0.012,
+    plateProud.filter(([, n, bad]) => !n || bad).map(([nm, n, bad]) => `${nm} ${bad}/${n}`).join('; '));
+
+  // --- the two lower roofs ------------------------------------------------------------------
+  // The apron and the park terrace are grassed edge to edge and planted, with no railing on the
+  // terrace. Measured against the plates themselves: the turf may not pass the edge of the plate
+  // it lies on, every plant's full spread has to land on that plate and off the water, and what
+  // the lawn leaves bare has to be only the pools, the weirs and the spouts.
+  const plateOf = (name) => p.curved.find((c) => c.name === name)?.pts ?? [];
+  // the storey above is where its own glass stands (the slab band at its foot is flush with it)
+  const lowerPlates = [[mus.MUSEUM_DECK1, [plateOf('X.deck1W'), plateOf('X.deck1E')], MU.zb, plateOf('X.l2')], [mus.MUSEUM_DECK2, [plateOf('X.deck2')], MU.z3n, plateOf('X.l3')]];
+  const onPlate = (plates, x, z) => plates.some((pl) => insidePlan(x, z, pl));
+  const lawnSpecs = p.curved.filter((c) => /^X\.lawn/.test(c.name));
+  const lows = mus.museumLowerRoofs();
+  const roofRep = lowerPlates.map(([deck, plates, face, above], i) => {
+    const lv = lows[i];
+    const lawn = lawnSpecs.find((c) => Math.abs(c.y0 + 0.045 - deck) < 0.01);
+    const parts = lawn ? lawn.parts : [];
+    const overhang = parts.flatMap((q) => q.pts).filter(([x, z]) => !onPlate(plates, x, z)).length;
+    // the free roof: on the plate with 0.2 m to spare, in front of the storey above (clear of its
+    // slab band), and off every pool, weir and spout
+    let free = 0, grassed = 0;
+    for (let x = MU.x0 - 0.2; x <= MU.x1 + 0.2; x += 0.25) {
+      for (let z = 9; z < face - 0.35; z += 0.25) {
+        if (![[0, 0], [0.2, 0], [-0.2, 0], [0, 0.2], [0, -0.2]].every(([u, v]) => onPlate(plates, x + u, z + v))) continue;
+        if (lv.keeps.some((k) => x > k[0] - 0.1 && x < k[1] + 0.1 && z > k[2] - 0.1 && z < k[3] + 0.1)) continue;
+        // the rounded corner of the storey above
+        if ([MU.x0 + 2.15, MU.x1 - 2.15].some((cx) => (x < MU.x0 + 2.15 || x > MU.x1 - 2.15) && Math.hypot(x - cx, z - (face + 2.15)) < 2.6 && z > face - 0.35)) continue;
+        free++;
+        if (parts.some((q) => insidePlan(x, z, q.pts))) grassed++;
+      }
+    }
+    const plants = p.parts.filter((q) => ['bush', 'cone'].includes(q.shape) && q.x > MU.x0 - 1 && q.x < MU.x1 + 1 && q.z < face + 0.5
+      && Math.abs(q.y - q.sy / 2 - (deck + 0.04)) < 0.03);
+    const water = p.curved.filter((c) => /^X\.water\d/.test(c.name) && Math.abs(c.y0 + c.h - (deck - 0.12)) < 0.01).flatMap((c) => c.parts.map((q) => q.pts));
+    const pools = lv.pools;
+    const loose = plants.filter((q) => {
+      const r = Math.max(q.sx, q.sz) / 2;
+      return Array.from({ length: 8 }, (_, k) => [q.x + Math.cos(k * Math.PI / 4) * r, q.z + Math.sin(k * Math.PI / 4) * r])
+        .some(([x, z]) => !onPlate(plates, x, z) || insidePlan(x, z, above) || water.some((pl) => insidePlan(x, z, pl)));
+    });
+    const railing = p.parts.filter((q) => q.color === 'guardGlass' && q.x > MU.x0 - 1 && q.x < MU.x1 + 1 && q.z > MU.zn - 1 && q.z < MU.z1 && Math.abs(q.y - q.sy / 2 - deck) < 0.3);
+    return { deck, parts: parts.length, overhang, cover: free ? grassed / free : 0, plants: plants.length, loose: loose.length, railing: railing.length, keeps: lv.keeps.length, nPools: pools.length };
+  });
+  check('Museum', `${T} the apron and the park terrace are grassed and planted edge to edge with no railing: ${roofRep.map((r) => `${round(r.deck, 2)} m roof ${Math.round(r.cover * 100)} % of its free area in lawn (${r.parts} pieces, ${r.overhang} vertices past the plate), ${r.plants} plants, ${r.loose} reaching past the roof or over water, ${r.railing} railing panels`).join('; ')}`,
+    roofRep.every((r) => r.cover >= 0.97 && r.overhang === 0 && r.plants >= (tier.name === 'mobile' ? 12 : 25) && r.loose === 0 && r.railing === 0 && r.keeps === r.nPools + 4),
+    roofRep.map((r) => `${round(r.deck, 2)}: ${Math.round(r.cover * 100)} %, ${r.overhang} over, ${r.loose} loose, ${r.railing} rail, ${r.keeps} keeps`).join('; '));
+
+  // The museum's water is the model's pool water: the same palette entry, the same glaze, the
+  // same tile band and coping as plan/pools.js builds for the resort, hotel and penthouse pools,
+  // and the moving water in the same blue. The glaze itself is checked to carry no
+  // view-dependent term on water, so no pool changes colour as the camera moves round it.
+  const museumWaterSpecs = p.curved.filter((c) => /^X\.water/.test(c.name));
+  const tiled = [mus.MUSEUM_DECK1, mus.MUSEUM_DECK2, mus.MUSEUM_DECK3].every((d) => p.curved.some((c) => /^X\.tile/.test(c.name) && c.kind === 'poolTile' && Math.abs(c.y0 + c.h - (d - 0.03)) < 0.01)
+    && p.curved.some((c) => /^X\.coping/.test(c.name) && c.kind === 'coping' && Math.abs(c.y0 + c.h - (d + 0.08)) < 0.01));
+  const glslSrc = readFileSync(join(hero, 'layers', 'facade-glsl.js'), 'utf8');
+  const flatWater = /float sheen = glass;/.test(glslSrc) && /if \(water > 0\.5\) \{ material\.specularColor = vec3\(0\.0\); material\.specularF90 = 0\.0; \}/.test(glslSrc)
+    && /radiance \*= [^;]*\(1\.0 - water\);/.test(glslSrc);
+  const otherPool = p.curved.find((c) => c.kind === 'pool' && !/^X\./.test(c.name));
+  check('Museum', `${T} the museum's water is the same as every other pool's: ${museumWaterSpecs.length} surfaces all on the '${otherPool?.kind}' blue and the water glaze like ${otherPool?.name}, water 120 mm under the deck inside a tile band and coping at every level, moving water in the same blue (${hex('basinFall')} = ${hex('pool')}), and a water glaze that is lit the same from every angle`,
+    museumWaterSpecs.length >= 4 && museumWaterSpecs.every((c) => c.kind === otherPool?.kind && c.glaze === otherPool?.glaze)
+    && museumWaterSpecs.filter((c) => c.name !== 'X.waterMoat').every((c) => [mus.MUSEUM_DECK1, mus.MUSEUM_DECK2, mus.MUSEUM_DECK3].some((d) => Math.abs(c.y0 + c.h - (d - 0.12)) < 0.01))
+    && tiled && hex('basinFall') === hex('pool') && !p.parts.some((q) => q.color === 'basin') && flatWater,
+    `${museumWaterSpecs.map((c) => `${c.name}:${c.kind}`).join(', ')}; tiled ${tiled}; flat ${flatWater}`);
+
+  // --- shrubs off the paving -----------------------------------------------------------------
+  // Every shrub at grade inside the block keeps its whole spread (90 % of its radius, the
+  // crown's taper) off the walks and sidewalks, off the café terraces, and out from under
+  // the café umbrellas; and no raised planting bed runs onto a café terrace. The street planters
+  // on the public sidewalk outside the block are meant to stand in the paving and are not counted.
+  const cafesZ = ped.FURNISHING.filter((f) => f.kind === 'cafe');
+  const inCafe = (x, z) => cafesZ.some((f) => x > f.rect[0] && x < f.rect[1] && z > f.rect[2] && z < f.rect[3]);
+  const umbrellasZ = (p.meta.poles || []).filter((q) => q.umbrella);
+  const groundShrubs = p.parts.filter((q) => ['bush', 'cone'].includes(q.shape) && q.y - q.sy / 2 < 0.6 && Math.abs(q.x) < core.HX && Math.abs(q.z) < core.HZ);
+  const onPaving = groundShrubs.filter((q) => {
+    const rx = q.sx / 2 * 0.9, rz = q.sz / 2 * 0.9;   // the crown's own footprint, an ellipse
+    return [[0, 0], ...Array.from({ length: 8 }, (_, k) => [Math.cos(k * Math.PI / 4) * rx, Math.sin(k * Math.PI / 4) * rz])]
+      .some(([u, v]) => ped.pavedAt(q.x + u, q.z + v) || ped.onRoute(q.x + u, q.z + v) || inCafe(q.x + u, q.z + v))
+      || umbrellasZ.some((m) => Math.hypot(m.x - q.x, m.z - q.z) < Math.max(rx, rz) + m.r);
+  });
+  const bedsOnCafe = (p.curved.find((c) => c.name === 'P.beds')?.parts ?? []).filter((b) => b.pts.some(([x, z]) => inCafe(x, z)));
+  // nor over a driveway: the hotel's arrival drive is edged by a planted island, not a hedge on the asphalt
+  const drives = p.boxes.filter((b) => b.kind === 'drive').map((b) => [b.x - b.w / 2, b.x + b.w / 2, b.z - b.d / 2, b.z + b.d / 2]);
+  const onDrive = groundShrubs.filter((q) => {
+    const rx = q.sx / 2 * 0.9, rz = q.sz / 2 * 0.9;
+    return drives.some((d) => q.x + rx > d[0] && q.x - rx < d[1] && q.z + rz > d[2] && q.z - rz < d[3]);
+  });
+  // and every shrub stands wholly in planting — a lawn, a bed or a planter's soil — never on the
+  // block's paving, over a bed's edge or into a wall
+  const greenZ = p.curved.filter((c) => ['lawn', 'bed'].includes(c.kind) && c.y0 < 0.6 && !/^X\./.test(c.name)).flatMap((c) => (c.type === 'prisms' ? c.parts.map((q) => q.pts) : [c.pts]));
+  const soilZ = p.parts.filter((q) => q.shape === 'box' && q.color === 'planter' && q.y < 1.2);
+  const onGreenZ = (x, z) => greenZ.some((pl) => insidePlan(x, z, pl)) || soilZ.some((b) => Math.abs(b.x - x) <= b.sx / 2 + 0.02 && Math.abs(b.z - z) <= b.sz / 2 + 0.02);
+  const offGreen = groundShrubs.filter((q) => {
+    const rx = q.sx / 2 * 0.9, rz = q.sz / 2 * 0.9;   // the crown's own footprint, an ellipse
+    return [[0, 0], ...Array.from({ length: 8 }, (_, k) => [Math.cos(k * Math.PI / 4) * rx, Math.sin(k * Math.PI / 4) * rz])]
+      .some(([u, v]) => !onGreenZ(q.x + u, q.z + v));
+  });
+  check('Landscape', `${T} no shrub at grade stands on a walk, a sidewalk or a café terrace, or under a café umbrella: ${onPaving.length} of ${groundShrubs.length} shrubs overlap, ${onDrive.length} stand over a driveway (${drives.length} checked), ${bedsOnCafe.length} planting beds run onto a terrace; ${groundShrubs.length - offGreen.length} of ${groundShrubs.length} stand wholly in a lawn, bed or planter`,
+    onPaving.length === 0 && onDrive.length === 0 && drives.length > 0 && bedsOnCafe.length === 0 && offGreen.length === 0,
+    [...onPaving, ...onDrive, ...offGreen].slice(0, 6).map((q) => `${q.color} (${round(q.x, 1)}, ${round(q.z, 1)})`).join('; '));
+
+  // --- the park's edge against the hotel -----------------------------------------------------
+  // The Deco tower stands 2.4 m proud of the wing, so a lawn boundary set 1 m off the wing's
+  // face ran the sector lawns and their 0.34 m beds under the tower and across the guest
+  // entrance forecourt. The boundary now follows the tower's curved corner and steps back for
+  // the forecourt. Grass still runs under the path edges, which is deliberate: the paving sits
+  // 80 mm higher, so the lawn is hidden and no bare sliver shows where the two meet.
+  const parkGreen = ['P.lawns', 'P.beds'].map((n) => cv[n].parts.map((q) => q.pts));
+  const coveredBy = (polys, x, z) => polys.some((pl) => insidePlan(x, z, pl));
+  const hotelCourt = ped.ENTRANCES.find((e) => e.id === 'E-HOTEL').poly;
+  const hotelSolid = [hotel.HOTEL.tower, hotel.HOTEL.front];
+  let underHotel = 0, bedsOnCourt = 0;
+  for (let x = 4; x <= 26; x += 0.2) for (let z = -12; z <= 2; z += 0.2) {
+    const lawn = coveredBy(parkGreen[0], x, z), bed = coveredBy(parkGreen[1], x, z);
+    if ((lawn || bed) && hotelSolid.some((pl) => insidePlan(x, z, pl))) underHotel++;
+    if (insidePlan(x, z, hotelCourt)) { if (bed) bedsOnCourt++; }
+  }
+  check('Park', `${T} the park's planting stops at the hotel: no lawn or bed under the tower or the wing, and nothing standing on the guest entrance forecourt`,
+    underHotel === 0 && bedsOnCourt === 0,
+    `${underHotel} under the hotel, ${bedsOnCourt} beds on the forecourt`);
 
   const mouths = park.PLAZA_LINKS.map((l) => l.route);
   check('Circulation', `${T} the plaza is entered from exactly four directions, each of them a primary route mouth (${mouths.join(', ')})`,
     park.PLAZA_LINKS.length === 4 && mouths.every((id) => ped.ROUTES.find((r) => r.id === id)?.type === 'primary'));
 
   // --- park structures (plan/pavilions.js) -----------------------------------------------
-  const hallPts = pav.MARKET.plan;
-  const svcR = rectOf(byName['M.service']);
-  const colR = rectOf(byName['M.colRoof']);
-  const walls = [...hallPts];
-  const onWalk = walls.filter(([x, z]) => ped.onRoute(x, z, 0.35));
-  check('Pavilions', `${T} the garden café stands clear of every walking surface, forecourt and the plaza`, onWalk.length === 0, onWalk.map(([x, z]) => `(${round(x)}, ${round(z)})`).join(' '));
-  const hPlans = [hotel.HOTEL.front, hotel.HOTEL.tower, hotel.HOTEL.rear, hotel.HOTEL.link];
-  const otherBuilding = (x, z, pad) => insidePlan(x, z, offsetPlan(res.PODIUM_PLAN, pad)) || hPlans.some((pl) => insidePlan(x, z, offsetPlan(pl, pad)))
-    || ['B.poolbar', 'C.baseE', 'C.baseW', 'C.lobby'].some((n) => inRect(x, z, rectOf(byName[n]), pad));
-  const nearOther = [...hallPts, ...corners(colR)].filter(([x, z]) => otherBuilding(x, z, 1.0));
-  check('Pavilions', `${T} the market hall, pavilion and colonnade keep ≥ 1 m from the podium, hotel and office volumes`, nearOther.length === 0, nearOther.map(([x, z]) => `(${round(x)}, ${round(z)})`).join(' '));
-  const inPark = [...hallPts, ...pav.PAVILION.roof].every(([x, z]) => insidePlan(x, z, park.LAWN_BOUNDARY));
-  check('Pavilions', `${T} the market hall (${Math.round(Math.abs(polygonArea(hallPts)))} m²) and the promenade pavilion stand inside the park's own ground`, inPark);
-  // --- the garden café: height, two public doors, a service door that never crosses the park
-  const capTop = cTop['M.parapet'];
-  check('Pavilions', `${T} the garden café is one low storey: ${round(pav.MARKET.hallH, 1)} m enclosure under a ${round(capTop, 1)} m roof edge (was a 6.4 m hall under a 2.6 m clerestory reaching 9.0 m), with nothing occupying the roof`,
-    capTop >= 4.8 && capTop <= 5.2 && pav.MARKET.hallH >= 3.8 && pav.MARKET.hallH <= 4.2 && !cv['M.clerestory'], `${round(capTop, 1)} m`);
-  // customer doors are glazed entrance screens; the service door is still a dark panel
-  const doorsOn = (color, x0, x1, z0, z1) => p.parts.filter((q) => q.color === color && q.x > x0 && q.x < x1 && q.z > z0 && q.z < z1);
-  const custDoors = doorsOn('guardGlass', -1, 16.6, 34, 47).filter((q) => q.sy > 1.6), svcDoors = doorsOn('void', -1, 16.6, 48.5, 51);
-  const svcClearOfPark = svcDoors.every((q) => q.z > 48.5) && svcR[2] >= 44 && svcR[1] <= 15.6;
-  check('Pavilions', `${T} customers enter from the spine and the office walk (${custDoors.length} doors) while restocking and refuse use one discreet door on the south perimeter into a screened holding space — no service path crosses the lawn or the plaza`,
-    custDoors.length >= 2 && svcDoors.length === 1 && svcClearOfPark, `${custDoors.length} public, ${svcDoors.length} service`);
-  // with the café shut the park still works: public routes pass on three sides and none enters it
-  const hallBox = pav.MARKET_RECT;
-  const sides = { west: ped.ROUTES.some((r) => ped.routeCentreline(r).some(([x, z]) => x < hallBox[0] - 1 && x > hallBox[0] - 14 && z > hallBox[2] && z < hallBox[3])),
-    east: ped.ROUTES.some((r) => ped.routeCentreline(r).some(([x, z]) => x > hallBox[1] + 1 && x < hallBox[1] + 12 && z > hallBox[2] && z < hallBox[3])),
-    south: true };
-  const through = ped.ROUTES.some((r) => ped.routeCentreline(r).some(([x, z]) => inRect(x, z, hallBox, -0.3)));
-  check('Pavilions', `${T} the park stays usable when the café is shut: public routes pass on its west (spine), east (office walk) and south (sidewalk) sides and none runs through it`,
-    sides.west && sides.east && !through, `west ${sides.west}, east ${sides.east}, through ${through}`);
-  const canopyRing = offsetPlan(pav.MARKET.plan, pav.MARKET.canopy.out);
-  const cols = p.parts.filter((q) => q.shape === 'cyl' && q.color === 'frame' && insidePlan(q.x, q.z, canopyRing) && q.y < 4);
-  check('Pavilions', `${T} every canopy column stands under the canopy and clear of the walking surfaces (${cols.length} columns)`,
-    cols.length > 0 && !cols.some((q) => ped.onRoute(q.x, q.z, 0.3)));
-
-  const colInPaseo = corners(colR).every(([x, z]) => x > -25.6 && x < -10.6 && z > -51 && z < -11.6);
-  check('Pavilions', `${T} the paseo colonnade stands in the paseo palm lawn, west of the spine`, colInPaseo, `[${colR.map((v) => round(v)).join(', ')}]`);
-  const edgeGap = (x, z, poly) => { let best = Infinity; for (let i = 0; i < poly.length; i++) { const [ax, az] = poly[i], [bx, bz] = poly[(i + 1) % poly.length]; const ex = bx - ax, ez = bz - az; const t = Math.max(0, Math.min(1, ((x - ax) * ex + (z - az) * ez) / (ex * ex + ez * ez || 1))); best = Math.min(best, Math.hypot(x - ax - ex * t, z - az - ez * t)); } return best; };
-  const marketDoors = ['marketW', 'marketE'].map((k) => ped.NODES[k]);
-  check('Pavilions', `${T} the market hall is entered from the spine and from the office walk, both doors on the hall's own facade`,
-    marketDoors.every((n) => n && edgeGap(n.at[0], n.at[1], hallPts) < 0.8), marketDoors.map((n) => round(edgeGap(n.at[0], n.at[1], hallPts), 2)).join(', '));
+  // The market hall and the promenade pavilion were removed when the art museum was grown
+  // over their ground: a single-storey café and a shade shelter either side of a three-storey
+  // building read as leftovers. The colonnade stays, because it is not next to the museum.
+  const colR = [Math.min(...[pav.COLONNADE.x0, pav.COLONNADE.x1]), Math.max(...[pav.COLONNADE.x0, pav.COLONNADE.x1]), pav.COLONNADE.z0, pav.COLONNADE.z1];
+  check('Pavilions', `${T} the market hall and the promenade pavilion are gone: the museum holds that ground and nothing single-storey is left standing against it`,
+    !pav.MARKET && !pav.PAVILION && !cv['M.hall'] && !cv['M.parapet'] && !cv['M.pav'] && !byName['M.service']);
+  const colInPaseo = colR[0] > -22 && colR[1] < ped.SPINE_X - 2.5 && colR[3] < 0;
+  check('Pavilions', `${T} the paseo colonnade stands in the paseo palm lawn, west of the spine and clear of the park`, colInPaseo, `[${colR.map((v) => round(v)).join(', ')}]`);
 
   // --- the hotel's west end and the plaza -------------------------------------------------
   const gapTo = (poly) => Math.min(...poly.map(([x, z]) => Math.hypot(x - ped.FOUNTAIN_CENTRE[0], z - ped.FOUNTAIN_CENTRE[1]))) - ped.PLAZA_R;
@@ -467,17 +925,17 @@ for (const tier of TIERS) {
   // --- service doors sit on a facade line ----------------------------------------------
   const hotelPlans = [hotel.HOTEL.front, hotel.HOTEL.tower, hotel.HOTEL.rear, hotel.HOTEL.link];
   const liftCoreRect = hotel.HOTEL_GROUND.find((r) => r.core === 'guest' && r.name.includes('tower')).rect;
-  const facades = [offsetPlan(res.PODIUM_PLAN, -core.ARCADE), ...hotelPlans, pav.MARKET.plan,
+  const facades = [offsetPlan(res.PODIUM_PLAN, -core.ARCADE), ...hotelPlans, mus.MUSEUM_GROUND_W, mus.MUSEUM_GROUND_E,
     core.rect(liftCoreRect[0], liftCoreRect[2], liftCoreRect[1], liftCoreRect[3]),
-    ...['C.baseE', 'C.baseW', 'C.lobby', 'M.service'].map((n) => core.rect(...[rectOf(byName[n])].map((r) => [r[0], r[2], r[1], r[3]])[0]))];
+    ...['C.baseE', 'C.baseW', 'C.lobby'].map((n) => core.rect(...[rectOf(byName[n])].map((r) => [r[0], r[2], r[1], r[3]])[0]))];
   const distToEdges = (x, z, poly) => { let best = Infinity; for (let i = 0; i < poly.length; i++) { const [ax, az] = poly[i], [bx, bz] = poly[(i + 1) % poly.length]; const ex = bx - ax, ez = bz - az; const t = Math.max(0, Math.min(1, ((x - ax) * ex + (z - az) * ez) / (ex * ex + ez * ez || 1))); best = Math.min(best, Math.hypot(x - ax - ex * t, z - az - ez * t)); } return best; };
   const floatingDoors = p.parts.filter((q) => q.color === 'void' && !partCorners(q).every(([x, z]) => facades.some((f) => distToEdges(x, z, f) < 0.45))).map((q) => `(${round(q.x)}, ${round(q.z)})`);
   check('Ground', `${T} service and garage doors sit on a facade (no floating door panels)`, floatingDoors.length === 0, floatingDoors.join(' '));
 
   // --- ground: planting, cars, umbrellas clear of buildings -------------------------------
   const inBuilding = (x, z, pad) => insidePlan(x, z, offsetPlan(res.PODIUM_PLAN, pad)) || hotelPlans.some((pl) => insidePlan(x, z, offsetPlan(pl, pad)))
-    || ['B.poolbar', 'C.baseE', 'C.baseW', 'C.lobby', 'M.service'].some((n) => inRect(x, z, rectOf(byName[n]), pad))
-    || insidePlan(x, z, offsetPlan(pav.MARKET.plan, pad)) || insidePlan(x, z, offsetPlan(pav.PAVILION.roof, pad));
+    || ['B.poolbar', 'C.baseE', 'C.baseW', 'C.lobby'].some((n) => inRect(x, z, rectOf(byName[n]), pad))
+    || mus.MUSEUM_FOOTPRINTS.some((pl) => insidePlan(x, z, offsetPlan(pl, pad)));
   const groundPlanting = [...p.trees, ...p.palms.filter((q) => !q.deck)];
   const badPlanting = groundPlanting.filter((t) => t.y === 0 && inBuilding(t.x, t.z, 0.8)).length;
   check('Ground', `${T} ground planting clear of buildings`, badPlanting === 0, `${badPlanting}`);
@@ -500,15 +958,19 @@ for (const tier of TIERS) {
   // a portal's doors stand one arcade depth behind its node on the podium edge
   const reach = (n, r) => (n.kind === 'junction' ? r + 1.8 : r);
   const nearDoor = (n, color, r) => p.parts.filter((q) => q.color === color && q.y - q.sy / 2 < 4.6 && Math.hypot(q.x - n.at[0], q.z - n.at[1]) < reach(n, r));
+  // stiles and rails may be silver or bronze; what is not allowed is a dark *panel*, so a
+  // charcoal piece counts as framing only while it stays slim in plan
+  const darkPanel = (n) => nearDoor(n, 'charcoal', 3.0).filter((q) => Math.min(q.sx, q.sz) > 0.3 && q.sy > 1.0).length > 0;
   const undoored = doorNodes.filter(([, n]) => nearDoor(n, 'guardGlass', 3.6).length < 3
-    || nearDoor(n, 'frame', 3.6).length < 2 || nearDoor(n, 'metal', 3.6).length < 4
-    || nearDoor(n, 'void', 3.0).length > 0);
+    || nearDoor(n, 'frame', 3.6).length < 2
+    || nearDoor(n, 'metal', 3.6).length + nearDoor(n, 'charcoal', 3.6).length < 4
+    || nearDoor(n, 'void', 3.0).length > 0 || darkPanel(n));
   const leaves = p.parts.filter((q) => q.color === 'guardGlass' && q.y - q.sy / 2 < 0.4 && q.sy > 1.6 && q.sy < 3.0);
-  check('Entrances', `${T} every principal entrance is glazed throughout — screen, leaves and transom — with no dark panel: ${doorNodes.length} entrances, ${leaves.length} glass leaves in metal stiles and rails`,
+  check('Entrances', `${T} every principal entrance is glazed throughout — screen, leaves and transom — with no dark panel: ${doorNodes.length} entrances, ${leaves.length} glass leaves in metal or bronze stiles and rails`,
     undoored.length === 0 && leaves.length >= 20, undoored.map(([k]) => k).join(' '));
   // the assembly is all but flush, so nothing of it stands in the way on the walk
   const doorParts = doorNodes.flatMap(([, n]) => p.parts.filter((q) => Math.hypot(q.x - n.at[0], q.z - n.at[1]) < reach(n, 3.6) && q.y - q.sy / 2 < 4.6
-    && ['guardGlass', 'metal', 'stone', 'lamp'].includes(q.color)));
+    && ['guardGlass', 'metal', 'charcoal', 'stone', 'lamp'].includes(q.color)));
   check('Entrances', `${T} the leaves, transoms, thresholds and linings stay in the plane of the facade`,
     doorParts.length > 0 && W.blockers.length === 0);
 
@@ -525,7 +987,7 @@ for (const tier of TIERS) {
     { poly: offsetPlan(res.PODIUM_PLAN, -core.ARCADE), y0: 0, y1: 5 }, { poly: res.PODIUM_PLAN, y0: 5, y1: 12 },
     ...hotelPlans.map((pl) => ({ poly: pl, y0: 0, y1: 40 })),
     ...['B.poolbar', 'C.baseE', 'C.baseW', 'C.lobby'].map((n) => ({ poly: core.rect(...(([x0, x1, z0, z1]) => [x0, z0, x1, z1])(rectOf(byName[n]))), y0: 0, y1: 15 })),
-    { poly: pav.MARKET.plan, y0: 0, y1: 10 }, { poly: pav.PAVILION.roof, y0: 4.6, y1: 5.1 },
+    ...mus.MUSEUM_FOOTPRINTS.map((pl) => ({ poly: pl, y0: 0, y1: mus.MUSEUM_TOP })),
   ];
   const ring = (k, f = 0.92) => [[k.x, k.z], ...Array.from({ length: 12 }, (_, i) => [k.x + Math.cos(i * Math.PI / 6) * k.r * f, k.z + Math.sin(i * Math.PI / 6) * k.r * f])];
   const hitsBuilding = canopies.filter(({ k }) => footprints.some((b) => b.y1 > k.y0 && b.y0 < k.y1 && ring(k).some(([x, z]) => insidePlan(x, z, b.poly))));
@@ -541,8 +1003,11 @@ for (const tier of TIERS) {
   check('Planting', `${T} tree canopies do not intersect each other (≤ 15 % overlap) or palm crowns`, treePairs.length === 0 && palmHits.length === 0, `${treePairs.length} tree pairs, ${palmHits.length} palm crowns`);
   check('Planting', `${T} tree canopies clear of street and pedestrian light heads and café umbrellas`, lightHits.length === 0 && umbrellaHits.length === 0, `${lightHits.length} light heads, ${umbrellaHits.length} umbrellas`);
   const kinds = [...new Set(p.trees.map((t) => planting.treeKind(t)))];
-  const parkTreesAll = p.trees.filter((t) => t.x > -22 && t.x < 19 && t.z > 8 && t.z < 51);
-  check('Planting', `${T} park planting mixes species and sizes (≥ 3 tree forms, flowering accents, palms of varied height)`, kinds.length >= 3 && parkTreesAll.some((t) => t.flower) && new Set(p.palms.filter((q) => q.y < 1.2 && q.x > -22 && q.x < 19 && q.z > 8 && q.z < 51).map((q) => Math.round(q.h))).size >= 3, `${kinds.join(', ')}; ${parkTreesAll.length} park trees`);
+  // the window is the park block from the promenade's north sector down to the south property
+  // line: the museum took the middle of it, so the planting that is left is the sector lawns,
+  // the wedge by the plaza's east mouth and the museum's own street frontage
+  const parkTreesAll = p.trees.filter((t) => t.x > -22 && t.x < 19 && t.z > -13 && t.z < core.HZ);
+  check('Planting', `${T} park planting mixes species and sizes (≥ 3 tree forms, flowering accents, palms of varied height)`, kinds.length >= 3 && parkTreesAll.some((t) => t.flower) && new Set(p.palms.filter((q) => q.y < 1.2 && q.x > -22 && q.x < 19 && q.z > -13 && q.z < core.HZ).map((q) => Math.round(q.h))).size >= 3, `${kinds.join(', ')}; ${parkTreesAll.length} park trees`);
 }
 
 // ---------------------------------------------------------------------------
@@ -555,7 +1020,9 @@ function visibility(p, cam) {
   const cv = Object.fromEntries(p.curved.map((c) => [c.name, c]));
   const cBase = (n) => (cv[n].parent ? cTop[cv[n].parent] : cv[n].y0);
   const occBoxes = p.boxes.filter((b) => b.group !== 'L').map((b) => { const y0 = b.parent ? topOf(b.parent) : b.y0; return { r: rectOf(b), y0, y1: y0 + b.h }; });
-  const occPrisms = p.curved.filter((c) => c.type !== 'ring' && c.phase !== 'context').map((c) => {
+  // flat ground and water surfaces (type 'prisms') carry their outlines in `parts` and occlude
+  // nothing worth counting, so they sit this out
+  const occPrisms = p.curved.filter((c) => c.type !== 'ring' && c.type !== 'prisms' && c.phase !== 'context').map((c) => {
     const pts = c.pts; const xs = pts.map((q) => q[0]), zs = pts.map((q) => q[1]);
     return { pts, bb: [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)], y0: cBase(c.name), y1: cTop[c.name] };
   });
@@ -591,7 +1058,8 @@ function visibility(p, cam) {
     'dining + lounge (between towers)': frac(sampleIn(core.rect(-47, -13.5, -38, 13.5), DECK_Y + 0.6)),
     'park fountain': frac(sampleIn(core.circlePlan(park.FOUNTAIN.x, park.FOUNTAIN.z, park.FOUNTAIN.basin, 24), 0.5, 1.0)),
     'hotel park entrance': frac(sampleIn(core.rect(10.5, -5.4, 21.5, -2.4), 2.2, 1.0)),
-    'park flexible lawn': frac(sampleIn(core.rect(park.FLEX_LAWN[0], park.FLEX_LAWN[2], park.FLEX_LAWN[1], park.FLEX_LAWN[3]), 0.3, 2.0)),
+    // sampled just over the parapet: the building's own roof is what the hero view reads
+    'park art museum': frac(sampleIn(core.rect(mus.MUSEUM_RECT[0], mus.MUSEUM_RECT[2], mus.MUSEUM_RECT[1], mus.MUSEUM_RECT[3]), mus.MUSEUM_TOP + 0.15, 1.5)),
   };
 }
 const DEG = Math.PI / 180;
@@ -610,9 +1078,9 @@ check('Visibility', 'desktop hero view shows ≥ 60% of the resort pool', vis.de
 check('Visibility', 'desktop hero view shows ≥ 50% of at least one substantial amenity area', Math.max(vis.desktop['pool terrace + loungers'], vis.desktop['wellness terrace + spa']) >= 0.5);
 check('Visibility', 'mobile hero view shows ≥ 60% of the resort pool', vis.mobile['resort pool water'] >= 0.6, `${Math.round(vis.mobile['resort pool water'] * 100)}%`);
 for (const t of ['desktop', 'mobile']) {
-  check('Visibility', `${t} hero view shows the fountain, the hotel's park entrance and the flexible lawn`,
-    vis[t]['park fountain'] >= 0.5 && vis[t]['hotel park entrance'] >= 0.3 && vis[t]['park flexible lawn'] >= 0.5,
-    `fountain ${Math.round(vis[t]['park fountain'] * 100)}%, entrance ${Math.round(vis[t]['hotel park entrance'] * 100)}%, lawn ${Math.round(vis[t]['park flexible lawn'] * 100)}%`);
+  check('Visibility', `${t} hero view shows the fountain, the hotel's park entrance and the art museum`,
+    vis[t]['park fountain'] >= 0.5 && vis[t]['hotel park entrance'] >= 0.3 && vis[t]['park art museum'] >= 0.5,
+    `fountain ${Math.round(vis[t]['park fountain'] * 100)}%, entrance ${Math.round(vis[t]['hotel park entrance'] * 100)}%, museum ${Math.round(vis[t]['park art museum'] * 100)}%`);
 }
 
 // ---------------------------------------------------------------------------
@@ -669,10 +1137,8 @@ svg('circulation-map.svg', [-92, 96, -68, 76], (g) => {
   const F0 = ped.FOUNTAIN_CENTRE;
   for (const r of [[-26, -21.5, -55.3, 55.3], [20.5, 80, 7.8, 10.2], [-13.5, -9, -55.3, -2], [18, 38, -2, 8], [-21.8, -16.4, 9.6, 24.8], [40, 56, 1.6, 7.6]]) g.rect(r, 'fill="none" stroke="#999" stroke-width="1" stroke-dasharray="3 3"');
   // the three park structures
-  g.poly(pav.MARKET.plan, 'fill="#e6e8ec" stroke="#555" stroke-width="1.1"');
-  g.poly(offsetPlan(pav.MARKET.plan, pav.MARKET.canopy.out), 'fill="none" stroke="#8e5bd6" stroke-dasharray="4 2" stroke-width="0.7"');
-  g.poly(pav.PAVILION.roof, 'fill="#eceff2" stroke="#777" stroke-dasharray="4 2" stroke-width="0.9"');
-  g.rect(rectOf(P.boxes[P.index['M.service']]), 'fill="#efe6e0" stroke="#555" stroke-width="0.9"');
+  mus.MUSEUM_FOOTPRINTS.forEach((pl) => g.poly(pl, 'fill="#e6e8ec" stroke="#555" stroke-width="1.1"'));
+  g.poly(mus.MUSEUM_PLAN, 'fill="none" stroke="#8e5bd6" stroke-dasharray="4 2" stroke-width="0.7"');
   g.rect(rectOf(P.boxes[P.index['M.colRoof']]), 'fill="#eceff2" stroke="#777" stroke-dasharray="4 2" stroke-width="0.9"');
   for (const c of ped.CROSSINGS) {
     const [a0, a1] = c.span;
@@ -699,8 +1165,8 @@ svg('circulation-map.svg', [-92, 96, -68, 76], (g) => {
   const L = (x, z, t, col = '#1f1d18', size = 8) => g.text(x, z, t, size, `fill="${col}" font-weight="bold"`);
   L(20, 3.9, 'CENTRAL PROMENADE (6 m)', '#f47321', 9); L(-60, 12.4, 'GALLERIA (4.5 m public passage)', '#f47321', 8);
   L(-5.6, -32, 'SPINE', '#c0392b', 9); L(-6.4, 51, 'SPINE / park gate', '#c0392b', 8); L(-21.6, 8.0, 'FOUNTAIN LOOP', '#1f8fd6', 8);
-  L(-33, 36, 'ARCADE', '#8e5bd6', 7); L(1.0, 42.6, 'MARKET HALL', '#554', 8); L(10.9, 8.6, 'pavilion', '#554', 7); L(-22.6, -30, 'colonnade', '#554', 7);
-  L(-9.0, 40.6, 'market walk', '#6b4bd6', 7); L(17.6, 39.4, 'market walk', '#6b4bd6', 7);
+  L(-33, 36, 'ARCADE', '#8e5bd6', 7); L(-2.0, 33.0, 'ART MUSEUM', '#554', 8); L(-22.6, -30, 'colonnade', '#554', 7);
+  L(-8.0, 47.0, 'spine under the museum', '#6b4bd6', 7);
   L(21.8, 25, 'office walk', '#6b4bd6', 7); L(72.3, -8, 'garden walk', '#6b4bd6', 7); L(-24, -45.8, 'paseo cross walk', '#6b4bd6', 7); L(-24, -17.4, 'paseo cross walk', '#6b4bd6', 7);
   L(-90.5, -28, 'T1 LOBBY', '#12a36b', 7); L(-54, 47.6, 'T2 LOBBY', '#12a36b', 7); L(-57, 21.6, 'T2 galleria door', '#12a36b', 6);
   L(22, -3.6, 'HOTEL ENTRANCE', '#12a36b', 7); L(12.4, -9.2, 'restaurant', '#12a36b', 6); L(41, -5.1, 'lobby bar + café', '#12a36b', 6); L(60.5, -30, 'GUEST ARRIVAL', '#12a36b', 7);
@@ -737,7 +1203,7 @@ svg('podium-amenity-deck.svg', [-80, -20, -54, 52], (g) => {
     const r = partRect(q);
     g.rect(r, `fill="${q.color === 'frame' ? '#fff' : q.color === 'planter' ? '#7b5' : '#ddd'}" stroke="#aaa" stroke-width="0.4"`);
   }
-  for (const pm of P.palms.filter((q) => q.deck)) g.circle(pm.x, pm.z, 0.9, 'fill="#5a3" stroke="none"');
+  for (const pm of P.palms.filter((q) => q.deck && q.x < -20)) g.circle(pm.x, pm.z, 0.9, 'fill="#5a3" stroke="none"');
   g.text(-78, 50, `Routes (1.5 m clear): ${A.deck.routes.filter((r) => r.reachable).length}/${A.deck.routes.length} connected · planters ${A.deck.planters}`, 10);
 }, 'Podium amenity level — resort pool, dining, lounge, wellness terrace');
 
@@ -880,10 +1346,10 @@ md.push(`| Resort pool | Swim depth ${res.POOL.swimDepth} m, sun shelf ${res.POO
 md.push(`| Spa | Raised spa, water ≈ ${res.SPA.depth} m deep with its floor on the structural top (no depressed slab). |`);
 md.push(`| Parking | Stalls ${2.6} × ${5.4} m, two-way aisles 6.8 m, slab 0.3 m, 2.1 m car clearance; residential ramp stacked switchback; office served by two car lifts. |`);
 md.push(`| Program | Residential efficiency ${ASSUMPTIONS.residentialEfficiency}, average unit ${Object.values(ASSUMPTIONS.unitNSA).join(' / ')} m² NSA, 2 penthouse units per tower; hotel room bay ${ASSUMPTIONS.hotelRoomBay} m; office efficiency ${ASSUMPTIONS.officeEfficiency}; retail liner ${ASSUMPTIONS.retailLinerDepth} m. |`);
-md.push(`| Pedestrian circulation | One configuration (plan/pedestrian.js): route centrelines, type, width, surface, elevation, connected nodes, destinations, lighting spacing, furnishing zones and landscape setbacks; geometry is generated from the centrelines and merged by surface. Two straight primary lines crossing at the fountain plaza: the Central Promenade (6 m; 4.5 m through the ground-floor galleria in the podium) dead straight on z = 1.0 from the podium portal to the east sidewalk, aimed at the middle of the podium east face so it arrives under the gap in the parking screen — the galleria turns north inside the podium to clear the parking ramp and leaves on its original line to the west sidewalk — and the north–south Spine (4.5 m) dead straight on x = -8 from the north sidewalk through the plaza to the park gate on the south sidewalk. The plaza therefore IS the crossing rather than a place reached from it: a ${ped.PLAZA_R} m disc with a ${round(ped.PLAZA_R - park.FOUNTAIN.basin - park.FOUNTAIN.coping, 1)} m clear ring round the basin, entered from exactly four directions (promenade west and east, spine north and south). Secondary (2.2–3.6 m): podium arcade (covered, 2.1 m clear between storefronts and columns), the two market hall walks, office walk, hotel frontages, hotel garden walk, two paseo cross walks. Entrance zones at every principal door. Café seating only in furnishing zones beside frontages. Surfaces are flat within 75 mm (step-free in the model). |`);
-md.push(`| Park | Public, unfenced, on the condo entrance axis: the fountain plaza stands on the promenade directly in front of the podium portal, so the sculpture closes the view straight out of the galleria. Four mouths only (promenade west and east, spine north and south). The hardscape was then rebalanced so the park reads as a park rather than a large plaza — the paved circle came in from 14.2 to ${ped.PLAZA_R} m (${Math.round(Math.PI * 14.2 ** 2)} → ${Math.round(Math.PI * ped.PLAZA_R ** 2)} m², −21 %) and the basin and coping from 8.2 to ${round(park.FOUNTAIN.basin + park.FOUNTAIN.coping, 1)} m (${Math.round(Math.PI * 8.2 ** 2)} → ${Math.round(Math.PI * (park.FOUNTAIN.basin + park.FOUNTAIN.coping) ** 2)} m², −33 %), leaving a ${round(ped.PLAZA_R - park.FOUNTAIN.basin - park.FOUNTAIN.coping, 1)} m walking ring that still clears the promenade's own width either side of the water. The green is organised as three rooms: a shaded garden room west of the spine (a bosque over a bench line), one open flexible lawn of ${round(park.FLEX_LAWN[1] - park.FLEX_LAWN[0], 1)} × ${round(park.FLEX_LAWN[3] - park.FLEX_LAWN[2], 1)} m east of it, kept free of trunks, paths and furnishing zones, and the market terrace on its south edge. Lawns run out to a boundary that follows what really bounds the open ground; paving and buildings sit over the grass, so the lawns stop at the block edge rather than at every path. Private areas (residential deck, hotel pool court) are not on any public route. |`);
-md.push(`| Park planting | Shade is designed, not scattered: broad-canopy trees are placed by hand in a bosque of two staggered rows in the garden room, a frame at the flexible lawn's corners and groups at the plaza mouths, with flowering accents and understory rounds. Palms are axial and entrance markers only — pairs flanking each of the four plaza mouths and the park gate, at set heights — and never the primary shade. Counts are checked per tier (12–16 desktop, 7–10 mobile). Species, soil volume, irrigation, establishment and maintenance are not designed. |`);
-md.push(`| Park structures (M) | Three structures hold the park's edges, since a park whose edges are only grass reads as leftover space. Market hall: ${Math.round(Math.abs(core.polygonArea(pav.MARKET.plan)))} m² glazed volume ${pav.MARKET.hallH} m to the eaves under a ${pav.MARKET.clerestoryH} m louvred clerestory, with a ${pav.MARKET.canopy.out} m canopy over its doors and terrace seats. It was cut from 327 m² and moved off the middle of the southern lawn to the park's south-east corner, then lowered again: the 6.4 m hall and its 2.6 m clerestory (9.0 m in all) became one ${round(pav.MARKET.hallH, 1)} m storey under a ${round(pav.MARKET.hallH + pav.MARKET.parapetH, 1)} m planted roof edge, which keeps the lawn's horizon open and stops it competing with the hotel tower behind. Its rows of market counters became one café counter with a compact back of house on the south perimeter — a light-service café, not a restaurant kitchen; no cooking plant or exhaust is designed. It is entered from the spine on the west and the office walk on the east, so neither walk crosses the flexible lawn, and with it shut those two routes plus the south sidewalk still carry you round three of its sides. Promenade pavilion: an open public shade shelter at ${pav.PAVILION.y} m closing the east wedge; its kiosk was removed so all serving happens in the café. Paseo colonnade: free-standing covered walk west of the spine — the paseo is only ~15 m wide between the podium storefronts and the spine, so a liner building there would wall the storefronts off. Massing only: no structure, envelope, servicing, occupancy or code compliance is designed or verified. |`);
+md.push(`| Pedestrian circulation | One configuration (plan/pedestrian.js): route centrelines, type, width, surface, elevation, connected nodes, destinations, lighting spacing, furnishing zones and landscape setbacks; geometry is generated from the centrelines and merged by surface. Two straight primary lines crossing at the fountain plaza: the Central Promenade (6 m; 4.5 m through the ground-floor galleria in the podium) dead straight on z = 1.0 from the podium portal to the east sidewalk, aimed at the middle of the podium east face so it arrives under the gap in the parking screen — the galleria turns north inside the podium to clear the parking ramp and leaves on its original line to the west sidewalk — and the north–south Spine (4.5 m) dead straight on x = -8 from the north sidewalk through the plaza to the park gate on the south sidewalk. The plaza therefore IS the crossing rather than a place reached from it: a ${ped.PLAZA_R} m disc with a ${round(ped.PLAZA_R - park.FOUNTAIN.basin - park.FOUNTAIN.coping, 1)} m clear ring round the basin, entered from exactly four directions (promenade west and east, spine north and south). Secondary (2.2–3.6 m): podium arcade (covered, 2.1 m clear between storefronts and columns), office walk, hotel frontages, hotel garden walk, two paseo cross walks. Entrance zones at every principal door. Café seating only in furnishing zones beside frontages. Surfaces are flat within 75 mm (step-free in the model). |`);
+md.push(`| Park | Public, unfenced, on the condo entrance axis: the fountain plaza stands on the promenade directly in front of the podium portal, so the sculpture closes the view straight out of the galleria. Four mouths only (promenade west and east, spine north and south). The hardscape was then rebalanced so the park reads as a park rather than a large plaza — the paved circle came in from 14.2 to ${ped.PLAZA_R} m (${Math.round(Math.PI * 14.2 ** 2)} → ${Math.round(Math.PI * ped.PLAZA_R ** 2)} m², −21 %) and the basin and coping from 8.2 to ${round(park.FOUNTAIN.basin + park.FOUNTAIN.coping, 1)} m (${Math.round(Math.PI * 8.2 ** 2)} → ${Math.round(Math.PI * (park.FOUNTAIN.basin + park.FOUNTAIN.coping) ** 2)} m², −33 %), leaving a ${round(ped.PLAZA_R - park.FOUNTAIN.basin - park.FOUNTAIN.coping, 1)} m walking ring that still clears the promenade's own width either side of the water. The green was organised as three rooms: a shaded garden room west of the spine (a bosque over a bench line), one open 22 × 18 m flexible lawn east of it, and the market terrace on its south edge. The art museum was then built on the lawn, grown over the market hall and the promenade pavilion, taken out to the park's own boundary on its west, east and south sides, and finally carried north to the plaza itself: its ground floor's face is an arc ${round(mus.MUSEUM.arcR - ped.PLAZA_R, 1)} m outside the paved ring, concentric with the fountain, so the two corners either side of the spine are built and the plaza reads as a round room with glass wrapped round its south half. The park's whole south half is therefore the building, and what is left green is the plaza with its four sector lawns, the two wedges between the promenade's plaza mouths and the museum's north corners, and the museum's own planted street frontage. Only one storey comes out to the plaza — the three-storey bar stays behind z = ${round(mus.MUSEUM.zb, 1)} — because the hero camera stands south-west of the park with the museum between it and the fountain: over a ${round(mus.MUSEUM_DECK1, 1)} m apron, with the third floor stepped back again above it, the fountain reads 97 % desktop / 85 % mobile and the hotel's park entrance 77 %, where behind a ${round(mus.MUSEUM_TOP, 1)} m wall on the same arc they measure 0 % and 2 %. Lawns run out to a boundary that follows what really bounds the open ground; paving and buildings sit over the grass, so the lawns stop at the block edge rather than at every path. Private areas (residential deck, hotel pool court) are not on any public route. |`);
+md.push(`| Park planting | Shade is designed, not scattered. It used to be a bosque of two staggered rows in the garden room plus groups at the plaza mouths; the museum stands on all of that ground now, so what is planted is the ring round it — the sector lawns above the promenade, the wedge between the plaza's east mouth and the apron's north-east corner (a broad canopy and a flowering accent), and the museum's south frontage strip, which carries the same street trees and two rows of shrubs as the condo podium's and the office's frontages either side of it. Palms are axial and entrance markers only, never the primary shade: pairs flank the promenade's two plaza mouths and the spine's north mouth, and the south mouth of the museum's passage. Two pairs went to the building — the park gate's, when it reached the south frontage (the passage's south pair marks the gate instead), and the plaza's south mouth, where the apron now stands 1.4 m off the paved ring and that mouth is marked by the lit 9 m passage portal itself. Counts are checked per tier (4–16 desktop, 3–10 mobile, with planting in the wedge and at least three street trees on the frontage; the floors came down from 12–16 as the museum took park ground). Species, soil volume, irrigation, establishment and maintenance are not designed. |`);
+md.push(`| Park structures (M) | The park once had three single-storey structures holding its edges: a market hall with a garden café on the south-east corner, an open promenade pavilion on the east wedge, and the paseo colonnade. The art museum was then built across the park's open ground and grown over the ground the first two stood on, so both were removed rather than left standing against it — a café and a shade shelter either side of a three-storey building read as leftovers, and the museum needed their footprints. Their walks, doors, forecourt, terrace seating and bike stands went with them, and the café is gone from the park; the nearest remaining ones are the hotel's café and the office coffee bar. What is left is the colonnade, which is not next to the museum: a free-standing covered walk west of the spine on the paseo, which is only ~15 m wide between the podium storefronts and the spine, so a liner building there would wall the storefronts off. Massing only: no structure, envelope, servicing, occupancy or code compliance is designed or verified. |`);
 md.push('| Water movement | Shader ripples advance only on frames already rendering (render-on-demand preserved); jets are static geometry. |', '');
 
 md.push('## 3. Unresolved — requires professional review or missing inputs', '', '| Matter | Status in the model | Missing input / review needed |', '|---|---|---|');
@@ -892,9 +1358,11 @@ md.push(`| Tower structure | Geometry is coherent: continuous core and columns, 
 md.push('| Garage façades | Openness and ventilation assumed from the geometry, not calculated. | Mechanical / code review of natural ventilation openness, fire separation to liner units, screen attachment and wind loads, lighting design (glare, spill, dark-sky), maintenance access to planted bays. |');
 md.push('| Office cantilevers | 2.4–3.0 m slab-edge cantilevers at offsets; no transfers. | Structural design (PT/steel), deflection and façade tolerance; soffit fire rating of timber. |');
 md.push(`| Resort pool basin | Soffit ${round(res.POOL.basinSoffitY, 2)} m leaves ${rpk.pool.clearHeight} m clear over P-L3 aisles/stalls with a ${res.POOL.mepAllowance} m allowance; ${rpk.pool.supportingColumns} podium columns under/near the basin. | Pool engineer and structural engineer: water/soil loads, basin slab depth, drainage falls, balance tank and plant room location, waterproofing, and beam depths over P-L3. Health-department pool rules. |`);
+md.push(`| Block south frontage | The condo podium, the art museum and the office all now carry the same planted strip on the block's south street: a ${round(3.2, 1)} m lawn on the same lines (z 51–54.2), two rows of shrubs along it and street trees at z 52.6. The museum's was added when the building reached that frontage — its street side had been the park's bare frontage paving, which read as a glass wall standing on asphalt. The park gate walk crosses the strip on the spine, the palms flanking the passage's south mouth stand in it, and it runs unbroken the whole width of the building: the museum's cascades come down its park elevation, not this one, so nothing is cut out of the planting for water. | Landscape architect: species, soil volume, irrigation, street-tree standards and utility clearances; municipal street-tree and frontage requirements. |`);
 md.push('| Planting loads | Planter depths modelled; loads not computed. | Saturated soil and tree loads, drainage and irrigation design, wind uplift on palms, landscape architect species selection. |');
 md.push(`| Parking supply and circulation | ${rpk.total + A.parking.office.total} modelled stalls vs ${rng2(dsum)} estimated demand; ramps and lifts geometric only. | Parking/traffic consultant: shared-parking study, valet/off-site options, ramp transitions and sight lines, car-lift capacity and queuing, accessible and van stalls, EV and bicycle requirements. |`);
-md.push('| Building entrances | Every principal pedestrian entrance is a built door rather than a dark panel painted on the storefront, and glazed throughout: a glass screen fills the opening, glass leaves in slim metal stiles and rails with vertical pull handles stand in front of it, and the transom over them is glass too. A white lining frames it all but flush, on a stone threshold, with a light line in the head reveal. Twelve entrances carry one (two hotel restaurant fronts, the hotel guest entrance and bell desk, both office lobby doors, both market hall doors, both tower lobbies and both podium stair doors); the galleria lobby door is the exception, because the passage is modelled as rooms with no wall to hang a door on. Conceptual only: leaf swing, clear widths, hardware, thresholds and accessible approach are not designed, and no accessibility standard is claimed. |');
+md.push(`| Park art museum | A three-storey glass building astride the park's north–south spine, terraced toward the park and flush to the street: two glazed volumes at grade either side of the walk, the two gallery floors bridging across above them on an expressed white plate. ${round(mus.MUSEUM.x1 - mus.MUSEUM.x0, 1)} m wide and ${round(mus.MUSEUM.z1 - mus.MUSEUM.zb, 1)} m deep at the ground floor, to a ${round(mus.MUSEUM_TOP, 1)} m parapet. Every plan corner is rounded on a ${round(mus.MUSEUM.corner, 1)} m radius, and the shoulders where the apron's arc meets its flanks are blended over ${round(1.2, 1)} m, so no outline on the building turns more than 23° at a vertex. ${Math.round(Math.abs(polygonArea(mus.MUSEUM_GROUND_W)) + Math.abs(polygonArea(mus.MUSEUM_GROUND_E)))} m² at grade, ${Math.round(Math.abs(polygonArea(mus.MUSEUM_L2_PLAN)))} m² on the second floor and ${Math.round(Math.abs(polygonArea(mus.MUSEUM_L3_PLAN)))} m² on the third, ${Math.round(Math.abs(polygonArea(mus.MUSEUM_GROUND_W)) + Math.abs(polygonArea(mus.MUSEUM_GROUND_E)) + Math.abs(polygonArea(mus.MUSEUM_L2_PLAN)) + Math.abs(polygonArea(mus.MUSEUM_L3_PLAN)))} m² in all. The walk keeps its line, its width and its clear zone and runs through a ${round(mus.MUSEUM.gapE - mus.MUSEUM.gapW, 1)} m passage with ${round(mus.MUSEUM.ground, 1)} m of head height, a shaded soffit and recessed light lines; slim columns carrying the bridge stand outside the clear zone, and nothing — column, planter, wall, canopy or art — stands in it. Seamless floor-to-ceiling glass, floor plates stopping flush with it, warm gallery light and display walls on a loose 8 m grid inside, a light stone forecourt off the passage and low planting at the south mouth. It is the model's one see-through envelope: a glaze of its own (GLAZE.museum) draws full-height panes on a ${round(mus.MUSEUM_PANE, 1)} m module meeting at flush silicone joints, and the material carries alpha, so you look through the galleries rather than at a reflective skin — which is also why all three floors carry a plate (stone at grade, flush with the walk outside; slab above): in an opaque building a missing floor shows nothing, here it shows the park's grass running on under the galleries, and the plates are checked point by point. The section is the building, and everything it does, it does toward the park. The third floor steps back ${round(mus.MUSEUM.z3n - mus.MUSEUM.zb, 1)} m from the second, leaving a planted terrace, open along its edge; below that the single-storey apron carries the ground floor a further ${round(mus.MUSEUM.zb - mus.museumNorthAt(-8), 1)} m north on the spine and ${round(mus.MUSEUM.zb - mus.MUSEUM.zn, 1)} m on the flanks, out to the plaza. The street elevation is the opposite: flush at all three storeys, its faces lined up to under 20 mm, with nothing stepped and no water on it — it meets the frontage garden as a plain wall of glass. Two cascades come down the park face, one on each wing either side of the passage, both of them looking at the fountain: a pool on the roof garden spills through a spout in the parapet at ${round(mus.MUSEUM_DECK3, 2)} m, falls to a pool on the terrace at ${round(mus.MUSEUM_DECK2, 2)} m, spills again onto the apron's roof at ${round(mus.MUSEUM_DECK1, 2)} m, and falls a third time into a basin at grade in the band between the apron's edge and the park's own ground — three falls of about 4.5 m apiece, every one of them landing in the pool beneath it. On the west wing that last edge is the arc, so its pool, spout, sheet and basin are set on the arc's tangent; on the east wing the edge is the straight cap, so they sit on the building's own grid. A circular stair winds up inside a glazed drum from the ground floor to a head on the roof at ${round(mus.MUSEUM_TOP, 2)} m, level with the parapet: 77 treads on a ${round(mus.MUSEUM.stair.rise, 2)} m rise, ${mus.MUSEUM.stair.perTurn} to a turn, standing in the east wing because it is the larger of the two and a ${round(mus.MUSEUM.stair.r * 2, 1)} m drum costs it the least floor. The roof it lands on is a garden — beds of shrubs and small palms on a loose grid over ${Math.round(Math.abs(polygonArea(mus.MUSEUM_L3_PLAN)))} m², a slatted pergola with benches, and both cascades' source pools — and the park terrace below it is planted the same way. The way in is the passage: one glazed entrance into each wing, facing each other across the walk and set back from its clear width, each with a canopy blade and a light line over it. The building grew three times before that: first over the market hall and the promenade pavilion, then out to the park's own boundary — west to the line the paseo's south end sets, south to the park's frontage strip, and east as far as the office coffee bar's terrace, which sits on that margin and stops it 2.1 m short of the office walk — and finally north to the plaza. That last move is the curved one: the ground floor's north face is an arc concentric with the fountain, ${round(mus.MUSEUM.arcR - ped.PLAZA_R, 1)} m outside the ${round(ped.PLAZA_R, 1)} m paved ring, held at z = ${round(mus.MUSEUM.zn, 1)} on the two flanks where it would otherwise run past the promenade's plaza mouths and take the palms marking them. What comes out to the plaza is one storey under a plate at ${round(mus.MUSEUM_DECK1, 2)} m, with the three-storey bar behind z = ${round(mus.MUSEUM.zb, 1)}, and that is a measured decision rather than a preference: the hero camera stands south-west of the park with the museum between it and the plaza, so a ray from the fountain clears the apron but not the bar. Over the apron, and with the third floor stepped back from the plaza as well, the fountain reads 97 % desktop / 85 % mobile from the hero camera — better than the 82 % the park had before the museum was built — and the hotel's park entrance 77 %; with the bar itself brought out to the same arc they measure 0 % and 2 %. What the growth cost the park is the whole of its 22 × 18 m flexible lawn, the garden room and its bosque, the park gate's palm pair and the plaza's south-mouth pair; the canopy count round the plaza came down from 12 to 4, and the museum's street frontage is planted like its neighbours' to make up some of it. The detail was then worked up without moving anything. The curtain wall was later made seamless: each pane runs the full height of its storey from floor plate to floor plate, with no sill or head spandrel, transom or fin, on a ${round(mus.MUSEUM_PANE, 1)} m module (twice the earlier 1.55 m bay), meeting the next at a flush 24 mm silicone joint drawn half-toned and fading out with distance, all panes one tint — so between the white floor plates each elevation reads as a single sheet of glass. The plates were then pulled back to the glass: every floor plate, slab band and the roof parapet now stops ${round((0.3 - mus.PLATE_EDGE) * 1000)} mm proud of the glass line instead of projecting 0.55 m past it, so the floors read as thin lines at the face of the glass rather than as ledges; the column rows and their edge beams moved just inside the glass so nothing breaks the face, the apron's two pools moved back onto the pulled-in plate, and the spouts, falls and moat stayed where they were, so each spout now cantilevers past the flush edge. The bridge is expressed — every column has a spread base and a head bracket, a white edge beam ties each row at the underside of the second floor, and white transfer ribs cross the passage on the column grid, coming down to the clear height and no further: measured by ray from the walk itself, the lowest ceiling over its full width is exactly ${round(mus.MUSEUM.ground, 2)} m, with ${round(mus.MUSEUM.ground + 0.1, 2)} m between the ribs. The passage is coffered and lit: a dark soffit field set 100 mm up inside the slab, a light line straddling the face of each coffer, and a low wash along both walls. Both entrances carry dark bronze stiles and rails against the white lining, a light stone threshold band standing 16 mm proud of the paving, a deeper canopy blade with its light line recessed under the front, and a warm line of lobby light on the wall inside. The galleries read as galleries: display walls of two heights, each washed from above and hung with two or three dark panels in different proportions, plinths carrying pale abstract pieces, a low bench opposite. The roof garden is laid out rather than scattered — a walk along the north parapet with a bench line facing the fountain, four planted bands running the building's length, palms punctuating the second, a pergola and benches at the centre. The water detail was slimmed to 140 mm rims standing 70 mm proud, with the still pools in the pool tone and the falling sheets 90 mm thick in the paler one. Low tropical planting drifts along the west face and round the apron's curved edge, stopping at knee height so the transparent ground floor still reads as transparent. A second pass then worked the museum up as a museum rather than as a massing study, without moving anything, and a third deepened it: the roof carries a planted ground of nine islands and drifts along the parapets rather than a few beds in paving, the two cascades were widened again to ${round(mus.MUSEUM.fallE.w, 1)} m on the east wing and ${round(mus.MUSEUM.fallW.w, 1)} m on the west with pools ${round(4.6, 1)} m deep to match, the receiving channels were rebuilt as one constant-width rill per wing with a single wider basin under the falling water, a stone rim and a darker floor showing under the surface, and the stair head was raised to meet the lift so both top out together at ${round(mus.MUSEUM_CORE_TOP, 2)} m. The head itself was then opened: below the roof the stair is a glazed tube, above it a curved glass wall with a 48° doorway cut out of it on the landing bearing — 1.9 m of clear opening between bronze jambs, with a stone threshold running out onto the garden's paving, a light line under the head and a white plate lapped past the drum for a roof. It is a way out rather than a lid with a door drawn on the inside of it. The lift was then built the same way and turned to match: its landing doors face west at every level, the side the stair's doorway faces, and above the roof its head is walled on three sides with the fourth left open under its own plate. Both heads top out together, both open the same way, and the two arrivals share one strip of stone floor. The roof is a sculpture garden: a light stone field with darker joints setting out a walking loop from the stair and lift arrival past a sculpture court to the north overlook, four planted islands drawn as overlapping rounds so their edges curve like the building, a pale concrete seat let into each island's rim, one principal work on a low plinth with room around it and two smaller pieces apart from it, small palms set in the islands' lee so the view out stays open, and a white fin canopy with benches under it. The two cascades are parameterised end to end — one width on MUSEUM.fallW / fallE drives the pool, the lip, the sheet, the apron rill and the moat together — so the east wing, the larger of the two, carries a ${round(mus.MUSEUM.fallE.w, 1)} m run against ${round(mus.MUSEUM.fallW.w, 1)} m on the west, wider at every drop rather than a broad pool feeding a narrow spout. The parapet is notched at both bays, its outer path dipping to meet its own inner face so the water leaves over an open lip. Each cascade now lands in a shallow receiving channel that follows the building's edge — the arc on the west, the straight cap on the east — narrow along its length and widening under the falling water, in two separate runs that never cross the passage, never touch a threshold, and keep their distance from both the glass above and the plaza's paving in front. The galleries are laid out as rooms: walls set at alternating depths with a sightline between them, an open bay for sculpture, benches, artwork of three different hangs in white frames standing proud of the wall, plinths with pale abstract pieces, and track lighting with three heads over each wall instead of a glowing strip; the ground floor takes the arrival, with a reception desk and an orientation wall facing each passage door. The vertical core was rebuilt: one flight per storey, each dividing its own storey into equal risers and turning ${round(mus.MUSEUM.stair.turns, 2)} of a revolution so it arrives on its landing, wedge-read treads on a stepped stringer, a rail at every step, landings in real openings cut through every plate and glass cap the drum crosses, and door frames at each level. A lift stands beside it inside the same wing, serving all four levels on guide rails with landing doors and a threshold at each, all of them facing the same way as the stair's, its overrun capped level with the stair head so the core stays one object. A fourth pass turned the roof from a deck with beds on it into a garden. The ground is planted and the paving is cut through it: one continuous ${round(1.9, 1)} m loop from the stair and lift arrival, round past a sculpture court, a reflecting pool and the north overlook and back, with five paved clearings opening off it. Soil is laid as rounds that each take the largest radius still clear of whatever they meet, so the beds run up to the paving and the parapet margin and stop dead there with a curved, uneven edge — measured on a 0.4 m grid, 58 % of the usable garden is planted, against a brief of 55–65 %. The planting is four South Florida natives drawn with different silhouettes rather than one green ball repeated: muhly grass as fine cones at the path edges with the odd plume, coontie as a squat rosette, cocoplum as the dense broad-leaf body of the beds, bay cedar as a low mound, a few taller specimens set back from the walk, and five sabal palms in raised planters. Every position is hashed from its own coordinates, so the garden is identical on every load. Six sculptures stand in it — a folded plane in the principal clearing, a turning ribbon in brushed steel, a pierced stone monolith, a balanced composition on charcoal, and two smaller pieces to come across in the planting — each on its own base, each a different shape and material, none of them in the walk, each with a low uplight. The water was then rebuilt to be the model's own pool water rather than a museum variant of it: every still surface — both cascades at all three levels, the reflecting pool and the moat at grade — is the same 'pool' blue on the same water glaze as the resort, hotel and penthouse pools, set 120 mm under its deck inside a dark waterline tile band and a pale coping standing 80 mm proud, exactly as plan/pools.js builds them, and the weirs, sheets and splash are in the same blue. The water glaze was made view-independent for every pool in the model at the same time: no specular term, direct or reflected, on water — only the palette colour, the ambient light and the moving ripple — so a pool no longer washes out toward the sky at a low angle or deepens seen from above. Every pool is a rounded rectangle on a 0.92 m corner, let into its plate through a rounded opening cut in the slab so the rim laps over the cut. The apron and the park terrace are then grassed edge to edge: lawn over everything that is not a pool, a weir or a spout, stopping 150 mm inside the edge of its plate and 300 mm short of the storey above, following that storey's rounded corners and wrapping each pool's rounded coping, with a rank of shrubs along the glass, a low rank of grasses along the terrace's open edge, drifts of shrubs and grasses across the turf and a ring round each rill on the apron; every plant is placed only where its whole spread lands on the lawn, and nothing trails over any edge. The terrace's glass railing was removed — so the terrace is shown with no guard at a 4.7 m drop, which is a visual decision and not a code-compliant edge. The shade pavilion that stood on the roof was taken out; its seat stays. Assumed and not designed: soil depth and build-up, drainage, irrigation, root barriers and waterproofing, wind exposure at 14 m, and the roof's loading with wet soil and standing water; the species are chosen as Miami-Dade natives for their habit, and nothing here is a planting schedule. Conceptual massing only: structure and the two-storey bridge transfer, stability, fire separation and egress, glazing support, thermal and solar performance, accessibility, and gallery environmental control and daylight on art are not designed or verified. Nor is anything the water, the gardens or the core need — tank and pump sizing, filtration and water treatment, wind carry and splash control off three 4.5 m falls, the acoustics of them beside a gallery, waterproofing and root barriers under the roof garden, both terraces and the moat, soil depth, drainage, irrigation, the added dead and live load of wet soil and standing water on a spanning structure, moat cleaning and overflow, stair geometry to code (going, headroom at the landings, handrail continuity, guarding, the opening edges), lift shaft dimensions, pit and overrun, machine space, door clearances and fire-fighting or evacuation duty, the two openings cut through every floor plate and what they do to the diaphragm, roof-garden maintenance access and fall protection, and the conservation requirements of hanging real work behind a fully glazed wall — the artwork here is placed for how the building reads, not to a daylight or security standard. |`);
+md.push('| Building entrances | Every principal pedestrian entrance is a built door rather than a dark panel painted on the storefront, and glazed throughout: a glass screen fills the opening, glass leaves in slim metal stiles and rails with vertical pull handles stand in front of it, and the transom over them is glass too. A white lining frames it all but flush, on a stone threshold, with a light line in the head reveal. Fourteen entrances carry one (two hotel restaurant fronts, the hotel guest entrance and bell desk, both office lobby doors, both tower lobbies, both podium stair doors, the galleria portal facing the park, and two into the art museum, one to each wing, facing each other across the passage, which is how that building is entered); the galleria lobby door is the exception, because the passage is modelled as rooms with no wall to hang a door on. Conceptual only: leaf swing, clear widths, hardware, thresholds and accessible approach are not designed, and no accessibility standard is claimed. |');
 md.push(`| Hotel pool court wall | The court's west side was a 21 m opaque service bar dressed in piers and a cornice; decorating it never stopped it being a service shed on a public walk, so it was removed rather than restyled, and servicing was replanned down the arrival wing instead. The open side of the U is now closed by a garden wall standing in the plane of the two wing ends, x = ${round(hotel.COURT_WALL.x, 1)}: ${round(hotel.COURT_WALL.z1 - hotel.COURT_WALL.z0, 1)} m long at ${round(hotel.COURT_WALL.h + hotel.COURT_WALL.coping, 1)} m, one ${round(hotel.COURT_WALL.thick, 2)} m leaf with nothing above it, lapped into each wing's corner, with a single gate the hotel controls, so the west elevation runs unbroken from one wing to the other and nothing projects in front of them. The pool deck came back to the same line, giving up ${round((6.0 - 1.8) * (hotel.HOTEL_POOL.court[3] - hotel.HOTEL_POOL.court[2]) * -1)} m² of court; that ground is now lawn on the public side of the wall and carries the planting. Vines are trained over the coping and hang down both faces, and on the paseo side a grove of trees, palms and shrubs stands in front of the wall, so what the walk reads is planting rather than masonry. This is a deliberate reversal of the earlier planted-edge scheme, which kept the garden's upper space open to view: the pool is now screened outright. Conceptual only: wall construction, footings, lateral support, barrier height, gate hardware, opening sizes and climbability are not designed or verified, and no pool-barrier standard is claimed. |`);
 md.push(`| Hotel arrival and frontage | Two front doors, one route. The park-facing marquee under the tower is the civic pedestrian entrance and the east porte-cochère is the vehicular one; both reach the same reception desk at (${hotel.RECEPTION[0]}, ${hotel.RECEPTION[1]}) and the same lift door on a declared ${hotel.GUEST_ROUTE.width} m clear passage that turns south of the tower core and then runs up its west side. The route is tested as a route — sampled along its centreline and both edges against the lift core, the indoor seating band and every service room — rather than as a row of touching rectangles, which is what the earlier assertion did; the "unbroken 50 m sightline" it implied was never supported by the geometry and the claim has been withdrawn. Indoor seating sits between the passage and the glazing (${round(hotel.DINING_BAND[3] - hotel.DINING_BAND[2], 1)} m deep over ${round(hotel.DINING_BAND[1] - hotel.DINING_BAND[0], 0)} m), which is also where the park view is. Back of house runs behind in its own band and touches the guest side only at the two declared kitchen doors. Conceptual clear-passage allowance only: no accessibility, egress or occupancy conclusion is claimed. |`);
 md.push(`| Hotel facade | The guest-room facade shader ran on a 3.6 m bay while the plan's room module was 3.8 m, so no modelled pier ever stood on a window line. Both now come from ${hotel.FACADE_BAY} m, and the shader's phase constant is an exact multiple of it, so bay boundaries fall on perimeter run = 0. Piers and fins are placed by \`bayLines()\`, which walks the same perimeter coordinate the shader uses (\`across\` in layers/curves.js) instead of guessing world-x positions beside it. The tower takes a central emphasis — two reeded piers on bay lines running unbroken from the marquee through the crown, with quieter flanks outside them — and the wing stays horizontal: fins on the same lines but stopped well below the parapet, continuous eyebrows, and one crown band. |`);

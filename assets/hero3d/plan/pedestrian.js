@@ -90,6 +90,9 @@ export const NODES = {
   t2Lobby: { at: [-50, 45.6], kind: 'door', name: 'Tower 1 lobby (south entrance)', building: 'residential' },
   t2LobbyGalleria: { at: [-51.75, 17.4], kind: 'door', name: 'Tower 1 lobby (galleria entrance)', building: 'residential' },
   amenityLift: { at: [-29.5, 6.8], kind: 'door', name: 'Podium stair + lift to the amenity deck (residents)', building: 'residential' },
+  museum: { at: [-3.5, 32.25], kind: 'door', name: 'Art museum — east wing (in the passage)', building: 'museum' },
+  museumW: { at: [-12.5, 32.25], kind: 'door', name: 'Art museum — west wing (in the passage)', building: 'museum' },
+  spineMuseum: { at: [SPINE_X, 32.25], kind: 'junction', name: 'Spine at the museum entrance' },
   nwStair: { at: [-72.5, -18.5], kind: 'door', name: 'Podium stair (north-west)', building: 'residential' },
   hotelMain: { at: [17.0, -5.25], kind: 'door', name: 'Hotel main entrance (tower lobby)', building: 'hotel' },   // centred between the two reeded piers, where the doors are
   hotelRestaurant: { at: [31, -7.65], kind: 'door', name: 'Hotel restaurant', building: 'hotel' },
@@ -107,17 +110,12 @@ export const NODES = {
   fountain: { at: F, kind: 'destination', name: 'Central park, fountain and plaza (promenade × spine)' },
   promMarket: { at: [8, PROMENADE_Z], kind: 'junction', name: 'Promenade at the hotel entrance' },
   promOfficeWalk: { at: [20.2, PROMENADE_Z], kind: 'junction', name: 'Promenade at the office walk' },
-  marketW: { at: [-0.4, 42], kind: 'door', name: 'Market hall (spine entrance)', building: 'market' },
-  marketE: { at: [16.0, 41], kind: 'door', name: 'Market hall (office walk entrance)', building: 'market' },
-  spineMarket: { at: [SPINE_X, 42], kind: 'junction', name: 'Spine at the market hall walk' },
-  owMarket: { at: [20.2, 41], kind: 'junction', name: 'Office walk at the market hall' },
   retailEast: { at: [-27.75, 28], kind: 'destination', name: 'Podium retail frontage (east arcade)' },
   retailGalleria: { at: [-40, GALLERIA.z], kind: 'destination', name: 'Galleria shopfronts' },
   cafePodium: { at: [-23.9, 34], kind: 'destination', name: 'Podium café seating' },
   cafeHotel: { at: [45, -3.6], kind: 'destination', name: 'Hotel café terrace' },
   cafeRestaurant: { at: [12, -3.6], kind: 'destination', name: 'Hotel restaurant terrace' },
   cafeOffice: { at: [17.8, 32.5], kind: 'destination', name: 'Office coffee-bar seating' },
-  pavilion: { at: [14.5, 8.3], kind: 'destination', name: 'Promenade pavilion (shade and kiosk)' },
   paseoCrossN: { at: [SPINE_X, -44], kind: 'junction', name: 'Paseo cross walk (north)' },
   paseoCrossM: { at: [SPINE_X, -15.5], kind: 'junction', name: 'Paseo cross walk (middle)' },
   arcadeN: { at: [-27.75, -44], kind: 'junction', name: 'East arcade (north end)' },
@@ -155,15 +153,15 @@ export const ROUTES = [
     pts: [[-HX, GALLERIA.z], [-48, GALLERIA.z], [-38.6, GALLERIA.z], [GALLERIA.turnX, 12.2], [GALLERIA.turnX, 5.0], [-31.5, PROMENADE_Z], [-26, PROMENADE_Z], [-14, PROMENADE_Z], [0, PROMENADE_Z], [20, PROMENADE_Z], [50, PROMENADE_Z], [HX, PROMENADE_Z]],
     width: (x) => (x <= -22 ? GALLERIA.width : x >= -6 ? 6.0 : lerp(GALLERIA.width, 6.0, (x + 22) / 16)),
     nodes: ['swGalleria', 'galleriaW', 'retailGalleria', 't2LobbyGalleria', 'galleriaE', 'plazaW', 'fountain', 'plazaE', 'promMarket', 'hotelRestaurant', 'promOfficeWalk', 'promHotelE', 'promGarden', 'sePromenade'],
-    destinations: ['Galleria shopfronts', 'Tower 1 lobby (galleria entrance)', 'Podium retail (east arcade)', 'Central park and fountain plaza', 'Market hall', 'Hotel restaurant, main entrance and café', 'Office walk', 'Hotel garden walk'],
+    destinations: ['Galleria shopfronts', 'Tower 1 lobby (galleria entrance)', 'Podium retail (east arcade)', 'Central park and fountain plaza', 'Art museum', 'Hotel restaurant, main entrance and café', 'Office walk', 'Hotel garden walk'],
     covered: [[-76, -26]], lights: { spacing: 16, sides: 'both', offset: 0.7, kind: 'ped', skip: [[-80, -20]] }, setback: 0.7,
   },
   {
     // one straight spine, from the south sidewalk through the plaza to the north sidewalk,
     // crossing the promenade at the fountain
     id: 'S1', name: 'Spine — park gate to the fountain plaza', type: 'primary', surface: 'spine', rank: 2, edgeBand: 0.35, flare: [0, 6],
-    pts: [[SPINE_X, HZ], intoPlaza(90)], width: 4.5, nodes: ['ssGate', 'spineMarket', 'marketW', 'plazaS', 'fountain'],
-    destinations: ['South sidewalk', 'Market hall (spine entrance)', 'Central park and fountain'], lights: { spacing: 9, sides: 'both', offset: 0.6, kind: 'ped' }, setback: 0.8,
+    pts: [[SPINE_X, HZ], intoPlaza(90)], width: 4.5, nodes: ['ssGate', 'spineMuseum', 'plazaS', 'fountain'],
+    destinations: ['South sidewalk', 'Art museum (both wings, from the passage)', 'Central park and fountain'], lights: { spacing: 9, sides: 'both', offset: 0.6, kind: 'ped' }, setback: 0.8,
   },
   {
     id: 'S2', name: 'Spine — fountain plaza, paseo, north sidewalk', type: 'primary', surface: 'spine', rank: 2, edgeBand: 0.35, flare: [6, 0],
@@ -173,18 +171,8 @@ export const ROUTES = [
     lights: { spacing: 14, sides: 'both', offset: 0.6, kind: 'ped' }, setback: 0.8,
   },
   {
-    // the hall sits on the park's south-east corner, so it is reached from the spine on one
-    // side and the office walk on the other — neither walk crosses the flexible lawn
-    id: 'MW', name: 'Spine → market hall (west door)', type: 'secondary', surface: 'secondary', rank: 4, pts: [[-9.4, 42], [-1.6, 42]], width: 3.0, flare: [4, 0],
-    nodes: ['spineMarket', 'marketW'], destinations: ['Market hall (spine entrance)'], lights: { spacing: 6, sides: 'left', offset: 0.5, kind: 'bollard' }, setback: 0.6,
-  },
-  {
-    id: 'ME', name: 'Office walk → market hall (east door)', type: 'secondary', surface: 'secondary', rank: 4, pts: [[19.6, 41], [17.0, 41]], width: 3.0, flare: [4, 0],
-    nodes: ['owMarket', 'marketE'], destinations: ['Market hall (office walk entrance)'], lights: { spacing: 6, sides: 'right', offset: 0.5, kind: 'bollard' }, setback: 0.6,
-  },
-  {
     id: 'OW', name: 'Office walk', type: 'secondary', surface: 'secondary', rank: 4, pts: [[20.2, 0.4], [20.2, HZ]], width: 2.8, flare: [5, 3],
-    nodes: ['promOfficeWalk', 'owMarket', 'officeLobbyW', 'ssOfficeWalk'], destinations: ['Office lobby (park entrance)', 'Office coffee-bar seating', 'South sidewalk'], lights: { spacing: 12, sides: 'left', offset: 0.5, kind: 'ped' }, setback: 0.5,
+    nodes: ['promOfficeWalk', 'officeLobbyW', 'ssOfficeWalk'], destinations: ['Office lobby (park entrance)', 'Office coffee-bar seating', 'South sidewalk'], lights: { spacing: 12, sides: 'left', offset: 0.5, kind: 'ped' }, setback: 0.5,
   },
   {
     // one frontage walk now that the entrance is at the west corner: out of the marquee
@@ -217,13 +205,14 @@ export const ROUTES = [
 export const ENTRANCES = [
   { id: 'E-T1', name: 'Tower 2 lobby forecourt', node: 't1Lobby', poly: rect(-HX, -32.8, -72.7, -24.4), joins: ['swT1', 'arcadeSW'] },
   { id: 'E-T2', name: 'Tower 1 lobby forecourt', node: 't2Lobby', poly: rect(-54.2, 49.1, -45.8, HZ), joins: ['ssT2', 't2Lobby'] },
+  { id: 'E-MUSEUM', name: 'Art museum, east wing — entry forecourt in the passage', node: 'museum', poly: rect(-5.3, 28.2, -3.4, 36.3), joins: ['spineMuseum'] },
+  { id: 'E-MUSEUMW', name: 'Art museum, west wing — entry forecourt in the passage', node: 'museumW', poly: rect(-12.4, 28.2, -10.6, 36.3), joins: ['spineMuseum'] },
   { id: 'E-HOTEL', name: 'Hotel entrance forecourt (under the marquee)', node: 'hotelMain', poly: roundedRectPlan(11.0, -5.2, 22.0, -2.1, 0.5), joins: ['promMarket'] },   // at the tower's base, between it and the promenade
   { id: 'E-OFFS', name: 'Office lobby forecourt', node: 'officeLobbyS', poly: rect(24.5, 47.6, 33.5, HZ), joins: ['ssOffice'] },
   { id: 'E-OFFW', name: 'Office park entrance', node: 'officeLobbyW', poly: rect(21.6, 39.4, 24.45, 47.6), joins: ['officeLobbyW', 'officeLobbyS'] },   // meets the office walk and the south forecourt edge to edge
   { id: 'E-ARRIVAL', name: 'Hotel arrival court', node: 'hotelArrival', poly: rect(67.5, -36, 72.6, -19.9), joins: ['gardenWalkN'] },
   { id: 'E-GALW', name: 'Galleria west portal', node: 'galleriaW', poly: rect(-76.4, 12.7, -72.6, 17.6), joins: ['swGalleria'] },
   { id: 'E-GALE', name: 'Galleria east portal', node: 'galleriaE', poly: rect(-29.4, -1.45, -25.6, 3.45), joins: ['galleriaE'] },
-  { id: 'E-MARKET', name: 'Market hall forecourt (spine side)', node: 'marketW', poly: roundedRectPlan(-3.2, 38.8, -0.6, 45.2, 0.5), joins: ['spineMarket'] },
 ];
 
 // furnishing zones: café seating, benches, bicycle stands — beside, never on, the clear zones
@@ -233,14 +222,11 @@ export const FURNISHING = [
   { id: 'F-PODIUM', kind: 'cafe', name: 'Podium café', rect: [-25.6, -22.0, 18.6, 26.2], cols: [-24.6, -22.9], pitch: 2.6, axis: 'z', umbrellas: 2.6 },
   { id: 'F-PODIUM2', kind: 'cafe', name: 'Podium café (south)', rect: [-25.6, -22.0, 29.8, 38.0], cols: [-24.6, -22.9], pitch: 2.6, axis: 'z', umbrellas: 2.6 },
   { id: 'F-OFFICE', kind: 'cafe', name: 'Office coffee bar', rect: [16.6, 18.9, 21.0, 30.4], cols: [17.8], pitch: 2.7, axis: 'z', umbrellas: 2.4 },
-  { id: 'F-MARKET', kind: 'cafe', name: 'Market hall terrace (under the veranda)', rect: [1.0, 14.6, 30.6, 33.6], rows: [31.4, 32.8], pitch: 3.0, umbrellas: 0 },
   { id: 'F-PROM-S', kind: 'benches', name: 'Promenade benches (office planting strip)', along: 'x', line: 9.35, from: 24, to: 72, pitch: 10, facing: -1 },
   { id: 'F-PARK-W', kind: 'benches', name: 'Garden room benches (west lawn, facing the spine)', along: 'z', line: -11.6, from: 18, to: 48, pitch: 7.5, facing: 1 },
   { id: 'F-PARK-E', kind: 'benches', name: 'Flexible lawn benches (east edge of the spine)', along: 'z', line: -4.2, from: 19, to: 45, pitch: 8.5, facing: -1 },
-  { id: 'F-PARK-S', kind: 'benches', name: 'Flexible lawn benches (market terrace edge)', along: 'x', line: 29.4, from: 1, to: 15, pitch: 6.5, facing: -1 },
   { id: 'F-BIKE-OFF', kind: 'bike', name: 'Bicycle stands (office walk)', at: [25.0, 10.6], count: 4, along: 'x' },
   { id: 'F-BIKE-GAL', kind: 'bike', name: 'Bicycle stands (galleria east)', at: [-23.5, -5.2], count: 4, along: 'x' },
-  { id: 'F-BIKE-MKT', kind: 'bike', name: 'Bicycle stands (market hall, spine side)', at: [-4.0, 36.2], count: 4, along: 'x' },
   { id: 'F-BIKE-HOTEL', kind: 'bike', name: 'Bicycle stands (hotel entrance)', at: [53.8, -3.4], count: 3, along: 'x' },
   { id: 'F-BIKE-T2', kind: 'bike', name: 'Bicycle stands (tower 1 forecourt)', at: [-40.0, 52.6], count: 4, along: 'x' },
   { id: 'F-BIKE-T1', kind: 'bike', name: 'Bicycle stands (tower 2 forecourt)', at: [-78.3, -38.0], count: 4, along: 'z' },

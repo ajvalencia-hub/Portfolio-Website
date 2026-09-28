@@ -7,7 +7,7 @@
 //   8 mechanical screens · 9 storefront · 10 glass guard (see-through) · 11 penthouse glazing
 //   12 Art Deco hotel centrepiece (reeded piers around a central glazed slot)
 //   13 residential garage recess behind the wave screen · 14 perforated metal · 15 breeze block
-//   19 office crown glazing · 21 stacked glass balcony balustrades
+//   19 office crown glazing · 21 stacked glass balcony balustrades · 22 museum curtain wall (see-through)
 //   16–18 paving patterns on horizontal surfaces (square, running bond, concentric)
 // Everything resolves to three channels — glass coverage, white louvre screen
 // coverage and shade — then shares one material response (glass/water sheen,
@@ -107,6 +107,19 @@ const FACADE_GLSL = /* glsl */`
     if (glaze > 9.5 && glaze < 10.5) {
       // glass guard: optional solid upstand (module.x), clear glass, slim white top rail
       return vec3(band(y, botY + gH, topY - 0.07, aaY), 0.0, 1.0);
+    }
+    if (glaze > 21.5 && glaze < 22.5) {
+      // Museum curtain wall: seamless, floor-to-ceiling structural glazing. Each pane runs the
+      // full height of its storey, from the floor plate to the one above, with no sill or head
+      // spandrel, no transom and no fin, on a wide module (module.x). The panes meet at flush
+      // silicone joints: a hairline, half-toned, that fades out entirely with distance, so the
+      // elevation reads as one continuous sheet of glass between the white floor plates. All
+      // panes take the same tint. This is the model's only see-through envelope — you look
+      // through it into the galleries — so the transparency does the work (alpha in
+      // layers/curves.js).
+      float joint = repLine(across, module.x, 0.012, aaX) * (1.0 - smoothstep(0.004, 0.02, aaX));
+      float vision = band(y, botY + 0.015, topY - 0.015, aaY) * (1.0 - 0.5 * joint);
+      return vec3(vision, 0.0, 1.0);
     }
     if (glaze > 20.5 && glaze < 21.5) {
       // stacked balcony balustrades: one frameless glass panel per floor (module.y), each
@@ -268,7 +281,11 @@ export function injectFacade(shader, o) {
       vec3 fac = facade(${o.glaze}, ${o.worldPos}, ${o.across}, ${o.nrm}, ${o.botY}, ${o.topY}, ${o.module}, ${o.ramp});
       float glass = fac.x;
       float water = step(2.5, ${o.glaze}) * (1.0 - step(3.5, ${o.glaze}));
-      float sheen = max(glass, water);
+      // Only glazing takes a view-dependent sheen. Water is lit the same from every side — its
+      // colour is the palette's blue with the ripple moving across it, and it does not wash out
+      // to sky at a low angle or turn deeper looking straight down — so every pool in the model
+      // reads as one colour wherever the camera stands.
+      float sheen = glass;
       // a faint sky gradient inside the glass reads as depth without transparency
       vec3 glassTone = mix(uGlassColor, uGlassColor * 1.3, smoothstep(${o.botY}, ${o.topY}, (${o.worldPos}).y));
       vec3 surface = mix(${o.base}, uScreen, fac.y);
@@ -290,11 +307,13 @@ export function injectFacade(shader, o) {
       roughnessFactor = mix(roughnessFactor, 0.06, sheen);`)
     .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
       // partial metalness turns the glazing into a tinted mirror of the sky
-      metalnessFactor = mix(metalnessFactor, 0.72, glass);
-      metalnessFactor = mix(metalnessFactor, 0.3, water);`)
+      metalnessFactor = mix(metalnessFactor, 0.72, glass);`)
+    .replace('#include <lights_physical_fragment>', `#include <lights_physical_fragment>
+      // no specular on water at all, direct or reflected: that is the view-dependent part
+      if (water > 0.5) { material.specularColor = vec3(0.0); material.specularF90 = 0.0; }`)
     .replace('#include <lights_fragment_maps>', `#include <lights_fragment_maps>
       // matte surfaces take only a little image-based light (the scene lights
-      // carry them); glazing and water take the full reflection
-      iblIrradiance *= mix(0.3, 1.0, sheen);
-      radiance *= mix(0.25, 1.25, sheen);`);
+      // carry them); glazing takes the full reflection, water the full ambient but no reflection
+      iblIrradiance *= mix(0.3, 1.0, max(glass, water));
+      radiance *= mix(0.25, 1.25, sheen) * (1.0 - water);`);
 }

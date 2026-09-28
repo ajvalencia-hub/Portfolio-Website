@@ -8,12 +8,14 @@
 // café terrace on the west, the hotel's west end on the north, the office walk on the
 // east and the south frontage), with planting beds on the outer edges, shade and
 // flowering trees, palms marking each mouth, a bench ring facing the fountain and
-// lanterns between the benches. The market hall (plan/pavilions.js) stands in the south
-// lawn; café seating stays in the furnishing zones beside the podium arcade and the
-// office walk.
+// lanterns between the benches. The art museum (plan/museum.js) now stands on the park's
+// whole south side, out to the boundary on three sides, so the sector lawns and their edge
+// beds stop at its north face; café seating stays in the furnishing zones beside the podium
+// arcade and the office walk.
 import { RES, GLAZE, D2R, circlePlan, rayRadius, insidePlan, partsKit, polarRadius } from './core.js';
 import { placeTrees } from './planting.js';
 import { PLAZA_R, LAWN_TOP, FOUNTAIN_CENTRE, SURFACE, onRoute, inFurnishing, plazaCorridor, TUCK_UNDER, tuckToPaving } from './pedestrian.js';
+import { museumHolds } from './museum.js';
 
 export const FOUNTAIN = { x: FOUNTAIN_CENTRE[0], z: FOUNTAIN_CENTRE[1], basin: 6.1, coping: 0.6, copingH: 0.5, waterY: 0.36 };
 export const PLAZA_DISC = PLAZA_R;
@@ -32,8 +34,15 @@ export const SCULPTURE = { plinthR: 1.7, plinthH: 0.55, coreR: 0.32, plates: 13,
 export const LAWN_BOUNDARY = [
   [-21.8, -12.0],   // west, level with the paseo's south end
   [5.4, -12.0],     // north, stopping short of the hotel's west end
-  [5.4, -6.6],      // down the hotel's west face
-  [18.9, -6.6],     // 1 m clear of the hotel's plaza face
+  // The hotel's plaza frontage. The Deco tower stands 2.4 m proud of the wing, so a single
+  // line 1 m off the wing's face at z = -7.6 ran the lawn and its beds under the tower and
+  // across the guest entrance. The edge now follows the tower's curved plaza corner 1 m
+  // clear, then steps back for the entrance forecourt, which is paved rather than planted.
+  [5.4, -7.6],      // down the hotel's west corner
+  [8.0, -5.5],      // round the tower's curved plaza corner
+  [11.0, -4.2],     // 1 m clear of the tower's plaza face
+  [11.0, -1.4],     // clear of the guest entrance forecourt under the marquee: between the
+  [18.9, -1.4],     // forecourt and the promenade there is paving, not park
   [18.9, 50.6],     // east, against the office-walk margin
   [-21.8, 50.6],    // south frontage
 ];
@@ -86,44 +95,41 @@ function lawnPolygon(s) {
 }
 const LAWNS = SECTORS.map(lawnPolygon).filter(Boolean);
 
-// Palms mark the axes and the mouths only — they are not the shade strategy. They stand
-// just outside the paved ring and flank the park gate; crowns are reserved before trees.
-// [x, z, height] — pairs flanking each plaza mouth and the park gate, heights set by hand
-// so the group reads as a planted marker rather than a row of identical sticks
+// Palms mark the axes and the mouths only — they are not the shade strategy. They stand just
+// outside the paved ring; crowns are reserved before trees. [x, z, height] — a pair flanking
+// each of the four plaza mouths, heights set by hand so the group reads as a planted marker
+// rather than a row of identical sticks. The museum's passage carries its own two pairs.
 const PALM_SPOTS = [
   [4.8, 6.2, 11.5], [4.8, -4.2, 13.0],        // east mouth (promenade to the hotel)
   [-20.8, 6.2, 12.4], [-20.8, -4.2, 10.6],    // west mouth (promenade to the condo portal)
-  [-1.2, 13.4, 13.6], [-14.4, 13.4, 11.2],    // south mouth (spine to the park gate)
   [-2.8, -11.8, 10.8], [-13.2, -11.8, 12.8],  // north mouth (spine to the paseo)
-  [-13.6, 50.2, 12.0], [-2.4, 50.2, 14.2],    // the park gate itself
-  [-4.9, 33.0, 13.4], [17.9, 24.0, 11.8],     // marking the flexible lawn's two long edges
+  // Two pairs have gone, both to the art museum. The park gate's pair stood at z = 50.2, which
+  // is inside the building now that it runs out to the park's south frontage; the palms at the
+  // south mouth of its passage (plan/museum.js) mark the gate instead. The plaza's own south
+  // mouth had a pair at z = 13.4, and the museum's curved north face now stands 1.4 m off the
+  // plaza's paving ring there, so there is no ground left to plant: that mouth is marked by
+  // the 9 m passage portal itself, lit soffit and all, rather than by palms.
 ];
 
-// The park's shade. Broad-canopy trees are placed deliberately rather than scattered, so
-// the rooms read: a bosque in the west garden room, a frame round the flexible lawn's
-// corners, a pair on the market terrace and groups at the plaza mouths. Everything stays
-// out of the 22 × 18 m flexible lawn itself, which is meant to be open. `lite` trees are
-// the ones the mobile tier drops.
-export const FLEX_LAWN = [-5.0, 17.0, 14.2, 32.2];   // x0, x1, z0, z1 — kept clear of trunks
+// The park's shade. Broad-canopy trees are placed deliberately rather than scattered, and
+// `lite` trees are the ones the mobile tier drops.
+//
+// The park used to hold a shaded garden room west of the spine and one open 22 × 18 m lawn
+// east of it. The art museum was built on that lawn, grown out to the park's west, east and
+// south boundaries, and finally curved round the fountain plaza on the north, so the whole of
+// the park's south half is the building. What is left to plant is the ground north and either
+// side of the plaza — the two sector lawns above the promenade, and the two wedges between the
+// plaza's east and west mouths and the museum's north corners. The museum's own south frontage
+// strip is planted in plan/grounds.js, like the condo's and the office's.
 const PARK_TREES = [
-  // west garden room: two staggered rows of broad shade trees over the bench line
-  { x: -19.0, z: 16.0, kind: 'spread', r: 2.7 },
-  { x: -14.6, z: 20.4, kind: 'spread', r: 2.7, lite: true },
-  { x: -19.0, z: 24.8, kind: 'broad', r: 2.1 },
-  { x: -14.6, z: 29.2, kind: 'spread', r: 2.7, lite: true },
-  { x: -19.0, z: 33.6, kind: 'spread', r: 2.7 },
-  { x: -14.6, z: 38.0, kind: 'broad', r: 2.1, flower: true, lite: true },
-  { x: -19.0, z: 42.4, kind: 'spread', r: 2.7 },
-  { x: -14.6, z: 46.8, kind: 'spread', r: 2.6, lite: true },
-  { x: -19.4, z: 49.8, kind: 'round', r: 2.0, flower: true },
-  // south-west quadrant, framing the park gate approach
-  { x: -20.2, z: 11.6, kind: 'round', r: 1.9, flower: true },
+  // the east wedge between the plaza's east mouth and the museum's north-east corner — the
+  // one piece of the park's south half with ground left for canopy trees
+  { x: 10.0, z: 7.2, kind: 'broad', r: 2.0 },
+  { x: 14.5, z: 7.0, kind: 'round', r: 1.7, flower: true },   // the park's flowering accent on both tiers
   // north-west, the paseo's south end
   { x: -20.6, z: -10.6, kind: 'spread', r: 2.7 },
   // north-east, between the plaza and the hotel's west end
   { x: 3.2, z: -10.2, kind: 'broad', r: 2.0 },
-  // east margin, beside the office walk
-  { x: 17.8, z: 15.6, kind: 'round', r: 1.6 },
 ];
 
 // planting beds along the outer edge of each lawn sector, clear of the link corridors
@@ -131,21 +137,40 @@ const BED_TOP = 0.34;
 const BED_POLYS = SECTORS.map((s) => {
   const cA = (r) => Math.asin(Math.min(0.95, (s.c0 + 0.3) / r)), cB = (r) => Math.asin(Math.min(0.95, (s.c1 + 0.3) / r));
   const outer = (t) => boundaryR(t) - 0.45, inner = (t) => Math.max(LAWN_INNER + 1.4, boundaryR(t) - 2.4);
-  const tA = s.a0 + cA(boundaryR(s.a0 + 0.3)), tB = s.a1 - cB(boundaryR(s.a1 - 0.3));
+  let tA = s.a0 + cA(boundaryR(s.a0 + 0.3)), tB = s.a1 - cB(boundaryR(s.a1 - 0.3));
   if (tB - tA < 0.2 || boundaryR(s.mid) < LAWN_INNER + 2.4) return null;
+  // The art museum stands on the park's whole south half — out to the boundary on its west,
+  // east and south sides, and curved round the plaza on the north — so each sector's edge bed
+  // is cut back to the longest stretch of boundary that is still open ground. The shrubs
+  // themselves are already kept out of buildings, but the 0.34 m planter they stand in is not,
+  // and it would otherwise run on under the glass. The same goes for the café terraces on the
+  // park's edge (the office coffee bar stands on it beside the museum): the bed stops where the
+  // terrace's paving begins rather than running on across it and under its umbrellas.
+  const onOpenGround = (t) => ![outer(t), inner(t)].some((r) => museumHolds(...at(r, t), 0.5))
+    && ![outer(t) + 0.3, (outer(t) + inner(t)) / 2, inner(t) - 0.3].some((r) => inFurnishing(...at(r, t), 0.3));
+  let best = null, run = null;
+  for (let i = 0; i <= 64; i++) {
+    const t = tA + ((tB - tA) * i) / 64;
+    if (onOpenGround(t)) { run = run || { a: t, b: t }; run.b = t; }
+    else { if (run && (!best || run.b - run.a > best.b - best.a)) best = run; run = null; }
+  }
+  if (run && (!best || run.b - run.a > best.b - best.a)) best = run;
+  if (!best || best.b - best.a < 0.2) return null;
+  [tA, tB] = [best.a, best.b];
+  const tMid = (tA + tB) / 2;
   const n = 18;
   const ts = Array.from({ length: n + 1 }, (_, i) => tA + ((tB - tA) * i) / n)
     .map((t) => Math.min(Math.max(t, s.a0 + cA(outer(t))), s.a1 - cB(outer(t))));
   const pts = [...ts.map((t) => at(outer(t), t)), ...ts.slice().reverse().map((t) => at(inner(t), t))];
   const width = (t) => outer(t) - inner(t);
-  if (width(s.mid) < 0.9) return null;
+  if (width(tMid) < 0.9) return null;
   return {
     pts,
     stations: (step) => {
       const out = [];
       for (const [row, f] of [[0, 0.3], [1, 0.72]]) {
         const rMid = (t) => inner(t) + width(t) * f;
-        const arc = (tB - tA) * rMid(s.mid);
+        const arc = (tB - tA) * rMid(tMid);
         const cnt = Math.max(2, Math.round(arc / step));
         for (let i = 0; i < cnt; i++) {
           const t = tA + ((tB - tA) * (i + 0.5 * row + 0.25)) / cnt;
@@ -249,17 +274,40 @@ export function parkParts(tier, rand, poles = [], blocked = () => false) {
   trees.push(...placeTrees(candidates, { poles: [...poles, ...reserve, ...seats], blocked: overhangs, gap: 0.15, minScale: 0.55 }));
 
   // beds: two staggered rows of shrubs with flowering and light-foliage accents
-  const shrubAt = (x, z, k, big) => {
+  const shrubAt = (x, z, k, big, bed) => {
     const colors = ['shrub', 'shrubDark', 'shrub', 'shrubLight', 'shrubDark', 'shrubFlower'];
     const c = colors[(k + Math.floor(rand() * 2)) % colors.length];
-    const sz = (big ? 1.3 : 1.0) + rand() * 0.4, h = (big ? 1.2 : 0.8) + rand() * 0.5;
+    let sz = (big ? 1.3 : 1.0) + rand() * 0.4;
+    const h = (big ? 1.2 : 0.8) + rand() * 0.5;
+    // The crown stays inside its own bed. A shrub whose spread would hang over the edge is slid
+    // across the bed — the beds run round the fountain, so across is toward or away from it —
+    // and, at a bed's tapering end, back along it, until it sits inside; only if no position
+    // fits is it taken down a size, and it is left out only if even the smallest cannot fit.
+    const inBed = (cx, cz, w) => Array.from({ length: 8 }, (_, i) => [cx + Math.cos(i * Math.PI / 4) * w / 2, cz + Math.sin(i * Math.PI / 4) * w / 2])
+      .every(([px, pz]) => insidePlan(px, pz, bed.pts));
+    const rl = Math.hypot(x - FOUNTAIN_CENTRE[0], z - FOUNTAIN_CENTRE[1]) || 1;
+    const ux = (x - FOUNTAIN_CENTRE[0]) / rl, uz = (z - FOUNTAIN_CENTRE[1]) / rl;
+    const shifts = [0, -0.1, 0.1, -0.2, 0.2, -0.3, 0.3, -0.4, 0.4, -0.5, 0.5];
+    // near a tapering end of a bed, it may also step back along the bed, away from the tip
+    const along = [0, 0.4, -0.4, 0.8, -0.8];
+    let spot = null;
+    for (const w of [sz, 1.0, 0.8, 0.65].filter((v, i) => i === 0 || v < sz)) {
+      for (const t of along) {
+        const o = shifts.find((d) => inBed(x + ux * d - uz * t, z + uz * d + ux * t, w));
+        if (o !== undefined) { spot = [x + ux * o - uz * t, z + uz * o + ux * t]; sz = w; break; }
+      }
+      if (spot) break;
+    }
+    if (!spot) return;
+    [x, z] = spot;
+    if (onRoute(x, z, sz / 2)) return;          // its whole spread stays off the walk beside the bed
     add('bush', x, BED_TOP + h / 2, z, sz, h, sz, c, C);
   };
   let k = 0;
   for (const bed of BED_POLYS) {
     for (const [x, z, row] of bed.stations(full ? 1.25 : 2.5)) {
-      if (trees.some((t) => Math.hypot(t.x - x, t.z - z) < 0.9) || palms.some((q) => Math.hypot(q.x - x, q.z - z) < 0.8) || onRoute(x, z, 0.6) || blocked(x, z, 0.5)) continue;
-      shrubAt(x, z, k++, row === 0);
+      if (trees.some((t) => Math.hypot(t.x - x, t.z - z) < 0.9) || palms.some((q) => Math.hypot(q.x - x, q.z - z) < 0.8) || onRoute(x, z, 0.6) || inFurnishing(x, z, 0.9) || blocked(x, z, 0.5)) continue;
+      shrubAt(x, z, k++, row === 0, bed);
     }
   }
   // groundcover drifts where the lawns meet the plaza, clear of the link mouths

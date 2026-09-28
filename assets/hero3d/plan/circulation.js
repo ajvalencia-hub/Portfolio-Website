@@ -95,7 +95,7 @@ export function analyseCirculation(plan) {
   for (const e of ENTRANCES) for (const j of e.joins) edges.push([e.node, j, e.id]);
   for (const [k, n] of Object.entries(NODES)) if (n.kind === 'sidewalk') edges.push(['SIDEWALK', k, 'perimeter sidewalk']);
   // destinations served on a route's own length
-  const serves = { cafePodium: ['retailEast'], cafeHotel: ['hotelCafe'], cafeRestaurant: ['hotelRestaurant'], cafeOffice: ['officeLobbyW'], pavilion: ['promMarket'] };
+  const serves = { cafePodium: ['retailEast'], cafeHotel: ['hotelCafe'], cafeRestaurant: ['hotelRestaurant'], cafeOffice: ['officeLobbyW'] };
   for (const [d, via] of Object.entries(serves)) for (const v of via) edges.push([d, v, 'furnishing zone beside the route']);
   const seen = new Set(['SIDEWALK']);
   const queue = ['SIDEWALK'];
@@ -159,7 +159,7 @@ export function analyseCirculation(plan) {
   // arcade depth behind, so they reach further than a door set straight into a facade
   const doorNodes = Object.values(NODES).filter((n) => n.kind === 'door' || (n.kind === 'junction' && /portal/i.test(n.name)))
     .map((n) => ({ at: n.at, r: n.kind === 'door' ? 2.8 : 5.2 }));
-  const inDoor = (q) => Math.min(q.sx, q.sz) <= 0.25 && ['frame', 'guardGlass', 'metal', 'stone', 'lamp'].includes(q.color)
+  const inDoor = (q) => Math.min(q.sx, q.sz) <= 0.25 && ['frame', 'guardGlass', 'metal', 'charcoal', 'stone', 'lamp'].includes(q.color)
     && doorNodes.some((n) => Math.hypot(q.x - n.at[0], q.z - n.at[1]) < n.r);
   const inStore = (q) => inDoor(q) || (insidePlan(q.x, q.z, offsetPlan(PODIUM_PLAN, -3.3)) && q.color !== 'metal')
     || (q.shape === 'cyl' && q.sx > 0.7 && q.sy > 4 && !insidePlan(q.x, q.z, podiumEdge) && insidePlan(q.x, q.z, PODIUM_PLAN));   // the arcade's own columns (2.1 m clear kept)

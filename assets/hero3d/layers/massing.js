@@ -24,6 +24,7 @@ const KIND = {
   lawn:     { fill: 1.0, floor: 0.0 },
   planter:  { fill: 1.0, floor: 0.0 },
   pool:     { fill: 1.0, floor: 0.0 },
+  basinBed: { fill: 1.0, floor: 0.0 },
   context:  { fill: 1.0, floor: 0.3 },
 };
 

@@ -7,7 +7,8 @@
 //   C — office: stacked blocks with modest cantilevered offsets, timber accents
 //       and planted terraces over a parking base served by car lifts
 //   P — public park around a fountain, on the condo entrance axis
-//   M — market hall, promenade pavilion and paseo colonnade holding the park's edges
+//   M — the paseo colonnade holding the paseo's west edge
+//   X — the park's art museum, bridging over the spine on two upper floors
 // Pure data in metres (x = east, z = south, y = up) — no three.js here, so the
 // program can be reasoned about (and validated by tools/hero3d/audit.mjs).
 // The camera views from the south-west: south and west faces are the "front".
@@ -20,7 +21,8 @@ import { HOTEL, hotelMasses, hotelBoxes, hotelSlabs, hotelParts, hotelPoolSpecs 
 import { OFFICE_BLOCKS, OFFICE_PARKING, officeMasses, officeSlabs, officeParts } from './plan/office.js';
 import { FOUNTAIN, PLAZA_DISC, PARK_PATHS, CAFE_ZONES, parkSpecs, parkParts } from './plan/park.js';
 import { officeGarageFacade } from './plan/office-garage.js';
-import { MARKET, PAVILION, MARKET_RECT, PAVILION_RECT, pavilionMasses, pavilionBoxes, pavilionParts } from './plan/pavilions.js';
+import { pavilionMasses, pavilionBoxes, pavilionParts } from './plan/pavilions.js';
+import { MUSEUM_RECT, MUSEUM_PLAN, MUSEUM_BAR_PLAN, museumHolds, museumGradeHolds, museumMasses, museumBoxes, museumSlabs, museumParts } from './plan/museum.js';
 import { streetscapeSpecs, streetscapeSlabs, streetscapeParts, streetscapeEntrances, stations, VERGE_CENTRE, CROSSWALK_SETBACK, DROP_OFFS } from './plan/streetscape.js';
 import { groundsSurfaces, groundsPlanting } from './plan/grounds.js';
 import { ROUTES, FURNISHING, routeCentreline, pedestrianSpecs, pedestrianParts, onRoute, inSight, inFurnishing } from './plan/pedestrian.js';
@@ -88,8 +90,7 @@ function sitePaths(tier, masses, curved, rand) {
   const outline = (m) => rect(m.x - m.w / 2, m.z - m.d / 2, m.x + m.w / 2, m.z + m.d / 2);
   add(PODIUM_PLAN, LAYER.footprint, 0.180, 0.07, { closed: true, y: 0.1 });
   [HOTEL.front, HOTEL.rear, HOTEL.link].forEach((pts, k) => add(pts, LAYER.footprint, 0.190 + k * 0.010, 0.06, { closed: true, y: 0.1 }));
-  add(MARKET.plan, LAYER.footprint, 0.212, 0.06, { closed: true, y: 0.1 });
-  add(PAVILION.roof, LAYER.footprint, 0.216, 0.05, { closed: true, dash: [2.5, 1.5], y: 0.1 });
+  add(MUSEUM_PLAN, LAYER.footprint, 0.212, 0.06, { closed: true, y: 0.1 });
   ['C.baseE', 'C.baseW', 'B.poolbar'].forEach((n, k) =>
     add(outline(byName[n]), LAYER.footprint, 0.220 + k * 0.006, 0.06, { closed: true, y: 0.1 }));
   [curveByName['A.t1.body'].pts, curveByName['A.t2.body'].pts, HOTEL.tower].forEach((pts, k) =>
@@ -151,8 +152,7 @@ function streetGreenery(tier, rand, masses) {
   const keepClear = [
     rect(72, -43, 86, -9), rect(64, -36, 82, -20), rect(72, 13, 86, 30), rect(72, 40, 86, 50),
     rect(-68, -62, -26, -45), rect(38, -62, 66, -50), rect(10, 42, 26, 58),
-    rect(MARKET_RECT[0] - 3, MARKET_RECT[2] - 3, MARKET_RECT[1] + 3, MARKET_RECT[3] + 3),
-    rect(PAVILION_RECT[0] - 1, PAVILION_RECT[2] - 1, PAVILION_RECT[1] + 1, PAVILION_RECT[3] + 1),
+    rect(MUSEUM_RECT[0] - 2, MUSEUM_RECT[2] - 2, MUSEUM_RECT[1] + 2, MUSEUM_RECT[3] + 2),
   ];
   const podiumClear = offsetPlan(PODIUM_PLAN, 2);
   const free = (x, z) => !insidePlan(x, z, podiumClear) && !footprints.some((f) => insidePlan(x, z, f)) && !keepClear.some((f) => insidePlan(x, z, f)) && !onRoute(x, z, 0.8) && !inSight(x, z);
@@ -218,11 +218,11 @@ export function buildSitePlan(tier) {
   const rand = rng(20260913);
   const partsRand = rng(7);
   const officeGarage = officeGarageFacade(tier);
-  const masses = [...hotelBoxes(), ...officeMasses(), ...officeGarage.boxes, ...pavilionBoxes()];
+  const masses = [...hotelBoxes(), ...officeMasses(), ...officeGarage.boxes, ...pavilionBoxes(), ...museumBoxes()];
   const residential = residentialMasses(tier);
   const hotelPool = hotelPoolSpecs(tier);
-  const curved = [...streetscapeSpecs(tier), ...residential.specs, ...hotelMasses(), ...hotelPool.specs, ...pavilionMasses(), ...parkSpecs(tier), ...pedestrianSpecs(tier), ...groundsSurfaces()];
-  const slabs = [...residentialSlabs(), ...hotelSlabs(), ...officeSlabs(), ...streetscapeSlabs(), ...streetscapeEntrances()];
+  const curved = [...streetscapeSpecs(tier), ...residential.specs, ...hotelMasses(), ...hotelPool.specs, ...pavilionMasses(), ...museumMasses(), ...parkSpecs(tier), ...pedestrianSpecs(tier), ...groundsSurfaces()];
+  const slabs = [...residentialSlabs(), ...hotelSlabs(), ...officeSlabs(), ...museumSlabs(), ...streetscapeSlabs(), ...streetscapeEntrances()];
   const boxes = [...masses, ...slabs];   // the development block only — no neighbouring buildings
   const index = Object.fromEntries(boxes.map((b, i) => [b.name, i]));
   boxes.forEach((b) => { b.parentIndex = b.parent ? index[b.parent] : -1; });
@@ -232,13 +232,19 @@ export function buildSitePlan(tier) {
 
   const res = residentialParts(tier, residential.towers, partsRand);
   // pedestrian lights and furnishing first: planting keeps its canopies clear of them
-  const officeRects = ['C.baseE', 'C.baseW', 'C.lobby', 'M.service'].map((n) => boxes[index[n]]).map((b) => [b.x - b.w / 2, b.x + b.w / 2, b.z - b.d / 2, b.z + b.d / 2]);
+  const officeRects = ['C.baseE', 'C.baseW', 'C.lobby'].map((n) => boxes[index[n]]).map((b) => [b.x - b.w / 2, b.x + b.w / 2, b.z - b.d / 2, b.z + b.d / 2]);
   const hotelPlans = [HOTEL.front, HOTEL.tower, HOTEL.rear, HOTEL.link];
   const blocked = (x, z, reach = 0) => insidePlan(x, z, offsetPlan(PODIUM_PLAN, reach)) || hotelPlans.some((p) => insidePlan(x, z, offsetPlan(p, reach)))
     || officeRects.some((r) => inRect(x, z, r, reach)) || inRect(x, z, [1.8, 53.4, -39, -20], reach) || inRect(x, z, [73, 79.5, -42, -10], reach)
-    || insidePlan(x, z, offsetPlan(MARKET.plan, MARKET.canopy.out + reach)) || insidePlan(x, z, offsetPlan(PAVILION.roof, reach))
+    || museumGradeHolds(x, z, reach) || museumHolds(x, z, reach - 1.2)
     || Math.hypot(x - FOUNTAIN.x, z - FOUNTAIN.z) < FOUNTAIN.basin + FOUNTAIN.coping + reach;
   const walk = pedestrianParts(tier, { blocked, groundAt: (x, z) => (inFurnishing(x, z) ? 0.105 : 0.07) });
+  // the planted ground at grade (lawns and beds): the museum's base planting goes only where its
+  // whole spread lands on it, never on the block's paving or a walk
+  const greenPolys = curved.filter((c) => ['lawn', 'bed'].includes(c.kind) && c.y0 < 0.6 && !c.name.startsWith('X.'))
+    .flatMap((c) => (c.type === 'prisms' ? c.parts.map((q) => q.pts) : [c.pts]));
+  const onGreen = (x, z) => greenPolys.some((pl) => insidePlan(x, z, pl));
+  const museum = museumParts(tier, { onGreen });
   const park = parkParts(tier, partsRand, walk.poles, blocked);
   const street = streetGreenery(tier, rand, [...masses, ...slabs]);
   const grounds = groundsPlanting(tier, rng(11), walk.poles);
@@ -255,6 +261,7 @@ export function buildSitePlan(tier) {
     ...street.palms,
     ...penthouse.flatMap((p) => p.palms),
     ...hotel.palms.map((p) => ({ ...p, spin: partsRand() * Math.PI, start: 0.68, dur: 0.05, court: true })),
+    ...museum.palms,
     ...grounds.palms,
     ...park.palms.map((p) => ({ x: p.x, z: p.z, y: 0, h: p.h ?? 8 + partsRand() * 2, r: 2.6 + partsRand() * 0.5, spin: partsRand() * Math.PI, start: 0.68, dur: 0.05 })),
     ...res.palms,
@@ -270,7 +277,7 @@ export function buildSitePlan(tier) {
     boxes,
     index,
     curved,
-    parts: [...res.parts, ...walk.parts, ...penthouse.flatMap((p) => p.parts), ...hotel.parts, ...officeParts(tier, partsRand), ...officeGarage.parts, ...pavilionParts(tier).parts, ...park.parts, ...grounds.parts, ...streetscapeParts(tier, trees, palms)],
+    parts: [...res.parts, ...walk.parts, ...penthouse.flatMap((p) => p.parts), ...hotel.parts, ...officeParts(tier, partsRand), ...officeGarage.parts, ...pavilionParts().parts, ...museum.parts, ...park.parts, ...grounds.parts, ...streetscapeParts(tier, trees, palms)],
     paths: sitePaths(tier, boxes, curved, rand),
     trees,
     palms,
@@ -279,7 +286,7 @@ export function buildSitePlan(tier) {
       { x: -51, z: -1, w: 50, d: 100 },
       ...[HOTEL.front, HOTEL.tower, HOTEL.rear, HOTEL.link].map(rectOfPlan),
       ...['C.baseE', 'C.baseW'].map((n) => boxes[index[n]]),
-      rectOfPlan(MARKET.plan),
+      rectOfPlan(MUSEUM_BAR_PLAN),   // the three-storey bar is the principal mass; the apron is one storey
     ],
     meta: { towers: residential.towers, pool: residential.pool, hotelPool: hotelPool.basin, curveTop, cafeZones: FURNISHING.filter((f) => f.kind === 'cafe'), poles: walk.poles },
   };

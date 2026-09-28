@@ -19,10 +19,16 @@ export const GROUND_LAWNS = [
   ['G.hotelRearW', -1.7, 5.2, -50.5, -39.8],
   ['G.hotelCourtW', -1.7, 5.9, -39.4, -19.6],   // the strip the pool court gave up when the wall came back to the wing line   // ground the rear wing released when the U's arms were squared off
   ['G.hotelGardenS', -5.4, -2.2, -20.4, -11.6],
-  ['G.hotelCorner', -2.0, 5.6, -13.8, -11.6],
+  // The hotel's south-west corner garden. It used to stop at z = -13.8, which left the
+  // pocket between the hotel's west end and the paseo garden with no ground treatment at
+  // all — a bare patch of the block's base paving showing through beside the fountain.
+  // It now runs the full depth of that pocket and laps under the building and the pool
+  // court wall, so grass meets masonry with no sliver between them.
+  ['G.hotelCorner', -2.4, 6.1, -20.4, -11.6],
   // office planting strip along the promenade
   ['G.officeStrip', 22.8, 73.6, 9.2, 12.7],
-  // park margin beside the office walk, south of the pavilion
+  // park margin beside the office walk: the strip the art museum stops short of, between its
+  // east face and the walk, carrying the office coffee bar's terrace along part of its length
   ['G.parkEdgeE', 16.9, 18.9, 14.6, 54.6],
   // hotel entrance gardens
   ['G.hotelGarden0', 59.2, 69.7, -17.4, 1.9],
@@ -31,6 +37,11 @@ export const GROUND_LAWNS = [
   // frontages
   ['G.podiumSouth0', -68.0, -57.5, 51.0, 54.2],
   ['G.podiumSouth1', -42.5, -27.5, 51.0, 54.2],
+  // The art museum's own south frontage. Its street side used to be the park's bare frontage
+  // paving, which read as a glass wall standing on asphalt; it now carries the same planted
+  // strip as the condo podium either side of it and the office beyond, on the same lines, so
+  // the block's whole south frontage is green. The park gate walk crosses it on the spine.
+  ['G.museumSouth', -21.8, 16.6, 51.0, 54.2],
   ['G.podiumWest0', -79.4, -77.2, -45.0, -35.5],
   ['G.podiumWest1', -79.4, -77.2, -21.0, 11.9],
   ['G.podiumWest2', -79.4, -77.2, 18.4, 43.0],
@@ -62,7 +73,7 @@ export function groundsSurfaces() {
 export function groundsPlanting(tier, rand, poles = []) {
   const out = [];
   const K = partsKit(out);
-  const { add, bench } = K;
+  const { add, bench, block } = K;
   const C = 'context';
   const full = tier.name !== 'mobile';
   const trees = [];
@@ -86,6 +97,9 @@ export function groundsPlanting(tier, rand, poles = []) {
   for (const z of [-46.5, -42.2, -17.4]) tree(-4.0, z, 1.5 + rand() * 0.2, { lush: true });         // paseo shade-tree strip, north and south of the court wall
   for (const x of [27.5, 38.0, 48.5, 59.0, 69.5]) tree(x, 11.0, 1.7 + rand() * 0.15, { lush: false }); // office planting strip
   for (const x of [-65.0, -60.5, -39.0, -32.0]) tree(x, 52.6, 1.6 + rand() * 0.2, { lush: false });   // podium south frontage
+  // the museum's south frontage: the same street trees as its neighbours, clear of the park
+  // gate walk on the spine and of the palms flanking the passage's south mouth
+  for (const x of [-19.0, 1.8, 7.6, 13.4]) tree(x, 52.6, 1.6 + rand() * 0.2, { lush: false });
   for (const x of [42.0, 52.0, 62.0]) tree(x, 52.8, 1.7 + rand() * 0.2, { lush: false });            // office south frontage
   // hotel entrance gardens: broad shade trees clear of the hotel canopies, a flowering accent
   // and palm clusters of varied height along the garden walk and the east lawn
@@ -122,10 +136,17 @@ export function groundsPlanting(tier, rand, poles = []) {
     && !planted().some((p) => Math.hypot(p.x - x, p.z - z) < clear) && !poles.some((p) => Math.hypot(p.x - x, p.z - z) < 0.9);
   const colors = ['shrub', 'shrubDark', 'shrub', 'shrubLight', 'shrubDark', 'shrubFlower'];
   let k = 0;
-  const shrub = (x, z, big) => {
+  const shrub = (x, z, big, rect = null) => {
     k++;
-    if (!free(x, z, 1.3)) return;
     const s = (big ? 1.2 : 0.9) + (k % 3) * 0.2, h = (big ? 1.0 : 0.65) + (k % 4) * 0.16;
+    // the crown stays on its own lawn: an edge row is drawn in far enough that nothing hangs
+    // over the paving or the sidewalk beside the bed
+    if (rect) {
+      const r = s / 2 + 0.05;
+      x = rect[1] - rect[0] > 2 * r ? Math.min(Math.max(x, rect[0] + r), rect[1] - r) : (rect[0] + rect[1]) / 2;
+      z = rect[3] - rect[2] > 2 * r ? Math.min(Math.max(z, rect[2] + r), rect[3] - r) : (rect[2] + rect[3]) / 2;
+    }
+    if (!free(x, z, 1.3)) return;
     add('bush', x, LAWN_TOP + h / 2, z, s, h, s, colors[k % colors.length], C);
   };
   const edges = (name, { step = full ? 1.5 : 3.6, inset = 0.55, rows = 2 } = {}) => {
@@ -135,10 +156,10 @@ export function groundsPlanting(tier, rand, poles = []) {
     const [b0, b1] = alongX ? [z0, z1] : [x0, x1];
     const lines = rows === 1 || b1 - b0 < 2.6 ? [(b0 + b1) / 2] : [b0 + inset, b1 - inset];
     lines.forEach((b, li) => {
-      for (let a = a0 + 0.7 + li * step * 0.5; a <= a1 - 0.7; a += step) shrub(...(alongX ? [a, b] : [b, a]), li === 0);
+      for (let a = a0 + 0.7 + li * step * 0.5; a <= a1 - 0.7; a += step) shrub(...(alongX ? [a, b] : [b, a]), li === 0, [x0, x1, z0, z1]);
     });
   };
-  for (const n of ['G.paseoW', 'G.hotelGardenN', 'G.hotelRearW', 'G.hotelCourtW', 'G.hotelGardenS', 'G.hotelGarden0', 'G.hotelGarden1', 'G.hotelGarden2', 'G.podiumSouth0', 'G.podiumSouth1', 'G.officeSouth']) edges(n);
+  for (const n of ['G.paseoW', 'G.hotelGardenN', 'G.hotelRearW', 'G.hotelCourtW', 'G.hotelGardenS', 'G.hotelGarden0', 'G.hotelGarden1', 'G.hotelGarden2', 'G.podiumSouth0', 'G.podiumSouth1', 'G.museumSouth', 'G.officeSouth']) edges(n);
   for (const n of ['G.officeStrip', 'G.parkEdgeE', 'G.hotelCorner', 'G.podiumWest0', 'G.podiumWest1', 'G.podiumWest2', 'G.podiumNorth0', 'G.podiumNorth1', 'G.podiumNorth2', 'G.hotelNorth', 'G.officeEast']) edges(n, { rows: 1, step: full ? 1.4 : 3.4 });
   // groundcover drifts in the larger gardens
   if (full) {
@@ -152,16 +173,28 @@ export function groundsPlanting(tier, rand, poles = []) {
     }
   }
   // the shrub bank at the foot of the pool court wall, two ranks deep, planted tight to the
-  // face so there is no strip of bare wall left below the crowns
-  for (const [x, rank] of [[5.3, 0], [4.35, 1]]) {
+  // face so there is no strip of bare wall left below the crowns. The front rank is sized so its
+  // crowns stop just short of the pilasters on the wall's face (x 5.62) rather than running
+  // into the masonry; the rank behind laps over it.
+  for (const [x, rank, w] of [[5.07, 0, 1.0], [4.35, 1, 1.25]]) {
     let n = 0;
-    for (let z = -38.9 + rank * 0.7; z <= -20.1; z += full ? 1.4 : 2.8, n++) {
+    for (let z = -38.7 + rank * 0.5; z <= -20.1; z += full ? 1.4 : 2.8, n++) {
       if (onRoute(x, z, 0.5) || inSight(x, z)) continue;
       const h = (rank ? 1.9 : 2.5) + (n % 3) * 0.18;
-      add('bush', x, LAWN_TOP + h / 2, z, 1.25 + (n % 2) * 0.2, h, 1.35, n % 3 ? 'shrubDark' : 'shrub', C);
+      add('bush', x, LAWN_TOP + h / 2, z, w + (rank ? (n % 2) * 0.2 : 0), h, 1.35, n % 3 ? 'shrubDark' : 'shrub', C);
     }
   }
-  // low planted island between the hotel arrival drive and the east sidewalk
-  for (let z = -30.6; z <= -21.4; z += full ? 1.1 : 2.2) if (!inSight(79.7, z)) add('bush', 79.72, 0.06 + 0.25, z, 0.5, 0.5, 0.5, 'shrubDark', C);
+  // Low planted island between the hotel arrival drive (to x 79.5) and the east sidewalk (from
+  // x 80): a kerbed planter filling the strip between the hotel's two pylons, with the shrubs
+  // standing in its soil and sized to it, so nothing sits on the drive or hangs over either
+  // edge. Planter and shrubs together stay under 0.9 m, the sight-triangle limit.
+  const island = { x0: 79.53, x1: 79.97, z0: -31.0, z1: -21.0, top: 0.2 };
+  block(island.x0, island.x1, 0.04, island.top, island.z0, island.z1, 'frame', C);                          // kerb
+  block(island.x0 + 0.04, island.x1 - 0.04, island.top, island.top + 0.03, island.z0 + 0.04, island.z1 - 0.04, 'planter', C);   // soil
+  const islandW = island.x1 - island.x0 - 0.12;
+  for (let z = island.z0 + 0.4; z <= island.z1 - 0.4; z += full ? 0.8 : 1.6) {
+    if (inSight((island.x0 + island.x1) / 2, z)) continue;
+    add('bush', (island.x0 + island.x1) / 2, island.top + 0.03 + 0.22, z, islandW, 0.44, 0.6, 'shrubDark', C);
+  }
   return { parts: out, trees, palms };
 }

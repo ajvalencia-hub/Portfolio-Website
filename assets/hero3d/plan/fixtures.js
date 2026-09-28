@@ -63,7 +63,7 @@ export function fixtureKit(K) {
     // swing, clear widths, hardware, thresholds and accessible approach are not designed.
     // Local frame: a along the facade, d outward. Nothing shares a plane with the facade —
     // the reveal and the leaves straddle it, the surround stands proud of it.
-    entranceDoor({ x, z, nx, nz, W, H, leaves = 2, y = 0.03, full = true }) {
+    entranceDoor({ x, z, nx, nz, W, H, leaves = 2, y = 0.03, full = true, stile = 'metal' }) {
       const ux = -nz, uz = nx, ang = Math.atan2(uz, ux);
       const P = (a, d) => [x + ux * a + nx * d, z + uz * a + nz * d];
       const bx = (a, d, y0, h, la, ld, color, phase = 'solid') => oriented(...P(a, d), y0, h, la, ld, ang, color, phase);
@@ -79,18 +79,18 @@ export function fixtureKit(K) {
       for (const s of [-1, 1]) bx(s * (W / 2 + 0.09), 0.03, 0, H + 0.18, 0.18, 0.18, 'frame');    // jamb linings
       bx(0, 0.03, H + 0.02, 0.16, W + 0.36, 0.18, 'frame');                                   // head lining
       if (full) bx(0, 0.03, H - 0.02, 0.035, W - 0.4, 0.10, 'lamp', C);                       // light line in the head
-      bx(0, dd, tH, 0.10, W - 0.02, 0.12, 'metal');                                           // transom bar
+      bx(0, dd, tH, 0.10, W - 0.02, 0.12, stile);                                           // transom bar
       bx(0, dd, tH + 0.06, H - tH - 0.08, W - 0.10, 0.03, 'guardGlass');                      // transom glazing
       const leafW = (W - 0.12) / leaves;
       for (let k = 0; k < leaves; k++) {
         const a = -W / 2 + 0.06 + leafW * (k + 0.5);
         bx(a, dd, y + 0.14, tH - y - 0.18, leafW - 0.11, 0.03, 'guardGlass');                 // glazed leaf
-        for (const s of [-1, 1]) bx(a + s * (leafW / 2 - 0.04), dd, y, tH - y, 0.08, 0.09, 'metal');   // stiles
-        bx(a, dd, tH - 0.08, 0.08, leafW - 0.08, 0.09, 'metal');                              // top rail
-        bx(a, dd, y, 0.16, leafW - 0.08, 0.09, 'metal');                                      // bottom rail
+        for (const s of [-1, 1]) bx(a + s * (leafW / 2 - 0.04), dd, y, tH - y, 0.08, 0.09, stile);   // stiles
+        bx(a, dd, tH - 0.08, 0.08, leafW - 0.08, 0.09, stile);                              // top rail
+        bx(a, dd, y, 0.16, leafW - 0.08, 0.09, stile);                                      // bottom rail
         if (full) {
           const hs = k < leaves / 2 ? 1 : -1;                                                 // handles meet at the middle
-          bx(a + hs * (leafW / 2 - 0.18), 0.085, y + 0.92, 1.06, 0.04, 0.04, 'metal', C);
+          bx(a + hs * (leafW / 2 - 0.18), 0.085, y + 0.92, 1.06, 0.04, 0.04, stile, C);
         }
       }
       bx(0, -0.01, y - 0.09, 0.16, W + 0.3, 0.16, 'stone', C);                                // threshold

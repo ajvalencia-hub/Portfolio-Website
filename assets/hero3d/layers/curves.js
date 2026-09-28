@@ -14,8 +14,11 @@ import { planNormals, offsetPlan } from '../site-plan.js';
 const FLOOR = 3.2;
 // balustrade glazing: which glaze codes are see-through, and how much of what is behind
 // them shows through the pane
-const GLASS_GUARDS = new Set([GLAZE.guard, GLAZE.guardStack]);
+// The see-through surfaces: balcony guards, and the art museum's curtain wall — the one
+// building envelope you look through rather than at. Each carries its own alpha.
+const GLASS_GUARDS = new Set([GLAZE.guard, GLAZE.guardStack, GLAZE.museum]);
 const GUARD_ALPHA = 0.3;
+const GLASS_ALPHA = { [GLAZE.guard]: GUARD_ALPHA, [GLAZE.guardStack]: GUARD_ALPHA, [GLAZE.museum]: 0.34 };
 const UP = new THREE.Vector3(0, 1, 0);
 const DOWN = new THREE.Vector3(0, -1, 0);
 
@@ -409,7 +412,7 @@ function facadeMaterial(palette, kind, opt) {
     color: palette[kind] ?? palette.concrete, roughness: 0.92, metalness: 0,
     transparent: seeThrough, opacity: 1,
   });
-  if (seeThrough) uniforms.uGlassAlpha = { value: GUARD_ALPHA };
+  if (seeThrough) uniforms.uGlassAlpha = { value: GLASS_ALPHA[opt.glaze] ?? GUARD_ALPHA };
   material.extensions = { derivatives: true };
   // The CAD ribs and floor rings (LineSegments, which polygon offset cannot move) lie
   // exactly on these surfaces. Pushing the fill back slightly lets the lines win

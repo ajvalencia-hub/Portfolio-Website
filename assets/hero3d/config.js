@@ -76,6 +76,8 @@ export function readPalette(root = document.documentElement) {
     lawn: '#74b340',     // ground-level lawns (mature, slightly deeper green)
     planter: '#4f9a33',  // planters and planting beds
     pool: '#5ab6c2',     // pools and water features
+    basinBed: '#a6c2c9', // the floor under the museum's water
+    basinFall: '#5ab6c2',// the museum's moving water (weirs, sheets, splash): the same blue as `pool`
     shelf: '#8fd2d8',    // shallow sun shelf and entry steps
     shelfDeep: '#74c6ce',
     spray: '#e6f4f6',    // fountain jets
