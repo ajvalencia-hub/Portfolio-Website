@@ -1,9 +1,9 @@
 // Composition root for the hero massing study. Wires the plan, layers, camera
 // rig, sequence clock and scroll driver together. Imported lazily by boot.js;
 // nothing here touches navigation, copy or project data.
-import { readPalette, PHASES } from './config.js';
+import { readPalette } from './config.js';
 import { buildSitePlan } from './site-plan.js';
-import { Sequence, window01, smootherstep } from './sequence.js';
+import { Sequence } from './sequence.js';
 import { createStage } from './stage.js';
 import { createSkyEnvironment } from './layers/environment.js';
 import { createGrid } from './layers/grid.js';
@@ -66,7 +66,6 @@ export async function createHero({ heroEl, canvasHost, tier, reduced, frozenS })
         curves.update(S);
         landscape.update(S);
         stage.markShadowsDirty();
-        applyExit(S);
         lastS = S;
       }
       busy = rig.update(dt, S) || busy;
@@ -110,13 +109,6 @@ export async function createHero({ heroEl, canvasHost, tier, reduced, frozenS })
       if (copyEl) copyEl.style.visibility = 'hidden';
       canvasHost.style.maskImage = canvasHost.style.webkitMaskImage = 'none';
     }
-  }
-
-  // The stage leaves with the page; the canvas eases back slightly so the
-  // Selected Work section becomes dominant rather than colliding with the model.
-  function applyExit(S) {
-    const fade = smootherstep(window01(S, [PHASES.handoff[0] + 0.04, 1]));
-    canvasHost.style.opacity = (1 - 0.35 * fade).toFixed(3);
   }
 
   // Warm up shaders before the intro clock starts so the drawing never hitches.

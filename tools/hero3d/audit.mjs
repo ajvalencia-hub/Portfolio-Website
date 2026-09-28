@@ -1065,6 +1065,15 @@ function visibility(p, cam) {
 const DEG = Math.PI / 180;
 const camAt = ({ az, el, dist, tx, ty, tz }) => [tx + dist * Math.cos(el * DEG) * Math.sin(az * DEG), ty + dist * Math.sin(el * DEG), tz + dist * Math.cos(el * DEG) * Math.cos(az * DEG)];
 const rigSrc = readFileSync(join(hero, 'camera-rig.js'), 'utf8');
+// The model keeps its full colour to the end of the scroll: nothing eases the hero canvas's
+// opacity down as it hands off to the page, and the road paint does not dim with it.
+{
+  const sceneSrc = readFileSync(join(hero, 'hero-scene.js'), 'utf8');
+  const lineSrc = readFileSync(join(hero, 'layers', 'linework.js'), 'utf8');
+  const fades = [/canvasHost\.style\.opacity\s*=/.test(sceneSrc) && 'canvas opacity', /PHASES\.handoff/.test(lineSrc) && 'linework handoff dimming'].filter(Boolean);
+  check('Rendering', `the model keeps its full colour however far the page is scrolled: nothing fades the canvas or its linework on the way out (${fades.length ? fades.join(', ') : 'no fades'})`,
+    fades.length === 0, fades.join(', '));
+}
 const key = (s) => {
   const m = rigSrc.match(new RegExp(`\\{ s: ${s.toFixed(2)}, az: (-?[\\d.]+), el: (-?[\\d.]+), dist: (-?[\\d.]+), tx: (-?[\\d.]+),\\s*ty: (-?[\\d.]+),\\s*tz: (-?[\\d.]+) \\}`));
   return m ? { az: +m[1], el: +m[2], dist: +m[3], tx: +m[4], ty: +m[5], tz: +m[6] } : null;

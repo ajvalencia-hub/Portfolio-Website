@@ -122,7 +122,6 @@ export function createLinework(paths, palette) {
     update(S) {
       material.uniforms.uS.value = S;
       const mat = w(S, PHASES.materialize);
-      const out = w(S, PHASES.handoff);
       // once built, the construction drawing clears: only road paint on the model's own
       // streets remains (the lane lines and crosswalks are part of the finished model)
       const clear = 1 - w(S, BUILT);
@@ -133,7 +132,7 @@ export function createLinework(paths, palette) {
       alpha[LAYER.footprint] = lerp(0.85, 0.22, w(S, [0.44, 0.58])) * clear;
       alpha[LAYER.tower] = 0.42 * (1 - w(S, [0.38, 0.48]));
       alpha[LAYER.landscape] = 0.5 * clear;
-      alpha[LAYER.markings] = 0.3 * (1 - 0.5 * out);
+      alpha[LAYER.markings] = 0.3;   // road paint holds its strength as the hero scrolls away
       alpha[LAYER.paths] = 0.36 * clear;
       material.uniforms.uOutside.value = clear;
       alpha[LAYER.dimension] = 0.5 * (1 - w(S, [0.4, 0.48]));
