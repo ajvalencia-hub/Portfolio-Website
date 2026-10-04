@@ -116,6 +116,12 @@ export function terraceLayout(ctx, level, K) {
   const deckIn = offsetPlan(level.deck, -0.12);
   const enclCore = level.walkOut.map((p) => offsetPlan(p, -0.7));
   const roofs = level.roofs.map((r) => ({ soffit: r.soffit, poly: offsetPlan(r.poly, 0.3) }));
+  // each basin's outline grown by the clearance it keeps, as a box: a point outside it cannot
+  // be inside the basin or within the clearance of its edge, so the edge walk is skipped
+  const basinBounds = level.basins.map((b) => {
+    const xs = b.outline.map((q) => q[0]), zs = b.outline.map((q) => q[1]), m = EDGE + 0.5;
+    return { outline: b.outline, bb: [Math.min(...xs) - m, Math.max(...xs) + m, Math.min(...zs) - m, Math.max(...zs) + m] };
+  });
   const why = {};
   const fail = (k) => { why[k] = (why[k] || 0) + 1; return false; };
   const fits = (f, rects) => rects.every((q) => {
@@ -124,7 +130,7 @@ export function terraceLayout(ctx, level, K) {
       if (!insidePlan(x, z, canopy ? deckIn : level.guardIn)) return fail('edge');
       if (!canopy) {
         for (const p of (q.nearGlass ? level.faceOut : level.walkOut)) if (insidePlan(x, z, p)) return fail('walk');
-        for (const b of level.basins) if (insidePlan(x, z, b.outline) || segDist(x, z, b.outline) < EDGE + 0.5) return fail('basin');
+        for (const b of basinBounds) if (x > b.bb[0] && x < b.bb[1] && z > b.bb[2] && z < b.bb[3] && (insidePlan(x, z, b.outline) || segDist(x, z, b.outline) < EDGE + 0.5)) return fail('basin');
         for (const c of level.circles) if (Math.hypot(x - c.x, z - c.z) < c.r + 0.5) return fail('circle');
       } else {
         for (const p of enclCore) if (insidePlan(x, z, p)) return fail('canopy-encl');

@@ -150,7 +150,23 @@ export function arcSamples(pts, spacing) {
   return out;
 }
 
+// Bounding boxes of the outlines insidePlan is asked about, so a point far from an outline is
+// rejected without walking its edges. Plans are built once and then only read; the box is
+// re-measured if an outline's length changes, so one still being built cannot go stale.
+const BOUNDS = new WeakMap();
+function boundsOf(poly) {
+  let b = BOUNDS.get(poly);
+  if (b && b[4] === poly.length) return b;
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const [px, pz] of poly) { if (px < x0) x0 = px; if (px > x1) x1 = px; if (pz < z0) z0 = pz; if (pz > z1) z1 = pz; }
+  b = [x0, x1, z0, z1, poly.length];
+  BOUNDS.set(poly, b);
+  return b;
+}
+
 export function insidePlan(x, z, poly) {
+  const b = boundsOf(poly);
+  if (x < b[0] || x > b[1] || z < b[2] || z > b[3]) return false;
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
     const [xi, zi] = poly[i], [xj, zj] = poly[j];

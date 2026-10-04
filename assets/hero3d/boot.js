@@ -41,6 +41,8 @@ function whenIdle(fn) {
 }
 
 async function start() {
+  // performance marks (hero3d:start → hero3d:built → hero3d:ready) time the start-up in DevTools
+  performance.mark?.('hero3d:start');
   const stageEl = heroEl.querySelector('.hero-stage');
   const canvasHost = heroEl.querySelector('.hero-canvas');
   try {

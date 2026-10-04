@@ -1131,6 +1131,34 @@ function visibility(p, cam) {
 const DEG = Math.PI / 180;
 const camAt = ({ az, el, dist, tx, ty, tz }) => [tx + dist * Math.cos(el * DEG) * Math.sin(az * DEG), ty + dist * Math.sin(el * DEG), tz + dist * Math.cos(el * DEG) * Math.cos(az * DEG)];
 const rigSrc = readFileSync(join(hero, 'camera-rig.js'), 'utf8');
+// Load: every module the hero imports at run time is preloaded from the page head (in the
+// hero's own modes only), so the browser fetches the graph in parallel instead of discovering
+// it one import at a time; and the import map sits ahead of every module, or it would be
+// ignored. The graph is walked from boot.js; QA-only modules (?heroPlan) are left out.
+{
+  const htmlSrc = readFileSync(join(hero, '..', '..', 'home.html'), 'utf8');
+  const QA_ONLY = new Set(['layers/qa-overlay.js']);
+  const graph = new Set();
+  const walk = (rel) => {
+    if (graph.has(rel) || QA_ONLY.has(rel)) return;
+    graph.add(rel);
+    const src = readFileSync(join(hero, ...rel.split('/')), 'utf8');
+    for (const m of src.matchAll(/(?:from\s*|import\s*\(\s*|^import\s*)['"](\.{1,2}\/[^'"]+)['"]/gm)) {
+      const parts = [...rel.split('/').slice(0, -1), ...m[1].split('/')];
+      const out = [];
+      for (const q of parts) { if (q === '.' ) continue; if (q === '..') out.pop(); else out.push(q); }
+      walk(out.join('/'));
+    }
+  };
+  walk('boot.js');
+  const listed = new Set(((htmlSrc.match(/HERO3D_MODULES = \[([^\]]*)\]/) || [])[1] || '').split(',').map((q) => q.trim().replace(/'/g, '')).filter(Boolean));
+  const missing = [...graph].filter((m) => !listed.has(m)), extra = [...listed].filter((m) => !graph.has(m));
+  const mapAt = htmlSrc.indexOf('<script type="importmap">'), firstModule = htmlSrc.indexOf('<script type="module"'), preAt = htmlSrc.indexOf('modulepreload');
+  const threePre = /pre\('https:\/\/cdn\.jsdelivr\.net\/npm\/three@[\d.]+\/build\/three\.module\.min\.js', true\)/.test(htmlSrc);
+  check('Load', `the hero's ${graph.size} run-time modules and three.js are preloaded from the page head in parallel (${listed.size} listed, ${missing.length} missing, ${extra.length} extra), only when the 3D hero runs, with the import map ahead of every module`,
+    missing.length === 0 && extra.length === 0 && threePre && mapAt > 0 && mapAt < preAt && mapAt < firstModule && /if \(mode !== 'fallback'\)/.test(htmlSrc),
+    `missing ${missing.join(', ')}; extra ${extra.join(', ')}; map ${mapAt} pre ${preAt} module ${firstModule}`);
+}
 // The model keeps its full colour to the end of the scroll: nothing eases the hero canvas's
 // opacity down as it hands off to the page, and the road paint does not dim with it.
 {

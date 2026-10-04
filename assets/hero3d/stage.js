@@ -139,7 +139,12 @@ export function createStage(host, tier, { onFrame, onResize }) {
     THREE, renderer, scene, camera, sun, size, invalidate, stats,
     get degraded() { return degraded; },
     markShadowsDirty() { if (renderer.shadowMap.enabled) renderer.shadowMap.needsUpdate = true; },
-    compile() { renderer.compile(scene, camera); },
+    // compileAsync links the programs without blocking where KHR_parallel_shader_compile is
+    // available (three r158+); the synchronous compile is the fallback
+    async compile() {
+      if (renderer.compileAsync) await renderer.compileAsync(scene, camera);
+      else renderer.compile(scene, camera);
+    },
     dispose() {
       disposed = true;
       cancelAnimationFrame(raf);

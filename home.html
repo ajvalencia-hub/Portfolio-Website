@@ -25,6 +25,11 @@
   gtag('js', new Date());
   gtag('config', 'G-YJ4JNKEB8W');
 </script>
+<!-- the import map comes before any module or module preload, or browsers ignore it -->
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 <script>
   document.documentElement.classList.add('js');
   /* Hero mode, decided before first paint so the layout never shifts:
@@ -41,6 +46,17 @@
       if (/[?&]hero3d=off/.test(q)) mode = 'fallback';
     } catch (e) { mode = 'fallback'; }
     d.setAttribute('data-hero', mode);
+    /* The 3D hero's code is a graph of small modules the browser would otherwise discover one
+       import at a time. Where the 3D hero will run, every module (and three.js) is requested
+       now, in parallel with the rest of the page, so it is all in hand by the time boot.js
+       starts building. The image fallback fetches none of it. The list is checked against the
+       real import graph by tools/hero3d/audit.mjs. */
+    if (mode !== 'fallback') {
+      var pre = function (href, cross) { var l = document.createElement('link'); l.rel = 'modulepreload'; l.href = href; if (cross) l.crossOrigin = 'anonymous'; document.head.appendChild(l); };
+      pre('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js', true);
+      var HERO3D_MODULES = ['boot.js','hero-scene.js','config.js','site-plan.js','sequence.js','stage.js','camera-rig.js','scroll.js','layers/environment.js','layers/grid.js','layers/linework.js','layers/massing.js','layers/facade-glsl.js','layers/parts.js','layers/curves.js','layers/landscape.js','plan/core.js','plan/residential.js','plan/penthouse-tall.js','plan/penthouse-short.js','plan/penthouse-kit.js','plan/pools.js','plan/fixtures.js','plan/hotel.js','plan/office.js','plan/office-garage.js','plan/park.js','plan/planting.js','plan/pedestrian.js','plan/museum.js','plan/streetscape.js','plan/grounds.js'];
+      for (var i = 0; i < HERO3D_MODULES.length; i++) pre('assets/hero3d/' + HERO3D_MODULES[i]);
+    }
   })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://api.fontshare.com/v2/css?f%5B%5D=satoshi@400,500,700&display=swap" rel="stylesheet" /><link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@900&family=Azeret+Mono:wght@400;700&family=Big+Shoulders+Display:wght@800&family=Chakra+Petch:wght@700&family=Cinzel:wght@700&family=Manrope:wght@800&family=Playfair+Display:wght@900&display=swap" rel="stylesheet" />
@@ -627,9 +643,6 @@
     </div>
   </footer>
 
-<script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
-</script>
 <script type="module" src="assets/hero3d/boot.js"></script>
 <script type="module">
   /* lazy-load three.js + the GLB massing only when a card scrolls near view */

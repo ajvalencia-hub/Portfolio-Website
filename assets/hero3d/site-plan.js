@@ -238,7 +238,13 @@ export function buildSitePlan(tier) {
   // pedestrian lights and furnishing first: planting keeps its canopies clear of them
   const officeRects = ['C.baseE', 'C.baseW', 'C.lobby'].map((n) => boxes[index[n]]).map((b) => [b.x - b.w / 2, b.x + b.w / 2, b.z - b.d / 2, b.z + b.d / 2]);
   const hotelPlans = [HOTEL.front, HOTEL.tower, HOTEL.rear, HOTEL.link];
-  const blocked = (x, z, reach = 0) => insidePlan(x, z, offsetPlan(PODIUM_PLAN, reach)) || hotelPlans.some((p) => insidePlan(x, z, offsetPlan(p, reach)))
+  // the grown outlines are the same for every call at one reach, so they are made once each
+  const grownAt = new Map();
+  const grown = (reach) => {
+    if (!grownAt.has(reach)) grownAt.set(reach, [PODIUM_PLAN, ...hotelPlans].map((pl) => offsetPlan(pl, reach)));
+    return grownAt.get(reach);
+  };
+  const blocked = (x, z, reach = 0) => grown(reach).some((pl) => insidePlan(x, z, pl))
     || officeRects.some((r) => inRect(x, z, r, reach)) || inRect(x, z, [1.8, 53.4, -39, -20], reach) || inRect(x, z, [73, 79.5, -42, -10], reach)
     || museumGradeHolds(x, z, reach) || museumHolds(x, z, reach - 1.2)
     || Math.hypot(x - FOUNTAIN.x, z - FOUNTAIN.z) < FOUNTAIN.basin + FOUNTAIN.coping + reach;

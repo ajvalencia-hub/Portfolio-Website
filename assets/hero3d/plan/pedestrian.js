@@ -489,14 +489,29 @@ export function pedestrianGeometry({ bands = true } = {}) {
 // lawns, so grass can run under them and finish exactly on the path's edge instead of stopping
 // short and leaving a sliver of bare paving between the two.
 let pavedCache = null;
+const PAVED_CELL = 4;
 export function pavedAt(x, z) {
   if (Math.abs(x) > HX || Math.abs(z) > HZ) return true;          // the public sidewalk
   if (Math.hypot(x - F[0], z - F[1]) <= PLAZA_R) return true;      // the fountain plaza
   if (!pavedCache) {
-    pavedCache = [];
-    for (const list of Object.values(pedestrianGeometry().groups)) for (const q of list) pavedCache.push({ pts: q.pts, bb: bboxOf(q.pts) });
+    // every paved polygon, filed under each 4 m cell its box touches, so a lookup reads only
+    // the few that could hold the point instead of the whole network
+    pavedCache = new Map();
+    for (const list of Object.values(pedestrianGeometry().groups)) {
+      for (const q of list) {
+        const e = { pts: q.pts, bb: bboxOf(q.pts) };
+        for (let i = Math.floor(e.bb[0] / PAVED_CELL); i <= Math.floor(e.bb[1] / PAVED_CELL); i++) {
+          for (let j = Math.floor(e.bb[2] / PAVED_CELL); j <= Math.floor(e.bb[3] / PAVED_CELL); j++) {
+            const key = `${i},${j}`;
+            if (!pavedCache.has(key)) pavedCache.set(key, []);
+            pavedCache.get(key).push(e);
+          }
+        }
+      }
+    }
   }
-  return pavedCache.some((q) => x >= q.bb[0] && x <= q.bb[1] && z >= q.bb[2] && z <= q.bb[3] && insidePlan(x, z, q.pts));
+  const cell = pavedCache.get(`${Math.floor(x / PAVED_CELL)},${Math.floor(z / PAVED_CELL)}`);
+  return !!cell && cell.some((q) => x >= q.bb[0] && x <= q.bb[1] && z >= q.bb[2] && z <= q.bb[3] && insidePlan(x, z, q.pts));
 }
 
 // Push a landscape outline out until it runs under the paving beside it. The walks sit
@@ -612,7 +627,9 @@ export function sightZones() {
     return { id, crossing: c.id, rect: [-HX - 4.6, -HX + 2.0, a0, a1] };
   }));
 }
-export const inSight = (x, z) => sightZones().some((s) => x > s.rect[0] && x < s.rect[1] && z > s.rect[2] && z < s.rect[3]);
+// the zones are fixed by the crossings, so they are worked out once for the many point tests
+let sightCache = null;
+export const inSight = (x, z) => (sightCache ||= sightZones()).some((s) => x > s.rect[0] && x < s.rect[1] && z > s.rect[2] && z < s.rect[3]);
 
 export function pedestrianParts(tier, ctx) {
   const out = [];

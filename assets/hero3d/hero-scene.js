@@ -1,7 +1,7 @@
 // Composition root for the hero massing study. Wires the plan, layers, camera
 // rig, sequence clock and scroll driver together. Imported lazily by boot.js;
 // nothing here touches navigation, copy or project data.
-import { readPalette } from './config.js';
+import { readPalette, BUILT } from './config.js';
 import { buildSitePlan } from './site-plan.js';
 import { Sequence } from './sequence.js';
 import { createStage } from './stage.js';
@@ -49,9 +49,15 @@ export async function createHero({ heroEl, canvasHost, tier, reduced, frozenS })
   const parts = createParts(plan, palette, tier);
   const curves = createCurves(plan, palette, tier);
   const landscape = createLandscape(plan, palette, tier);
+  performance.mark?.('hero3d:built');
 
   let rig = null;
   let lastS = -1;
+  // The shadow map is drawn in world space, so it only needs redrawing while something on the
+  // model is still rising or growing. Past the moment the last mass, tree, palm and car has
+  // finished, scrolling only moves the camera, and the map drawn then stays right.
+  const settleS = Math.max(BUILT[1], ...[...plan.boxes, ...plan.curved, ...plan.trees, ...plan.palms, ...plan.cars]
+    .map((o) => (o.start ?? 0) + (o.dur ?? 0))) + 0.005;
 
   const stage = createStage(canvasHost, tier, {
     onResize: (w, h) => rig?.setViewport(w, h),
@@ -65,7 +71,7 @@ export async function createHero({ heroEl, canvasHost, tier, reduced, frozenS })
         parts.update(S);
         curves.update(S);
         landscape.update(S);
-        stage.markShadowsDirty();
+        if (S < settleS || lastS < settleS) stage.markShadowsDirty();
         lastS = S;
       }
       busy = rig.update(dt, S) || busy;
@@ -113,11 +119,14 @@ export async function createHero({ heroEl, canvasHost, tier, reduced, frozenS })
 
   // Warm up shaders before the intro clock starts so the drawing never hitches.
   // Compile first: layers hide not-yet-visible meshes on update, and compile skips hidden objects.
+  // Where the browser can link shaders in parallel, this happens off the main thread, so the
+  // page stays responsive while the GPU programs are built; the intro starts once they are.
   rig.update(1 / 60, sequence.S);
-  stage.compile();
+  await stage.compile();
   massing.update(0); parts.update(0); curves.update(0); landscape.update(0); lines.update(0); grid.update(0);
   lastS = -1;   // force the next frame to re-apply the sequence (a frame may already have run)
   heroEl.classList.add('is-3d-ready');
+  performance.mark?.('hero3d:ready');
   sequence.start(performance.now());
   stage.invalidate();
 
