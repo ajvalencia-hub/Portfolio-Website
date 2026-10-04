@@ -80,6 +80,7 @@
     --concrete-light: #f1ebdf;
     --concrete-dark: #b0a48d;
     --cream: #e5e0d2;
+    --blueprint: #f2e9d5;   /* the wireframe figures' drafting sheet: a warm cream, a shade lighter and yellower than the page */
     --ink: #1f1d18;
     --muted: #47432f;
     --faint: #58533f;
@@ -289,7 +290,7 @@
   .card-media { position: relative; overflow: hidden; border-right: 2px solid var(--ink); background: var(--concrete-dark); }
   .card-media img { width: 100%; height: 100%; object-fit: cover; transition: transform 700ms cubic-bezier(0.22,1,0.36,1); }
   .card:hover .card-media img { transform: scale(1.05); }
-  .card-media.blueprint { background-color: var(--concrete-dark); background-image: linear-gradient(rgba(31,29,24,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(31,29,24,0.12) 1px, transparent 1px); background-size: 38px 38px; display: flex; align-items: center; justify-content: center; }
+  .card-media.blueprint { background-color: var(--blueprint); background-image: linear-gradient(rgba(31,29,24,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(31,29,24,0.12) 1px, transparent 1px); background-size: 38px 38px; display: flex; align-items: center; justify-content: center; }
   .card-media .rt-idx { font-family: var(--font-display); font-size: clamp(120px, 16vw, 200px); line-height: 1; color: rgba(31,29,24,0.16); }
   .card-media .rt-tag { position: absolute; left: 0; bottom: 0; background: var(--ink); color: var(--cream); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; padding: 7px 14px; z-index: 3; }
   /* orange wireframe massing cell */
