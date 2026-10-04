@@ -7,7 +7,6 @@
 //   C — office: stacked blocks with modest cantilevered offsets, timber accents
 //       and planted terraces over a parking base served by car lifts
 //   P — public park around a fountain, on the condo entrance axis
-//   M — the paseo colonnade holding the paseo's west edge
 //   X — the park's art museum, bridging over the spine on two upper floors
 // Pure data in metres (x = east, z = south, y = up) — no three.js here, so the
 // program can be reasoned about (and validated by tools/hero3d/audit.mjs).
@@ -21,8 +20,7 @@ import { HOTEL, hotelMasses, hotelBoxes, hotelSlabs, hotelParts, hotelPoolSpecs 
 import { OFFICE_BLOCKS, OFFICE_PARKING, officeMasses, officeSlabs, officeParts } from './plan/office.js';
 import { FOUNTAIN, PLAZA_DISC, PARK_PATHS, CAFE_ZONES, parkSpecs, parkParts } from './plan/park.js';
 import { officeGarageFacade } from './plan/office-garage.js';
-import { pavilionMasses, pavilionBoxes, pavilionParts } from './plan/pavilions.js';
-import { MUSEUM_RECT, MUSEUM_PLAN, MUSEUM_BAR_PLAN, museumHolds, museumGradeHolds, museumMasses, museumBoxes, museumSlabs, museumParts } from './plan/museum.js';
+import { MUSEUM, MUSEUM_RECT, MUSEUM_GROUND_W, MUSEUM_GROUND_E, MUSEUM_L2_PLAN, MUSEUM_L3_PLAN, MUSEUM_BAR_PLAN, museumHolds, museumGradeHolds, museumMasses, museumBoxes, museumSlabs, museumParts } from './plan/museum.js';
 import { streetscapeSpecs, streetscapeSlabs, streetscapeParts, streetscapeEntrances, stations, VERGE_CENTRE, CROSSWALK_SETBACK, DROP_OFFS } from './plan/streetscape.js';
 import { groundsSurfaces, groundsPlanting } from './plan/grounds.js';
 import { ROUTES, FURNISHING, routeCentreline, pedestrianSpecs, pedestrianParts, onRoute, inSight, inFurnishing } from './plan/pedestrian.js';
@@ -73,7 +71,10 @@ function sitePaths(tier, masses, curved, rand) {
 
   add(rect(-HX, -HZ, HX, HZ), LAYER.property, 0.100, 0.09, { closed: true, y: 0.08 });
   add(rect(-HX + 4, -HZ + 4, HX - 4, HZ - 4), LAYER.parcel, 0.160, 0.09, { closed: true, dash: [3, 2] });
-  add([[-20, -HZ], [-20, HZ]], LAYER.parcel, 0.180, 0.07, { dash: [6, 3] });
+  // the park parcel's west line steps out round the museum's west wing, which stands 1.8 m
+  // past it, rather than being drawn straight through the building
+  const px = MUSEUM.x0 - 0.4;
+  add([[-20, -HZ], [-20, MUSEUM.zn - 1.0], [px, MUSEUM.zn - 1.0], [px, HZ]], LAYER.parcel, 0.180, 0.07, { dash: [6, 3] });
   add([[-20, 5], [HX, 5]], LAYER.parcel, 0.195, 0.06, { dash: [6, 3] });
   add([[20, 5], [20, HZ]], LAYER.parcel, 0.205, 0.05, { dash: [6, 3] });
 
@@ -90,7 +91,10 @@ function sitePaths(tier, masses, curved, rand) {
   const outline = (m) => rect(m.x - m.w / 2, m.z - m.d / 2, m.x + m.w / 2, m.z + m.d / 2);
   add(PODIUM_PLAN, LAYER.footprint, 0.180, 0.07, { closed: true, y: 0.1 });
   [HOTEL.front, HOTEL.rear, HOTEL.link].forEach((pts, k) => add(pts, LAYER.footprint, 0.190 + k * 0.010, 0.06, { closed: true, y: 0.1 }));
-  add(MUSEUM_PLAN, LAYER.footprint, 0.212, 0.06, { closed: true, y: 0.1 });
+  // the museum: its two ground-floor wings either side of the passage, then the two gallery
+  // floors stepped back above them, dashed like every other upper volume
+  [MUSEUM_GROUND_W, MUSEUM_GROUND_E].forEach((pts, k) => add(pts, LAYER.footprint, 0.212 + k * 0.006, 0.06, { closed: true, y: 0.1 }));
+  [MUSEUM_L2_PLAN, MUSEUM_L3_PLAN].forEach((pts, k) => add(pts, LAYER.tower, 0.245 + k * 0.008, 0.05, { closed: true, dash: [2.5, 1.5], y: 0.1 }));
   ['C.baseE', 'C.baseW', 'B.poolbar'].forEach((n, k) =>
     add(outline(byName[n]), LAYER.footprint, 0.220 + k * 0.006, 0.06, { closed: true, y: 0.1 }));
   [curveByName['A.t1.body'].pts, curveByName['A.t2.body'].pts, HOTEL.tower].forEach((pts, k) =>
@@ -218,10 +222,10 @@ export function buildSitePlan(tier) {
   const rand = rng(20260913);
   const partsRand = rng(7);
   const officeGarage = officeGarageFacade(tier);
-  const masses = [...hotelBoxes(), ...officeMasses(), ...officeGarage.boxes, ...pavilionBoxes(), ...museumBoxes()];
+  const masses = [...hotelBoxes(), ...officeMasses(), ...officeGarage.boxes, ...museumBoxes()];
   const residential = residentialMasses(tier);
   const hotelPool = hotelPoolSpecs(tier);
-  const curved = [...streetscapeSpecs(tier), ...residential.specs, ...hotelMasses(), ...hotelPool.specs, ...pavilionMasses(), ...museumMasses(), ...parkSpecs(tier), ...pedestrianSpecs(tier), ...groundsSurfaces()];
+  const curved = [...streetscapeSpecs(tier), ...residential.specs, ...hotelMasses(), ...hotelPool.specs, ...museumMasses(), ...parkSpecs(tier), ...pedestrianSpecs(tier), ...groundsSurfaces()];
   const slabs = [...residentialSlabs(), ...hotelSlabs(), ...officeSlabs(), ...museumSlabs(), ...streetscapeSlabs(), ...streetscapeEntrances()];
   const boxes = [...masses, ...slabs];   // the development block only — no neighbouring buildings
   const index = Object.fromEntries(boxes.map((b, i) => [b.name, i]));
@@ -277,7 +281,7 @@ export function buildSitePlan(tier) {
     boxes,
     index,
     curved,
-    parts: [...res.parts, ...walk.parts, ...penthouse.flatMap((p) => p.parts), ...hotel.parts, ...officeParts(tier, partsRand), ...officeGarage.parts, ...pavilionParts().parts, ...museum.parts, ...park.parts, ...grounds.parts, ...streetscapeParts(tier, trees, palms)],
+    parts: [...res.parts, ...walk.parts, ...penthouse.flatMap((p) => p.parts), ...hotel.parts, ...officeParts(tier, partsRand), ...officeGarage.parts, ...museum.parts, ...park.parts, ...grounds.parts, ...streetscapeParts(tier, trees, palms)],
     paths: sitePaths(tier, boxes, curved, rand),
     trees,
     palms,
