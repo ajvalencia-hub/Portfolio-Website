@@ -101,14 +101,32 @@ export async function createHero({ heroEl, canvasHost, tier, reduced, frozenS })
 
   // Narrow layouts stack the copy above the model: measure where the copy ends so the
   // rig can fit the model below it, and start the canvas's top fade just above that line.
+  // The model is centred between the copy and the next section's heading as it stands when
+  // the stage releases (its layout position below the hero, added to the canvas height —
+  // offsets, so its entrance animation does not move the target).
   const copyEl = heroEl.querySelector('.hero-copy');
+  const nextHead = heroEl.nextElementSibling?.querySelector('h1, h2, h3');
+  const docTop = (el) => { let y = 0; for (let e = el; e; e = e.offsetParent) y += e.offsetTop; return y; };
+  // the space a line box adds above and below its type
+  const halfLeading = (el) => {
+    const s = el && getComputedStyle(el);
+    const lh = s && parseFloat(s.lineHeight);
+    return lh ? Math.max(0, (lh - parseFloat(s.fontSize)) / 2) : 0;
+  };
   const measureCopy = () => {
     const host = canvasHost.getBoundingClientRect();
     if (!copyEl || host.height < 1) return;
-    const bottom = copyEl.getBoundingClientRect().bottom - host.top + 20;   // 20 px breathing room
-    const fraction = Math.min(0.8, Math.max(0, bottom / host.height));
+    const copyEnd = copyEl.getBoundingClientRect().bottom - host.top;
+    const fraction = Math.min(0.8, Math.max(0, (copyEnd + 20) / host.height));   // 20 px breathing room
     canvasHost.style.setProperty('--hero-copy-end', `${(fraction * 100).toFixed(1)}%`);
     rig.setSafeTop(fraction);
+    if (nextHead) {
+      const box = nextHead.parentElement;
+      const headTop = docTop(box) + nextHead.getBoundingClientRect().top - box.getBoundingClientRect().top;
+      const below = host.height + headTop - (docTop(heroEl) + heroEl.offsetHeight) + halfLeading(nextHead);
+      const above = copyEnd - halfLeading(copyEl.lastElementChild);
+      rig.setCentre((above + below) / 2 / host.height);
+    }
   };
   measureCopy();
   if (copyEl) new ResizeObserver(measureCopy).observe(copyEl);

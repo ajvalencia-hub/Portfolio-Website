@@ -70,6 +70,11 @@
       "name": "Revision: car mix and mobile framing",
       "settings": "audit desktop + mobile tiers; in-app browser, 375 × 812 mobile emulation, frozen at S 0.92 (?heroS), new and previous versions compared at the same scroll position",
       "result": "Body type and paint are now dealt per group (each lane loop, and the parked and arrival cars) from their own seeded stream: desktop travelling cars 10 sedans / 6 SUVs (3 SUVs on each loop) in 8 paints, parked and arrival 10 / 7; red down from 9 of 33 cars to 3. Car positions, headings and timing, trees, palms and parts byte-identical to the previous revision. Mobile framing: the model sits in the lower part of the band below the hero copy instead of centred — vertical lens shift −0.509 → −0.553 NDC, ≈ 16 px lower on a 724 px canvas, still clear of the canvas's bottom fade; desktop framing unchanged (wide layouts do not use the narrow fit)."
+    },
+    {
+      "name": "Revision: narrow-layout model centred between the hero copy and the Selected Work heading",
+      "settings": "in-app browser emulation at 360 × 740, 375 × 667, 375 × 812, 430 × 932 and 768 × 1024, frozen at S 0.92 (?heroS), scrolled so the copy and the heading are both on screen; gaps measured from screenshots between the last line of the copy and the model's top, and the model's bottom and the heading's cap line",
+      "result": "Replaces the previous revision's fixed downward offset. Gaps above / below the model: 98 / 97 px (360 × 740), 71 / 71 px (375 × 667, model fitted slightly smaller), 81 / 78 px (375 × 812), 133 / 128 px (430 × 932), 95 / 90 px (768 × 1024). Before: 73 / 140 px at 375 × 812. The Work section's top padding is 3vh instead of 10vh on narrow screens while the 3D hero runs, so the centred model clears the canvas's bottom fade. Wide layouts unchanged."
     }
   ],
   "notPerformed": [

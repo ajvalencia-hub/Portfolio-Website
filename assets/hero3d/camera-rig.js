@@ -111,14 +111,14 @@ export function createCameraRig(camera, tier, { reduced, dragTarget = null }) {
   // between the bottom of the copy (safeTop, a fraction of the canvas height) and the
   // bottom of the canvas: its projected bounds are measured over the resting camera
   // poses, then the camera distance and lens shift are chosen so it fills that band
-  // without reaching the copy or the edges. Where the width limits it, the room left over in
-  // the band goes mostly above the model (NARROW_DROP of it, at most NARROW_DROP_MAX in NDC),
-  // setting it a little lower than centred. Cached until the viewport, copy or plan change.
+  // without reaching the copy or the edges. It is centred on centreAt (a fraction of the
+  // canvas height: midway between the copy and the next section's heading, set by
+  // hero-scene.js). Cached until the viewport, copy or plan change.
   let safeTop = null;
+  let centreAt = null;
   let bounds = null;
   let narrowFit = null;
   const NARROW_POSES = [0.65, 0.80, 0.92];
-  const NARROW_DROP = 0.4, NARROW_DROP_MAX = 0.07;
   function fitNarrow(aspect) {
     const cam = camera.clone();
     const v = camera.position.clone();
@@ -141,7 +141,12 @@ export function createCameraRig(camera, tier, { reduced, dragTarget = null }) {
       }
       return e;
     };
-    const top = 1 - 2 * safeTop, bottom = -1 + 2 * 0.04;   // NDC band below the copy
+    let top = 1 - 2 * safeTop, bottom = -1 + 2 * 0.04;   // NDC band below the copy
+    // centred on a target: fit into the widest band symmetric about it (on short screens the
+    // model comes out a little smaller rather than off centre)
+    const want = centreAt == null ? null : 1 - 2 * centreAt;
+    const half = want == null ? 0 : Math.min(top - want, want - bottom);
+    if (half > 0) { top = want + half; bottom = want - half; }
     const availH = top - bottom, availW = 2 * 0.92;
     let scale = Math.min(2.6, 1.25 / Math.max(aspect, 0.35));
     for (let i = 0; i < 3; i++) {   // projected size ≈ 1 / distance: converge in a few steps
@@ -150,8 +155,7 @@ export function createCameraRig(camera, tier, { reduced, dragTarget = null }) {
       scale /= Math.min(grow, 1.4);
     }
     const e = extent(scale);
-    const drop = Math.min(NARROW_DROP_MAX, NARROW_DROP * Math.max(0, availH - (e.y1 - e.y0)));
-    return { aspect, fit: scale, shiftX: -(e.x0 + e.x1) / 2, shiftY: (top + bottom) / 2 - (e.y0 + e.y1) / 2 - drop };
+    return { aspect, fit: scale, shiftX: -(e.x0 + e.x1) / 2, shiftY: (top + bottom) / 2 - (e.y0 + e.y1) / 2 };
   }
 
   function layout() {
@@ -173,6 +177,8 @@ export function createCameraRig(camera, tier, { reduced, dragTarget = null }) {
     setViewport(w, h) { viewport.w = w; viewport.h = h; narrowFit = null; },
     // narrow layouts: fraction of the canvas height covered by the copy, and [x, y, z] points bounding the model
     setSafeTop(fraction) { if (fraction !== safeTop) { safeTop = fraction; narrowFit = null; rig.onChange?.(); } },
+    // narrow layouts: fraction of the canvas height the model is centred on (null: the band's middle)
+    setCentre(fraction) { if (fraction !== centreAt) { centreAt = fraction; narrowFit = null; rig.onChange?.(); } },
     setBounds(points) { bounds = points; narrowFit = null; },
     // returns true while the parallax is still settling
     update(dt, S) {
