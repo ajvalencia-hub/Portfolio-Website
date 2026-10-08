@@ -24,6 +24,7 @@ import { MUSEUM, MUSEUM_RECT, MUSEUM_GROUND_W, MUSEUM_GROUND_E, MUSEUM_L2_PLAN, 
 import { streetscapeSpecs, streetscapeSlabs, streetscapeParts, streetscapeEntrances, stations, VERGE_CENTRE, CROSSWALK_SETBACK, DROP_OFFS } from './plan/streetscape.js';
 import { groundsSurfaces, groundsPlanting } from './plan/grounds.js';
 import { ROUTES, FURNISHING, routeCentreline, pedestrianSpecs, pedestrianParts, onRoute, inSight, inFurnishing } from './plan/pedestrian.js';
+import { LANE_HALF } from './plan/traffic.js';
 
 export { LAYER, LAYER_COUNT, GLAZE, BLOCK, planNormals, offsetPlan, insidePlan };
 
@@ -177,19 +178,24 @@ function streetGreenery(tier, rand, masses) {
 }
 
 // Cars drive on the right: each travel lane carries its heading (rot turns the car's
-// +x front toward it), and a parking lane runs along the block-side curb.
+// +x front toward it), and a parking lane runs along the block-side curb. Travelling cars
+// carry the loop their lane belongs to (plan/traffic.js) and circulate on it once built.
 const HEAD = { east: 0, west: Math.PI, south: -Math.PI / 2, north: Math.PI / 2 };
 function streetCars(tier, rand) {
   const cars = [];
   const car = (x, z, rot, extra = {}) => cars.push({ x, z, y: 0.02, rot, type: rand() < 0.35 ? 'suv' : 'sedan', paint: Math.floor(rand() * 9), start: 0.70 + rand() * 0.07, dur: 0.035, ...extra });
   const lanes = [];
+  // the lane nearer the block is the inner loop on every side
+  const loop = (c, centre) => (Math.abs(c) < Math.abs(centre) ? 'inner' : 'outer');
   for (const zc of [-PITCH_Z / 2, PITCH_Z / 2]) {
-    lanes.push({ axis: 'x', c: zc + 2.0, rot: HEAD.east, from: -PITCH_X / 2 + 12, to: PITCH_X / 2 - 12 });
-    lanes.push({ axis: 'x', c: zc - 2.0, rot: HEAD.west, from: -PITCH_X / 2 + 12, to: PITCH_X / 2 - 12 });
+    for (const [c, rot] of [[zc + LANE_HALF, HEAD.east], [zc - LANE_HALF, HEAD.west]]) {
+      lanes.push({ axis: 'x', c, rot, loop: loop(c, zc), from: -PITCH_X / 2 + 12, to: PITCH_X / 2 - 12 });
+    }
   }
   for (const xc of [-PITCH_X / 2, PITCH_X / 2]) {
-    lanes.push({ axis: 'z', c: xc - 2.0, rot: HEAD.south, from: -PITCH_Z / 2 + 12, to: PITCH_Z / 2 - 12 });
-    lanes.push({ axis: 'z', c: xc + 2.0, rot: HEAD.north, from: -PITCH_Z / 2 + 12, to: PITCH_Z / 2 - 12 });
+    for (const [c, rot] of [[xc - LANE_HALF, HEAD.south], [xc + LANE_HALF, HEAD.north]]) {
+      lanes.push({ axis: 'z', c, rot, loop: loop(c, xc), from: -PITCH_Z / 2 + 12, to: PITCH_Z / 2 - 12 });
+    }
   }
   let guard = 0;
   while (cars.length < tier.cars && guard++ < 400) {
@@ -200,7 +206,7 @@ function streetCars(tier, rand) {
     if (cars.some((c) => Math.hypot(c.x - x, c.z - z) < 9)) continue;   // travel lanes 2.0 m either side of the centreline
     // keep clear of the crosswalks near each corner
     if (lane.axis === 'x' ? Math.abs(Math.abs(x) - (PITCH_X / 2 - CROSSWALK_SETBACK)) < 4.5 : Math.abs(Math.abs(z) - (PITCH_Z / 2 - CROSSWALK_SETBACK)) < 4.5) continue;
-    car(x, z, lane.rot);
+    car(x, z, lane.rot, { lane: lane.loop });
   }
   // parallel-parked along the block-side curbs, clear of curb cuts and corners
   const P = PITCH_Z / 2 - 5.3, Q = PITCH_X / 2 - 5.3;   // 2.4 m parking lane against the 13 m curb-to-curb street

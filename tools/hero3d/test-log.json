@@ -60,13 +60,18 @@
       "name": "Revision: pedestrian circulation network and penthouse redesign",
       "settings": "audit desktop + mobile tiers (175 checks incl. 12 circulation checks and the rewritten penthouse checks); headless SwiftShader renders: hero, top-down with ?heroPlan=circulation overlay, promenade, both penthouses; in-app browser real GPU desktop 1350 × 910 and 390-class mobile emulation 375 × 812",
       "result": "175/175 pass; 26/26 destinations reachable from the public sidewalks, 0 dead ends, 0 clear-zone obstructions, 0 vehicle conflicts, 7 raised continuous driveway crossings, coplanar scan clean. Real GPU desktop: 132 draw calls, ≈ 244,000 triangles, ≈ 2 ms CPU/frame, idle 1 frame in 3 s after load. Mobile emulation: 120 draw calls (was 112), ≈ 166,000 triangles (was ≈ 147,000), ≈ 1.8 ms CPU/frame on the desktop GPU, 0 idle frames, no runtime errors. Mobile menu: toggle background transparent, menu panel uses the page texture and wash with no shadow (verified by computed style and screenshot at 375 px)."
+    },
+    {
+      "name": "Revision: street traffic (travelling cars circulate at 30 fps, no shadow-map redraw)",
+      "settings": "measured 2026-10-08 on a different machine from the entries above: in-app browser, ANGLE / Intel integrated graphics (D3D11), canvas 951 × 822, DPR 1, desktop tier, shadows on; local static server; frame counts taken only over windows with no pointer, wheel or key input. Mobile tier checked by 375 × 812 emulation.",
+      "result": "309/309 scripted checks pass, including the new traffic check on both tiers; car, tree and palm placement byte-identical to the previous revision. Traffic in view, no input: 30.4 fps (90 frames in 3 s), traffic clock in step with wall time; while dragging or scrolling: display rate (60 fps) as before. 0 frames over 3 s at the top of the page (cars not yet built), with the hero scrolled off screen, and with ?heroTraffic=off on the finished model. GPU time per frame for the whole scene, measured on the live site before this change: ≈ 3.2 ms (≈ 4.1 ms when the shadow map is redrawn, which the traffic avoids). Contact shadow beside a travelling car in sun ≈ 13 % darker than the open road, fading out ≈ 1.6 m from the car; 0 change on open road. Travelling batches cast no shadow-map shadow. Mobile emulation: 6 travelling cars (4 sedans, 2 SUVs) in their own batches, shadows off, no runtime errors; frame pacing not measured on the mobile tier (the pane was hidden, which pauses the page). The desktop tier's 16 travelling cars are all sedans — an outcome of the seeded placement, unchanged by this revision."
     }
   ],
   "notPerformed": [
     "No physical phone or tablet was tested. Mobile results above come from desktop emulation and headless Chrome and are not device validation.",
-    "No low-end or integrated GPU was tested; SwiftShader renders confirm correctness only, not performance.",
+    "No low-end GPU was tested; an integrated (Intel) GPU was used only for the street-traffic revision. SwiftShader renders confirm correctness only, not performance.",
     "No Safari / iOS WebKit or Firefox testing.",
-    "No thermal, battery or long-session memory testing.",
+    "No thermal, battery or long-session memory testing — now more relevant, since the hero draws continuously (30 fps) while the street traffic is in view.",
     "No accessibility audit of the page beyond reduced-motion behaviour; curve ramps and tactile strips are representational, not checked against accessibility standards.",
     "Frame times are display-refresh limited on the test machine; GPU frame cost under load was not profiled.",
     "Reduced-motion and no-WebGL fallbacks were not re-run after this revision (they are unchanged code paths)."

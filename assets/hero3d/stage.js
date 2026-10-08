@@ -1,7 +1,11 @@
 // Renderer, scene, camera and lights, plus a render-on-demand loop that only
 // runs while something is changing and pauses when the tab is hidden or the
 // hero is off-screen. Includes a one-step adaptive quality downgrade.
+// Ambient motion (the street traffic) keeps the loop going on its own at a reduced
+// rate; anything else that changes the picture draws at the display rate as before.
 import * as THREE from 'three';
+
+const AMBIENT_FPS = 30;
 
 // Axis-aligned bounds of everything that casts or receives a meaningful shadow:
 // the block, its streets and the tallest crown (metres).
@@ -25,7 +29,7 @@ function fitShadowCamera(THREE, light, bounds, margin) {
   light.shadow.camera.updateProjectionMatrix();
 }
 
-export function createStage(host, tier, { onFrame, onResize }) {
+export function createStage(host, tier, { onFrame, onResize, ambient }) {
   const renderer = new THREE.WebGLRenderer({
     antialias: tier.antialias,
     alpha: true,
@@ -75,16 +79,26 @@ export function createStage(host, tier, { onFrame, onResize }) {
   let degraded = false;
   let slowFrames = 0;
   let sampled = 0;
+  let paced = false;   // the queued frame only advances ambient motion
 
   function active() { return !disposed && inView && !document.hidden; }
 
-  function invalidate() {
+  function schedule() {
     if (!raf && active()) raf = requestAnimationFrame(frame);
+  }
+
+  function invalidate() {
+    paced = false;
+    schedule();
   }
 
   const stats = { frames: 0, cpuMs: 0, maxCpuMs: 0 };
   function frame(now) {
     raf = 0;
+    // an ambient frame waits out the display refreshes in between (a few ms of slack, so a
+    // 60 Hz screen draws every other one and a 120 Hz screen every fourth)
+    if (paced && last && now - last < 1000 / AMBIENT_FPS - 4) { schedule(); return; }
+    const pacedFrame = paced;
     const t0 = performance.now();
     const dt = last ? Math.min(0.1, (now - last) / 1000) : 1 / 60;
     const continuing = onFrame(dt, now);
@@ -92,12 +106,14 @@ export function createStage(host, tier, { onFrame, onResize }) {
     stats.frames++;
     const cpu = performance.now() - t0;
     stats.cpuMs = cpu; stats.maxCpuMs = Math.max(stats.maxCpuMs, cpu);
-    if (last && !degraded && sampled < 90) {
+    if (last && !pacedFrame && !degraded && sampled < 90) {
       sampled++;
       if (dt > 1 / 30) slowFrames++;
       if (sampled >= 45 && slowFrames / sampled > 0.6) degrade();
     }
-    if (continuing) { last = now; invalidate(); } else { last = 0; }
+    if (continuing) { last = now; invalidate(); }
+    else if (ambient?.()) { last = now; paced = true; schedule(); }
+    else { last = 0; }
   }
 
   function degrade() {
@@ -126,7 +142,7 @@ export function createStage(host, tier, { onFrame, onResize }) {
   ro.observe(host);
   const io = new IntersectionObserver(([entry]) => {
     inView = entry.isIntersecting;
-    if (inView) invalidate();
+    if (inView) { last = 0; invalidate(); }
   }, { rootMargin: '120px 0px' });
   io.observe(host);
   const onVisibility = () => { if (!document.hidden) { last = 0; invalidate(); } };

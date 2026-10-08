@@ -59,8 +59,18 @@ export async function createHero({ heroEl, canvasHost, tier, reduced, frozenS })
   const settleS = Math.max(BUILT[1], ...[...plan.boxes, ...plan.curved, ...plan.trees, ...plan.palms, ...plan.cars]
     .map((o) => (o.start ?? 0) + (o.dur ?? 0))) + 0.005;
 
+  // Street traffic: once the travelling cars are built they circulate round the block. It
+  // is the scene's only ambient motion, drawn at the stage's ambient rate while the hero is on
+  // screen; there is none for reduced motion or a frozen sequence.
+  // QA switch: ?heroTraffic=off keeps the cars where they were placed (the fully idle scene).
+  const trafficOn = frozenS == null && !matchMedia('(prefers-reduced-motion: reduce)').matches
+    && new URLSearchParams(location.search).get('heroTraffic') !== 'off';
+  const driving = () => trafficOn && sequence.S >= landscape.trafficFrom;
+  let trafficT = 0;
+
   const stage = createStage(canvasHost, tier, {
     onResize: (w, h) => rig?.setViewport(w, h),
+    ambient: driving,
     onFrame(dt, now) {
       let busy = sequence.update(dt, now);
       const S = sequence.S;
@@ -74,6 +84,7 @@ export async function createHero({ heroEl, canvasHost, tier, reduced, frozenS })
         if (S < settleS || lastS < settleS) stage.markShadowsDirty();
         lastS = S;
       }
+      if (driving()) { trafficT += dt; landscape.drive(trafficT); }
       busy = rig.update(dt, S) || busy;
       if (!reduced) WATER_TIME.value = now / 1000;   // no extra frames: only frames already rendering
       return busy;
@@ -139,6 +150,7 @@ export async function createHero({ heroEl, canvasHost, tier, reduced, frozenS })
       programs: stage.renderer.info.programs?.length, geometries: stage.renderer.info.memory.geometries,
       S: +sequence.S.toFixed(4), degraded: stage.degraded, tier: tier.name, dpr: stage.renderer.getPixelRatio(),
       near: +stage.camera.near.toFixed(1), far: +stage.camera.far.toFixed(1),
+      traffic: driving(), trafficSeconds: +trafficT.toFixed(2),
     });
     window.__hero3dRig = rig;
     window.__hero3dStage = stage;

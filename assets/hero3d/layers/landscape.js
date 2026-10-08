@@ -1,9 +1,11 @@
 // Planting and scale: lush canopy trees in varied greens, royal palms, modelled
-// sedans and SUVs, soft contact shadows under the principal masses and (desktop) a
-// shadow-catcher ground. Instanced throughout — draw calls do not grow with counts.
+// sedans and SUVs (the travelling ones circulating round the block once built), soft
+// contact shadows under the principal masses and (desktop) a shadow-catcher ground.
+// Instanced throughout — draw calls do not grow with counts.
 import * as THREE from 'three';
 import { PHASES } from '../config.js';
 import { TREE_FORMS, treeKind } from '../plan/planting.js';
+import { TRAFFIC_LANES, TRAFFIC_SPEED, lanePose, laneProject } from '../plan/traffic.js';
 import { clamp01, window01, smootherstep } from '../sequence.js';
 
 function radialTexture() {
@@ -218,35 +220,58 @@ export function createLandscape(plan, palette, tier) {
   );
   trunks.count = crowns.count = plan.palms.length;
 
-  // cars — modelled sedans and SUVs; paint colour per instance
+  // cars — modelled sedans and SUVs; paint colour per instance. Travelling cars are batches
+  // of their own: they move once built (drive), and the shadow map is drawn once for the
+  // settled model, so they cast none and carry a soft contact shadow instead.
   const carMat = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.45, metalness: 0.15, flatShading: true, envMapIntensity: 0.6 });
-  const carMeshes = Object.keys(CAR_TYPES).map((type) => {
-    const list = plan.cars.filter((c) => (c.type || 'sedan') === type);
-    const mesh = new THREE.InstancedMesh(carGeometry(type), carMat, Math.max(1, list.length));
-    mesh.count = list.length;
-    list.forEach((c, i) => mesh.setColorAt(i, color.set(palette.carPaint[c.paint % palette.carPaint.length])));
-    return { list, mesh };
+  const carMeshes = Object.keys(CAR_TYPES).flatMap((type) => {
+    const geo = carGeometry(type);
+    return [false, true].map((moving) => {
+      const list = plan.cars.filter((c) => (c.type || 'sedan') === type && !!c.lane === moving);
+      const mesh = new THREE.InstancedMesh(geo, carMat, Math.max(1, list.length));
+      mesh.count = list.length;
+      list.forEach((c, i) => mesh.setColorAt(i, color.set(palette.carPaint[c.paint % palette.carPaint.length])));
+      return { type, list, mesh, moving };
+    });
   });
   const cars = carMeshes.map((c) => c.mesh);
+  const travelling = carMeshes.filter((c) => c.moving);
+  const laneStart = new Map(travelling.flatMap(({ list }) => list.map((c) => [c, laneProject(TRAFFIC_LANES[c.lane], c.x, c.z).s])));
 
   for (const mesh of [...treeMeshes.flatMap((t) => [t.canopy, t.trunk]), trunks, crowns, ...cars]) {
     mesh.castShadow = shadows;
     mesh.frustumCulled = false;
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   }
+  for (const { mesh } of travelling) mesh.castShadow = false;
 
   // contact shadows under the principal masses
+  const softTex = radialTexture();
   const shadowGeo = new THREE.PlaneGeometry(1, 1);
   shadowGeo.rotateX(-Math.PI / 2);
   const contactMat = new THREE.MeshBasicMaterial({
-    color: palette.ink, map: radialTexture(), transparent: true, depthWrite: false, opacity: 0, toneMapped: false,
+    color: palette.ink, map: softTex, transparent: true, depthWrite: false, opacity: 0, toneMapped: false,
   });
   const contact = new THREE.InstancedMesh(shadowGeo, contactMat, plan.shadows.length);
   contact.renderOrder = -1.5;
   contact.frustumCulled = false;
   contact.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
-  group.add(...treeMeshes.flatMap((t) => [t.canopy, t.trunk]), trunks, crowns, ...cars, contact);
+  // and under each travelling car, sized to its body, just above the street surface
+  const blobCount = travelling.reduce((n, c) => n + c.list.length, 0);
+  const blobs = new THREE.InstancedMesh(shadowGeo, new THREE.MeshBasicMaterial({
+    color: palette.ink, map: softTex, transparent: true, depthWrite: false, opacity: 0.42, toneMapped: false,
+  }), Math.max(1, blobCount));
+  blobs.count = blobCount;
+  blobs.renderOrder = -1.4;
+  blobs.frustumCulled = false;
+  blobs.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  const blobSize = Object.fromEntries(Object.entries(CAR_TYPES).map(([type, T]) => {
+    const xs = T.hull.map((p) => (p[0] === 'q' ? p[3] : p[0]));
+    return [type, [Math.max(...xs) - Math.min(...xs) + 1.8, T.width + 1.6]];
+  }));
+
+  group.add(...treeMeshes.flatMap((t) => [t.canopy, t.trunk]), trunks, crowns, ...cars, contact, blobs);
 
   let ground = null;
   if (shadows) {
@@ -259,6 +284,32 @@ export function createLandscape(plan, palette, tier) {
   }
 
   const growth = (item, S) => smootherstep(clamp01((S - item.start) / item.dur));
+
+  // travelling cars: grown with the sequence, placed along their lane by the traffic clock
+  let grownS = 0, clock = 0;
+  function placeTravelling() {
+    let k = 0;
+    for (const { type, list, mesh } of travelling) {
+      const [bl, bw] = blobSize[type];
+      list.forEach((car, i) => {
+        const g = Math.max(growth(car, grownS), 0.001);
+        const p = lanePose(TRAFFIC_LANES[car.lane], laneStart.get(car) + TRAFFIC_SPEED * clock);
+        q.setFromAxisAngle(up, p.rot);
+        m.compose(pos.set(p.x, car.y ?? 0.02, p.z), q, scl.set(g, g, g));
+        mesh.setMatrixAt(i, m);
+        m.compose(pos.set(p.x, 0.04, p.z), q, scl.set(bl * g, 1, bw * g));
+        blobs.setMatrixAt(k++, m);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+    blobs.instanceMatrix.needsUpdate = true;
+  }
+
+  // seconds of traffic since the cars were built
+  function drive(t) {
+    clock = t;
+    placeTravelling();
+  }
 
   function update(S) {
     for (const tm of treeMeshes) {
@@ -282,13 +333,16 @@ export function createLandscape(plan, palette, tier) {
       crowns.setMatrixAt(i, m);
     });
 
-    for (const { list, mesh } of carMeshes) {
+    for (const { list, mesh, moving } of carMeshes) {
+      if (moving) continue;
       list.forEach((car, i) => {
         const g = Math.max(growth(car, S), 0.001);
         m.compose(pos.set(car.x, car.y ?? 0.02, car.z), q.setFromAxisAngle(up, car.rot), scl.set(g, g, g));
         mesh.setMatrixAt(i, m);
       });
     }
+    grownS = S;
+    placeTravelling();
 
     for (const mesh of [trunks, crowns, ...cars]) mesh.instanceMatrix.needsUpdate = true;
 
@@ -305,5 +359,8 @@ export function createLandscape(plan, palette, tier) {
     if (ground) ground.material.opacity = 0.2 * smootherstep(window01(S, PHASES.materialize));
   }
 
-  return { object: group, update };
+  // the sequence point from which every travelling car is fully built (Infinity: no traffic)
+  const trafficFrom = Math.max(-Infinity, ...travelling.flatMap(({ list }) => list.map((c) => c.start + c.dur)));
+
+  return { object: group, update, drive, trafficFrom: Number.isFinite(trafficFrom) ? trafficFrom : Infinity };
 }

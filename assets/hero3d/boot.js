@@ -7,6 +7,7 @@
 // QA switches: ?hero3d=off (force fallback) · ?hero3d=force (skip device gating)
 //              ?heroS=0.55 (freeze the sequence at a given point)
 //              ?heroCam=az,el,dist,tx,ty,tz (override the camera for close inspection)
+//              ?heroTraffic=off (keep the travelling cars parked: the fully idle scene)
 window.__hero3dBooted = true;
 
 const root = document.documentElement;

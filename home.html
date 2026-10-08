@@ -54,7 +54,7 @@
     if (mode !== 'fallback') {
       var pre = function (href, cross) { var l = document.createElement('link'); l.rel = 'modulepreload'; l.href = href; if (cross) l.crossOrigin = 'anonymous'; document.head.appendChild(l); };
       pre('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js', true);
-      var HERO3D_MODULES = ['boot.js','hero-scene.js','config.js','site-plan.js','sequence.js','stage.js','camera-rig.js','scroll.js','layers/environment.js','layers/grid.js','layers/linework.js','layers/massing.js','layers/facade-glsl.js','layers/parts.js','layers/curves.js','layers/landscape.js','plan/core.js','plan/residential.js','plan/penthouse-tall.js','plan/penthouse-short.js','plan/penthouse-kit.js','plan/pools.js','plan/fixtures.js','plan/hotel.js','plan/office.js','plan/office-garage.js','plan/park.js','plan/planting.js','plan/pedestrian.js','plan/museum.js','plan/streetscape.js','plan/grounds.js'];
+      var HERO3D_MODULES = ['boot.js','hero-scene.js','config.js','site-plan.js','sequence.js','stage.js','camera-rig.js','scroll.js','layers/environment.js','layers/grid.js','layers/linework.js','layers/massing.js','layers/facade-glsl.js','layers/parts.js','layers/curves.js','layers/landscape.js','plan/core.js','plan/residential.js','plan/penthouse-tall.js','plan/penthouse-short.js','plan/penthouse-kit.js','plan/pools.js','plan/fixtures.js','plan/hotel.js','plan/office.js','plan/office-garage.js','plan/park.js','plan/planting.js','plan/pedestrian.js','plan/museum.js','plan/streetscape.js','plan/grounds.js','plan/traffic.js'];
       for (var i = 0; i < HERO3D_MODULES.length; i++) pre('assets/hero3d/' + HERO3D_MODULES[i]);
     }
   })();
