@@ -497,19 +497,18 @@ export function residentialMasses(tier) {
 // 'waves'). Horizontal white fins wrap the whole podium at the two parking levels,
 // each rising and falling in a long wave that echoes the tower balcony ribbons and
 // swelling in depth for shadow; phase offsets between fins make the waves drift up the
-// facade. Fins are ~80% open for natural ventilation and conceal parked cars. Breaks
-// keep the garage stair cores open; the wave runs unbroken past the lobbies below it.
+// facade. Fins are ~80% open for natural ventilation and conceal parked cars. The wave runs
+// unbroken all the way round the podium: past the lobbies, over the galleria's portals and in
+// front of the garage stair cores, which take their light and air through the open screen.
 // ---------------------------------------------------------------------------
 export const GARAGE_SCREEN = {
   levels: [GROUND + 0.55, PODIUM_TOP - 0.55],
   amplitude: 0.3, wavelength: 22, depthWavelength: 34, depth: [0.45, 1.0], thick: 0.14,
-  // The wave runs unbroken past the lobbies — the entrances are at ground level, below the
-  // screen, and a gap with a signage panel in it only interrupted the pattern. Breaks are
-  // kept where the garage stair cores need an opening.
-  breaks: [
-    { name: 'Garage stair (north-west)', at: [-76, -18.5], width: 4.5 },
-    { name: 'Galleria east portal (over the passage head)', at: [-26, 1.0], width: 5.6 },
-  ],
+  // No breaks: the entrances and the galleria's portals are at ground level, below the
+  // screen, and a gap where a signage panel used to stand only interrupted the pattern and
+  // showed the bare wall behind it. The garage stair cores stand behind the screen like the
+  // decks do, lit and ventilated through it. (A break is still possible: { name, at, width }.)
+  breaks: [],
 };
 function nearestOnPlan(plan, [x, z]) {
   const s = arcSamples(plan, 0.25);

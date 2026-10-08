@@ -296,37 +296,113 @@ const boundsOf = (pts, pad = 0) => [
 // so the east basin, under the larger fall, is the larger. `outline(inset)` returns the plan at
 // an inset from the rim's outer edge, every inset with the same vertex count so the rim and the
 // tile band can be built as rings between two of them.
-const MOAT = { rim: 0.2, tile: 0.1, clearGlass: 0.2, clearPlaza: 0.3, width: 1.2 };
+// The receiving basins wrap the building's park face. Each is a channel of water of one
+// constant width — the same on both wings, 1.2 m, which is what the west wing's curve allows
+// between its glass and the plaza's paving — following its wing's glass at a constant 0.2 m
+// wherever the building faces the park: along the north face, and round each corner only as
+// far as the wall still faces north (within 45°), so it never runs down a side of the building.
+// It also stops, with a rounded end, wherever it would meet the passage walk, the plaza's
+// paving, a café terrace or any other walk or paving, and never in the middle of the run that
+// holds its fall. Every inset of the outline pairs vertex for vertex, so the coping and the
+// tile band are built as rings between two of them, like every other pool on the building.
+const MOAT = {
+  tile: 0.1, clearGlass: 0.2, clearPlaza: 0.3, step: 0.4, parkFace: -0.7,
+  west: { rim: 0.2, base: 1.2, swell: 0, spread: 1 },
+  east: { rim: 0.2, base: 1.2, swell: 0, spread: 1 },
+};
+let BASINS = null;
 export function museumMoatBasins() {
-  return [M.fallW, M.fallE].map((WB) => {
+  if (BASINS) return BASINS;
+  const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
+  BASINS = [M.fallW, M.fallE].map((WB) => {
     const fr = spoutFrame(WB);
-    const len = WB.w * 1.2;
-    let outline, mid;
-    if (fr.onArc) {
-      const rOut = M.arcR + 0.3 - MOAT.clearGlass;                 // the glass stands on arcR + 0.3
-      const rIn = Math.max(PLAZA_R + MOAT.clearPlaza, rOut - MOAT.width);
-      const a = Math.atan2(fr.edge - F[1], WB.x - F[0]);
-      const half = (len / 2) / ((rOut + rIn) / 2);
-      // Where the arc runs into the wing's rounded corner by the passage, the glass swings out
-      // ahead of the true curve; each end of the band is drawn back until the whole rim stands
-      // clear of the glass by the same margin as everywhere else.
-      const keep = offsetPlan(gradePlan(M.x0, M.gapW, 0.3), MOAT.clearGlass - 0.02);
-      const clear = (a0, a1) => crescentOutline(F[0], F[1], rIn, rOut, a0, a1).every(([x, z]) => !insidePlan(x, z, keep));
-      let a0 = a - half, a1 = a + half;
-      while (!clear(a0, a1) && a1 - a > 0.05) {
-        if (!clear(a, a1)) a1 -= 0.005;
-        if (!clear(a0, a)) a0 += 0.005;
+    const west = WB === M.fallW, cfg = west ? MOAT.west : MOAT.east, rim = cfg.rim;
+    const glass = west ? gradePlan(M.x0, M.gapW, 0.3) : gradePlan(M.gapE, M.x1, 0.3);
+    // the glass line, resampled finely enough for the channel to follow its curves
+    const P = [];
+    glass.forEach((a, i) => {
+      const b = glass[(i + 1) % glass.length], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / MOAT.step));
+      for (let k = 0; k < n; k++) P.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]);
+    });
+    const N = P.length;
+    // outward normals, checked against the glass so they point away from the building
+    const nrm = P.map((q, i) => {
+      const a = P[(i - 1 + N) % N], b = P[(i + 1) % N], tx = b[0] - a[0], tz = b[1] - a[1], l = Math.hypot(tx, tz) || 1;
+      return [tz / l, -tx / l];
+    });
+    const probe = P.findIndex((q, i) => i > 0);
+    if (insidePlan(P[probe][0] + nrm[probe][0] * 0.05, P[probe][1] + nrm[probe][1] * 0.05, glass)) nrm.forEach((v) => { v[0] = -v[0]; v[1] = -v[1]; });
+    // smoothed over the neighbouring points, so a sharp change of curve (the shoulder where the
+    // arc meets the flank) does not pinch the channel: its width holds all along
+    const sm = nrm.map((v, i) => {
+      let x = 0, z = 0;
+      for (let k = -3; k <= 3; k++) { const q = nrm[(i + k + N) % N]; x += q[0]; z += q[1]; }
+      const l = Math.hypot(x, z) || 1;
+      return [x / l, z / l];
+    });
+    sm.forEach((v, i) => { nrm[i] = v; });
+    // the point on the glass nearest the fall, and arc length along the glass from it
+    const spout = fr.at(0);
+    const iF = P.reduce((best, q, i) => (Math.hypot(q[0] - spout[0], q[1] - spout[1]) < Math.hypot(P[best][0] - spout[0], P[best][1] - spout[1]) ? i : best), 0);
+    const width = (s2) => cfg.base + cfg.swell * smooth(1 - Math.abs(s2) / cfg.spread);
+    // walk out from the fall each way while the channel's whole cross-section is on open ground
+    const clearAt = (i, s2) => {
+      const w = width(s2);
+      return [MOAT.clearGlass - 0.02, MOAT.clearGlass + w / 2, MOAT.clearGlass + w - 0.01].every((d) => {
+        const x = P[i][0] + nrm[i][0] * d, z = P[i][1] + nrm[i][1] * d;
+        return !onRoute(x, z, 0.15) && !pavedAt(x, z) && !inFurnishing(x, z, 0.1) && Math.hypot(x - F[0], z - F[1]) >= PLAZA_R + MOAT.clearPlaza - 0.02
+          && P[i][1] < M.zb - 0.3                     // never under the bar
+          && nrm[i][1] < MOAT.parkFace;               // and only where the wall faces the park (north)
+      });
+    };
+    const run = [{ i: iF, s: 0 }];
+    for (const dir of [1, -1]) {
+      let i = iF, s2 = 0;
+      for (let k = 1; k < N / 2; k++) {
+        const j = (i + dir + N) % N;
+        s2 += dir * Math.hypot(P[j][0] - P[i][0], P[j][1] - P[i][1]);
+        if (!clearAt(j, s2)) break;
+        if (dir > 0) run.push({ i: j, s: s2 }); else run.unshift({ i: j, s: s2 });
+        i = j;
       }
-      outline = (i) => crescentOutline(F[0], F[1], rIn + i, rOut - i, a0, a1);
-      mid = [F[0] + Math.cos(a) * (rOut + rIn) / 2, F[1] + Math.sin(a) * (rOut + rIn) / 2];
-    } else {
-      const zS = museumNorthAt(WB.x, -0.3) - MOAT.clearGlass, zN = zS - MOAT.width;
-      const rect = [WB.x - len / 2, WB.x + len / 2, zN, zS];
-      outline = (i) => poolPlan(rect, i);
-      mid = [WB.x, (zN + zS) / 2];
     }
-    return { WB, fr, outline, mid, water: outline(MOAT.rim + MOAT.tile - 0.02) };
+    // pull each end back a step so the rounded end has room, then build the outline at an inset
+    const path = run.slice(run.length > 6 ? 1 : 0, run.length > 6 ? -1 : undefined);
+    const at = (q, d) => [P[q.i][0] + nrm[q.i][0] * d, P[q.i][1] + nrm[q.i][1] * d];
+    const outline = (inset) => {
+      const inner = path.map((q) => at(q, MOAT.clearGlass + inset));
+      const outer = path.map((q) => at(q, MOAT.clearGlass + width(q.s) - inset));
+      const cap = (q, tang, from, to) => {
+        const w = width(q.s), c = at(q, MOAT.clearGlass + w / 2), r = w / 2 - inset, n = nrm[q.i], pts = [];
+        for (let k = 1; k < 8; k++) {
+          const th = from + ((to - from) * k) / 8;
+          pts.push([c[0] - Math.cos(th) * r * n[0] + Math.sin(th) * r * tang[0], c[1] - Math.cos(th) * r * n[1] + Math.sin(th) * r * tang[1]]);
+        }
+        return pts;
+      };
+      const tangent = (q0, q1) => { const a = P[q0.i], b = P[q1.i], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; };
+      const L = path.length;
+      return [
+        ...inner,
+        ...cap(path[L - 1], tangent(path[L - 2], path[L - 1]), 0, Math.PI),
+        ...outer.reverse(),
+        ...cap(path[0], tangent(path[1], path[0]), Math.PI, 0).reverse(),
+      ];
+    };
+    const qF = path.find((q) => q.i === iF) || path[Math.floor(path.length / 2)];
+    const mid = at(qF, MOAT.clearGlass + width(qF.s) / 2);
+    const waterW = width(qF.s) - 2 * (rim + MOAT.tile - 0.02);
+    return { WB, fr, outline, mid, rim, waterW, water: outline(rim + MOAT.tile - 0.02) };
   });
+  return BASINS;
+}
+// Is (x, z) inside a basin at grade, or within `pad` of its rim? The site uses it so the walks'
+// lights shift clear of the water and no tree trunk stands at its edge.
+const BASIN_GROWN = new Map();
+export function museumBasinHolds(x, z, pad = 0) {
+  const key = Math.round(pad * 20) / 20;
+  if (!BASIN_GROWN.has(key)) BASIN_GROWN.set(key, museumMoatBasins().map((b) => b.outline(-key)));
+  return BASIN_GROWN.get(key).some((pl) => insidePlan(x, z, pl));
 }
 
 // The two roofs the section steps down to — the apron over the ground floor, the terrace over
@@ -541,7 +617,7 @@ export function museumWater() {
   // and the two basins at grade, built the same way: rim, tile band and water
   const basins = museumMoatBasins();
   const ringsOf = (i0, i1) => basins.flatMap((b) => {
-    const o = b.outline(i0), n = b.outline(i1);
+    const o = b.outline(i0(b)), n = b.outline(i1(b));
     return o.map((_, k) => ({ pts: [o[k], o[(k + 1) % o.length], n[(k + 1) % o.length], n[k]], owner: `moat${b.WB.x}` }));
   });
   specs.push({
@@ -551,11 +627,11 @@ export function museumWater() {
   }, {
     name: 'X.tileMoat', type: 'prisms', kind: 'poolTile', glaze: GLAZE.none, module: [1.4, 1.4],
     parent: null, wire: false, y0: 0.01, h: 0.31, start: 0.44, dur: 0.012,
-    parts: ringsOf(MOAT.rim - 0.02, MOAT.rim + MOAT.tile),
+    parts: ringsOf((b) => b.rim - 0.02, (b) => b.rim + MOAT.tile),
   }, {
     name: 'X.copingMoat', type: 'prisms', kind: 'coping', glaze: GLAZE.none, module: [1.4, 1.4],
     parent: null, wire: false, y0: 0.0, h: 0.35, start: 0.44, dur: 0.012,
-    parts: ringsOf(0, MOAT.rim),
+    parts: ringsOf(() => 0, (b) => b.rim),
   });
   return specs;
 }
@@ -569,7 +645,7 @@ export function museumSlabs() {
 // Parts: the columns, the lit soffit over the passage, the entry canopy, the gallery fit-out
 // read through the glass, the circular stair, the roof garden, the terrace planting and the
 // cascade down the street elevation.
-export function museumParts(tier, { onGreen = () => true } = {}) {
+export function museumParts(tier, { onGreen = () => true, poles = [] } = {}) {
   const out = [];
   const K = partsKit(out);
   const { add, block, column } = K;
@@ -588,14 +664,16 @@ export function museumParts(tier, { onGreen = () => true } = {}) {
   const colRows = [M.gapW - 0.48, M.gapE + 0.48, M.x0 + 0.48, M.x1 - 0.48];
   const colTop = M.ground + M.slab - 0.06;
   for (const x of colRows) {
-    const z0 = museumNorthAt(x) + 1.2;
+    // each row starts south of the wing's rounded corner, so its first column stands behind the
+    // glass rather than in the curve of the corner, where the glass has turned away from it
+    const z0 = museumNorthAt(x) + 0.3 + M.corner + 0.3;
     for (let z = z0; z <= M.z1 - 1.0; z += M.colPitch) {
       column(x, z, 0, colTop, M.colR, 'frame');
       column(x, z, WALK_TOP - 0.02, 0.22, M.colR + 0.07, 'frame');                 // spread base
       column(x, z, colTop - 0.52, 0.5, M.colR + 0.05, 'frame');                    // head bracket
     }
     // the edge beam along the row, stopping clear of the curved north face
-    block(x - 0.17, x + 0.17, M.ground + 0.02, colTop, z0 - 1.0, M.z1 - 0.7, 'frame');
+    block(x - 0.17, x + 0.17, M.ground + 0.02, colTop, z0 - 0.3, M.z1 - 0.7, 'frame');
   }
 
   // --- the passage under the bridge -----------------------------------------------------
@@ -801,11 +879,23 @@ export function museumParts(tier, { onGreen = () => true } = {}) {
     const lip = WB.w * 0.35, wet = WB.w * 0.28, sheet = WB.w * 0.245;
     K.oriented(spoutAt[0], spoutAt[1], MUSEUM_DECK1 - 0.08, 0.095, lip, SPOUT.depth, ang, 'coping', C);
     K.oriented(spoutAt[0], spoutAt[1], MUSEUM_DECK1 - 0.06, 0.045, wet, SPOUT.depth - 0.1, ang, 'basinFall', C);
-    // the sheet hangs just past the lip's tip and drops into the middle of the basin below,
-    // breaking on its surface
+    // The sheet hangs just past the lip's tip and drops into the basin below. It is moving
+    // water, not a slab: a thin sheet in the lighter moving-water blue, with paler aerated
+    // strips down both edges where it thins and breaks up. Where it lands, the surface is
+    // churned — a broad pale patch with a whiter core — spreading out from the foot of the fall.
     const sheetAt = at(SPOUT.sheet);
-    K.oriented(sheetAt[0], sheetAt[1], 0.22, MUSEUM_DECK1 - 0.045 - 0.22, sheet, 0.09, ang, 'basinFall', C);
-    K.oriented(sheetAt[0], sheetAt[1], 0.21, 0.05, sheet * 1.3, 0.5, ang, 'basinFall', C);   // the splash
+    const top = MUSEUM_DECK1 - 0.045;
+    K.oriented(sheetAt[0], sheetAt[1], 0.22, top - 0.22, sheet * 0.9, 0.06, ang, 'basinFall', C);
+    for (const side of [-1, 1]) {
+      const ex = sheetAt[0] + Math.cos(ang) * side * sheet * 0.47, ez = sheetAt[1] + Math.sin(ang) * side * sheet * 0.47;
+      K.oriented(ex, ez, 0.24, top - 0.34, sheet * 0.08, 0.035, ang, 'spray', C);
+    }
+    // sized to the basin it lands in: across the narrow west band it stays within the water
+    const wW = museumMoatBasins().find((b) => b.WB === WB).waterW;
+    const across = Math.min(1.25, wW - 0.1), reach = Math.min(0.35, Math.max(0, (wW - across) / 2));
+    const land = at(SPOUT.sheet + reach);
+    add('cyl', land[0], 0.2325, land[1], sheet * 1.7, 0.035, across, 'basinFall', C);
+    add('cyl', sheetAt[0] + (land[0] - sheetAt[0]) * 0.5, 0.245, sheetAt[1] + (land[1] - sheetAt[1]) * 0.5, sheet * 1.05, 0.04, Math.min(0.6, across * 0.8), 'spray', C);
     return { bay, at, ang, out, edge, onArc, WB };
   };
   cascade(M.fallW);   // the smaller, west wing — over the arc
@@ -814,11 +904,7 @@ export function museumParts(tier, { onGreen = () => true } = {}) {
   // --- the receiving basins -----------------------------------------------------------------
   // Drawn with the other pools in museumWater() — rim, tile band and water; this is the pale
   // floor under the water.
-  for (const b of museumMoatBasins()) {
-    const [x0, x1, z0, z1] = boundsOf(b.water);
-    const c = insidePlan((x0 + x1) / 2, (z0 + z1) / 2, b.water) ? [(x0 + x1) / 2, (z0 + z1) / 2] : b.mid;
-    K.oriented(c[0], c[1], 0.09, 0.03, 0.5, 0.4, b.fr.ang, 'basinBed', C);
-  }
+  for (const b of museumMoatBasins()) K.oriented(b.mid[0], b.mid[1], 0.09, 0.03, 0.5, 0.4, b.fr.ang, 'basinBed', C);
 
   // --- the two lower roofs: lawn and planting -------------------------------------------------
   // The apron and the park terrace are grassed edge to edge (museumLowerRoofs / museumLawns) and
@@ -1198,7 +1284,9 @@ export function museumParts(tier, { onGreen = () => true } = {}) {
   // the block's paving, every walk and sidewalk, the café terraces beside the condo podium and
   // the office, and so clear of their umbrellas.
   const openGround = (x, z, r) => [[0, 0], ...Array.from({ length: 8 }, (_, k) => [Math.cos(k * Math.PI / 4) * (r + 0.1), Math.sin(k * Math.PI / 4) * (r + 0.1)])]
-    .every(([u, v]) => onGreen(x + u, z + v) && !pavedAt(x + u, z + v) && !onRoute(x + u, z + v) && !inFurnishing(x + u, z + v, 0.15) && !museumHolds(x + u, z + v));
+    .every(([u, v]) => onGreen(x + u, z + v) && !pavedAt(x + u, z + v) && !onRoute(x + u, z + v) && !inFurnishing(x + u, z + v, 0.15) && !museumHolds(x + u, z + v)
+      && !museumBasinHolds(x + u, z + v, 0.1))
+    && !poles.some((q) => Math.hypot(q.x - x, q.z - z) < r + 0.6);
   const baseDrift = (x, z, i) => {
     const big = i % 3 === 0, w = big ? 1.5 : 1.15, d = big ? 1.3 : 1.05;
     if (!openGround(x, z, Math.max(w, d) / 2)) return;
@@ -1215,6 +1303,25 @@ export function museumParts(tier, { onGreen = () => true } = {}) {
     const z = museumNorthAt(x, 0.25) - 0.75;
     if (Math.hypot(x - F[0], z - F[1]) < PLAZA_R + 0.35) continue;   // never on the plaza paving
     baseDrift(x, z, bi++);
+  }
+
+  // a low planted margin round each receiving basin: groundcover and grasses on the lawn about
+  // its open sides, so the pool sits in planting rather than on bare grass, kept low enough
+  // that the water and the fall stay in view, and clear of the walks, the glass and the lights
+  for (const b of museumMoatBasins()) {
+    const ring = b.outline(-0.8);   // a spread of up to 0.95 m, kept clear of the rim
+    let ri = 0;
+    for (let k = 0; k < ring.length; k++) {
+      const [ax, az] = ring[k], [bx, bz] = ring[(k + 1) % ring.length];
+      const n = Math.max(1, Math.round(Math.hypot(bx - ax, bz - az) / (full ? 0.85 : 1.6)));
+      for (let s = 0; s < n; s++) {
+        const x = ax + ((bx - ax) * s) / n, z = az + ((bz - az) * s) / n;
+        const grass = ri++ % 3 === 2, w = grass ? 0.62 : 0.95;
+        if (!openGround(x, z, w / 2)) continue;
+        if (grass) add('cone', x, 0.07 + 0.28, z, w, 0.56, w, 'shrubLight', C);
+        else add('bush', x, 0.07 + 0.19, z, w, 0.38, w * 0.9, ri % 2 ? 'shrub' : 'shrubDark', C);
+      }
+    }
   }
 
   // --- planting at the passage's south mouth ------------------------------------------------

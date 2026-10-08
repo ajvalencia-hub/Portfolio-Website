@@ -20,7 +20,7 @@ import { HOTEL, hotelMasses, hotelBoxes, hotelSlabs, hotelParts, hotelPoolSpecs 
 import { OFFICE_BLOCKS, OFFICE_PARKING, officeMasses, officeSlabs, officeParts } from './plan/office.js';
 import { FOUNTAIN, PLAZA_DISC, PARK_PATHS, CAFE_ZONES, parkSpecs, parkParts } from './plan/park.js';
 import { officeGarageFacade } from './plan/office-garage.js';
-import { MUSEUM, MUSEUM_RECT, MUSEUM_GROUND_W, MUSEUM_GROUND_E, MUSEUM_L2_PLAN, MUSEUM_L3_PLAN, MUSEUM_BAR_PLAN, museumHolds, museumGradeHolds, museumMasses, museumBoxes, museumSlabs, museumParts } from './plan/museum.js';
+import { MUSEUM, MUSEUM_RECT, MUSEUM_GROUND_W, MUSEUM_GROUND_E, MUSEUM_L2_PLAN, MUSEUM_L3_PLAN, MUSEUM_BAR_PLAN, museumHolds, museumGradeHolds, museumBasinHolds, museumMasses, museumBoxes, museumSlabs, museumParts } from './plan/museum.js';
 import { streetscapeSpecs, streetscapeSlabs, streetscapeParts, streetscapeEntrances, stations, VERGE_CENTRE, CROSSWALK_SETBACK, DROP_OFFS } from './plan/streetscape.js';
 import { groundsSurfaces, groundsPlanting } from './plan/grounds.js';
 import { ROUTES, FURNISHING, routeCentreline, pedestrianSpecs, pedestrianParts, onRoute, inSight, inFurnishing } from './plan/pedestrian.js';
@@ -247,6 +247,9 @@ export function buildSitePlan(tier) {
   const blocked = (x, z, reach = 0) => grown(reach).some((pl) => insidePlan(x, z, pl))
     || officeRects.some((r) => inRect(x, z, r, reach)) || inRect(x, z, [1.8, 53.4, -39, -20], reach) || inRect(x, z, [73, 79.5, -42, -10], reach)
     || museumGradeHolds(x, z, reach) || museumHolds(x, z, reach - 1.2)
+    // the receiving basins at grade: lights shift clear of the water and no trunk stands at its edge
+    // (a canopy may still reach over it)
+    || museumBasinHolds(x, z, Math.min(reach, 1.0))
     || Math.hypot(x - FOUNTAIN.x, z - FOUNTAIN.z) < FOUNTAIN.basin + FOUNTAIN.coping + reach;
   const walk = pedestrianParts(tier, { blocked, groundAt: (x, z) => (inFurnishing(x, z) ? 0.105 : 0.07) });
   // the planted ground at grade (lawns and beds): the museum's base planting goes only where its
@@ -254,7 +257,7 @@ export function buildSitePlan(tier) {
   const greenPolys = curved.filter((c) => ['lawn', 'bed'].includes(c.kind) && c.y0 < 0.6 && !c.name.startsWith('X.'))
     .flatMap((c) => (c.type === 'prisms' ? c.parts.map((q) => q.pts) : [c.pts]));
   const onGreen = (x, z) => greenPolys.some((pl) => insidePlan(x, z, pl));
-  const museum = museumParts(tier, { onGreen });
+  const museum = museumParts(tier, { onGreen, poles: walk.poles });
   const park = parkParts(tier, partsRand, walk.poles, blocked);
   const street = streetGreenery(tier, rand, [...masses, ...slabs]);
   const grounds = groundsPlanting(tier, rng(11), walk.poles);
