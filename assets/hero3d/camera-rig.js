@@ -111,11 +111,14 @@ export function createCameraRig(camera, tier, { reduced, dragTarget = null }) {
   // between the bottom of the copy (safeTop, a fraction of the canvas height) and the
   // bottom of the canvas: its projected bounds are measured over the resting camera
   // poses, then the camera distance and lens shift are chosen so it fills that band
-  // without reaching the copy or the edges. Cached until the viewport, copy or plan change.
+  // without reaching the copy or the edges. Where the width limits it, the room left over in
+  // the band goes mostly above the model (NARROW_DROP of it, at most NARROW_DROP_MAX in NDC),
+  // setting it a little lower than centred. Cached until the viewport, copy or plan change.
   let safeTop = null;
   let bounds = null;
   let narrowFit = null;
   const NARROW_POSES = [0.65, 0.80, 0.92];
+  const NARROW_DROP = 0.4, NARROW_DROP_MAX = 0.07;
   function fitNarrow(aspect) {
     const cam = camera.clone();
     const v = camera.position.clone();
@@ -147,7 +150,8 @@ export function createCameraRig(camera, tier, { reduced, dragTarget = null }) {
       scale /= Math.min(grow, 1.4);
     }
     const e = extent(scale);
-    return { aspect, fit: scale, shiftX: -(e.x0 + e.x1) / 2, shiftY: (top + bottom) / 2 - (e.y0 + e.y1) / 2 };
+    const drop = Math.min(NARROW_DROP_MAX, NARROW_DROP * Math.max(0, availH - (e.y1 - e.y0)));
+    return { aspect, fit: scale, shiftX: -(e.x0 + e.x1) / 2, shiftY: (top + bottom) / 2 - (e.y0 + e.y1) / 2 - drop };
   }
 
   function layout() {

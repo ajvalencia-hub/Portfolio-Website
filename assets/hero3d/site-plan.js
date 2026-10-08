@@ -219,7 +219,36 @@ function streetCars(tier, rand) {
   parked.forEach(([x, z, rot], k) => { if (tier.name !== 'mobile' || k % 3 === 0) car(x, z, rot, { parked: true }); });
   car(75.8, -28, HEAD.north, { y: 0.06, start: 0.72 });   // guests at the porte-cochère
   car(75.8, -39, HEAD.north, { y: 0.06, start: 0.73 });
+  dealMix(cars);
   return cars;
+}
+
+// Body type and paint are dealt after placement from a stream of their own, in set shares
+// per group (each lane loop, and the parked and arrival cars), so the street reads as a
+// realistic mix whatever the placement draws were — those once made the desktop's sixteen
+// travelling cars all sedans and a quarter of all the cars red. Placement is unaffected.
+const SUV_SHARE = 0.4;
+// in the order of palette.carPaint: white, light grey, silver, grey, charcoal, black, blue, red, off-white
+const PAINT_SHARE = [0.16, 0.10, 0.12, 0.14, 0.10, 0.14, 0.08, 0.08, 0.08];
+function dealMix(cars) {
+  const deal = rng(31);
+  // whole counts closest to the shares (largest remainder)
+  const quota = (n, shares) => {
+    const raw = shares.map((s) => s * n), out = raw.map(Math.floor);
+    const left = n - out.reduce((a, b) => a + b, 0);
+    raw.map((r, i) => [r - out[i], i]).sort((a, b) => b[0] - a[0]).slice(0, left).forEach(([, i]) => { out[i]++; });
+    return out;
+  };
+  const shuffled = (list) => {
+    const a = [...list];
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(deal() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  };
+  for (const group of [cars.filter((c) => c.lane === 'inner'), cars.filter((c) => c.lane === 'outer'), cars.filter((c) => !c.lane)]) {
+    const types = shuffled(quota(group.length, [1 - SUV_SHARE, SUV_SHARE]).flatMap((k, i) => Array(k).fill(i ? 'suv' : 'sedan')));
+    const paints = shuffled(quota(group.length, PAINT_SHARE).flatMap((k, i) => Array(k).fill(i)));
+    group.forEach((c, k) => { c.type = types[k]; c.paint = paints[k]; });
+  }
 }
 
 // ---------------------------------------------------------------------------
