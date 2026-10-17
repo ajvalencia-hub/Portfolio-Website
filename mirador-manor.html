@@ -678,5 +678,32 @@
   lightbox.on('close', () => window.__slideshow.go(lightbox.pswp.currIndex));
   lightbox.init();
 </script>
+<script>
+  /* ---------- Metric figures count up once, the first time each group is seen ---------- */
+  (function () {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) return;
+    document.querySelectorAll('.mgrid').forEach(function (grid) {
+      var items = [].slice.call(grid.querySelectorAll('.mcell .n')).map(function (el) {
+        var m = el.textContent.match(/^([^\d]*)([\d,]*\.?\d+)(.*)$/); if (!m) return null;
+        var num = m[2], dec = (num.split('.')[1] || '').length;
+        return { el: el, pre: m[1], suf: m[3], to: parseFloat(num.replace(/,/g, '')), dec: dec, comma: num.indexOf(',') > -1, text: el.textContent };
+      }).filter(Boolean);
+      function fmt(it, v) {
+        var s = it.comma ? Math.round(v).toLocaleString('en-US') : v.toFixed(it.dec);
+        return it.pre + s + it.suf;
+      }
+      var io = new IntersectionObserver(function (en) {
+        if (!en[0].isIntersecting) return; io.disconnect();
+        var t0 = performance.now(), D = 900;
+        (function step(now) {
+          var t = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - t, 3);
+          items.forEach(function (it) { it.el.textContent = t < 1 ? fmt(it, it.to * e) : it.text; });
+          if (t < 1) requestAnimationFrame(step);
+        })(t0);
+      }, { threshold: 0.4 });
+      io.observe(grid);
+    });
+  })();
+</script>
 </body>
 </html>

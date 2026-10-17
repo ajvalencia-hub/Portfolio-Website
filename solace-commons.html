@@ -307,6 +307,20 @@
     .uw { grid-template-columns: 1fr; gap: 30px; }
   }
   @media (max-width: 540px) { main { padding: 8px; } .mgrid { grid-template-columns: repeat(2, 1fr); } .mhero, .sec, .crumb, .cta, .foot-main { padding-left: 18px; padding-right: 18px; } .foot-main { grid-template-columns: 1fr; } }
+  /* UNIT MIX as squares, one per unit, in the capital-stack band's vocabulary */
+  .ud-wrap { border-top: 1px solid var(--line); padding-top: 26px; }
+  .ud { display: grid; grid-template-columns: repeat(67, 1fr); gap: 3px; }
+  .ud i { display: block; aspect-ratio: 1; background: var(--c); transition: opacity 200ms ease; }
+  .js .ud i { opacity: 0; transition: opacity 260ms ease; transition-delay: calc(var(--n) * 1.6ms); }
+  .js .reveal.in .ud i { opacity: 1; }
+  .js .reveal.in .ud.settled i { transition-delay: 0ms; }
+  .ud[data-hl] i { opacity: 0.14 !important; }
+  .ud[data-hl="1"] i.t1, .ud[data-hl="2"] i.t2, .ud[data-hl="3"] i.t3 { opacity: 1 !important; }
+  .ud-legend button { display: inline-flex; align-items: center; gap: 8px; padding: 4px 0; border: none; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; border-bottom: 2px solid transparent; }
+  .ud-legend button[aria-pressed="true"] { border-bottom-color: var(--ink); }
+  .ud-legend button i { width: 9px; height: 9px; flex: none; background: var(--c); }
+  .unitdots { margin-bottom: 44px; }
+  @media (max-width: 640px) { .ud { grid-template-columns: repeat(35, 1fr); gap: 2px; } }
 </style>
 <link rel="stylesheet" href="assets/concrete-background.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.4/dist/photoswipe.css" media="print" onload="this.media='all'" />
@@ -468,6 +482,18 @@
     <section class="sec" data-screen-label="unit-mix">
       <div class="sec-eyebrow eyebrow reveal"><span class="sq"></span> Unit Mix</div>
       <h2 class="sec-title reveal">335 Units at 60% AMI</h2>
+      <!-- unit mix: one square per unit -->
+      <div class="mgroup unitdots reveal">
+        <div class="mgroup-h"><span class="sq" style="background:var(--orange)"></span> One square per unit <span class="mix-sub" style="margin-left:auto;font-weight:400;letter-spacing:0.08em;opacity:0.6">335 units</span></div>
+        <div class="ud-wrap">
+          <div class="ud" id="ud" role="img" aria-label="335 units: 125 one-bedroom, 162 two-bedroom and 48 three-bedroom"></div>
+          <div class="mix-legend ud-legend" id="udKeys">
+            <button type="button" data-t="1" aria-pressed="false" style="--c:var(--orange)"><i></i>One-Bedroom<em>125 · 37%</em></button>
+            <button type="button" data-t="2" aria-pressed="false" style="--c:var(--ink)"><i></i>Two-Bedroom<em>162 · 48%</em></button>
+            <button type="button" data-t="3" aria-pressed="false" style="--c:var(--green)"><i></i>Three-Bedroom<em>48 · 14%</em></button>
+          </div>
+        </div>
+      </div>
       <div class="uw reveal">
         <div class="uw-cell"><div class="uw-use">One-Bedroom</div><div class="uw-rent">37%<span> · 125 units</span></div><div class="uw-note">Compact units for singles and couples.</div></div>
         <div class="uw-cell"><div class="uw-use">Two-Bedroom</div><div class="uw-rent">48%<span> · 162 units</span></div><div class="uw-note">The plurality of the program — small families.</div></div>
@@ -601,6 +627,50 @@
   lightbox.on('beforeOpen', () => window.__slideshow.setPlaying(false));
   lightbox.on('close', () => window.__slideshow.go(lightbox.pswp.currIndex));
   lightbox.init();
+</script>
+<script>
+  /* ---------- Unit mix: one square per unit ---------- */
+  (function () {
+    var ud = document.getElementById('ud'); if (!ud) return;
+    var T = [[1, 125, 'var(--orange)'], [2, 162, 'var(--ink)'], [3, 48, 'var(--green)']], n = 0;
+    T.forEach(function (t) { for (var k = 0; k < t[1]; k++) { var i = document.createElement('i'); i.className = 't' + t[0]; i.style.setProperty('--c', t[2]); i.style.setProperty('--n', n++); ud.appendChild(i); } });
+    // once the squares are in, later highlights change at once rather than rippling
+    setTimeout(function () { ud.classList.add('settled'); }, 3000);
+    var keys = [].slice.call(document.querySelectorAll('#udKeys button')), sel = 0;
+    function show(t) { if (t) ud.setAttribute('data-hl', t); else ud.removeAttribute('data-hl'); }
+    keys.forEach(function (b) {
+      var t = +b.dataset.t;
+      b.addEventListener('click', function () { sel = sel === t ? 0 : t; keys.forEach(function (x) { x.setAttribute('aria-pressed', +x.dataset.t === sel ? 'true' : 'false'); }); show(sel); });
+      b.addEventListener('mouseenter', function () { show(t); });
+      b.addEventListener('mouseleave', function () { show(sel); });
+    });
+  })();
+
+  /* ---------- Metric figures count up once, the first time each group is seen ---------- */
+  (function () {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) return;
+    document.querySelectorAll('.mgrid').forEach(function (grid) {
+      var items = [].slice.call(grid.querySelectorAll('.mcell .n')).map(function (el) {
+        var m = el.textContent.match(/^([^\d]*)([\d,]*\.?\d+)(.*)$/); if (!m) return null;
+        var num = m[2], dec = (num.split('.')[1] || '').length;
+        return { el: el, pre: m[1], suf: m[3], to: parseFloat(num.replace(/,/g, '')), dec: dec, comma: num.indexOf(',') > -1, text: el.textContent };
+      }).filter(Boolean);
+      function fmt(it, v) {
+        var s = it.comma ? Math.round(v).toLocaleString('en-US') : v.toFixed(it.dec);
+        return it.pre + s + it.suf;
+      }
+      var io = new IntersectionObserver(function (en) {
+        if (!en[0].isIntersecting) return; io.disconnect();
+        var t0 = performance.now(), D = 900;
+        (function step(now) {
+          var t = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - t, 3);
+          items.forEach(function (it) { it.el.textContent = t < 1 ? fmt(it, it.to * e) : it.text; });
+          if (t < 1) requestAnimationFrame(step);
+        })(t0);
+      }, { threshold: 0.4 });
+      io.observe(grid);
+    });
+  })();
 </script>
 </body>
 </html>
