@@ -1,0 +1,52 @@
+{
+ "hero-aerial.png": {
+  "base": "hero-aerial",
+  "w": 1650,
+  "h": 953,
+  "sizes": [
+   480,
+   960,
+   1650
+  ]
+ },
+ "hero-street.png": {
+  "base": "hero-street",
+  "w": 1578,
+  "h": 997,
+  "sizes": [
+   480,
+   960,
+   1578
+  ]
+ },
+ "hero.jpg": {
+  "base": "hero",
+  "w": 1536,
+  "h": 1024,
+  "sizes": [
+   480,
+   960,
+   1536
+  ]
+ },
+ "hero-back.png": {
+  "base": "hero-back",
+  "w": 1467,
+  "h": 1072,
+  "sizes": [
+   480,
+   960,
+   1467
+  ]
+ },
+ "hero-back2.png": {
+  "base": "hero-back2",
+  "w": 1415,
+  "h": 1112,
+  "sizes": [
+   480,
+   960,
+   1415
+  ]
+ }
+}

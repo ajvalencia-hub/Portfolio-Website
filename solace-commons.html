@@ -140,25 +140,41 @@
 
   /* THUMBNAIL GALLERY STRIP */
   .gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-bottom: 1px solid var(--line); }
-  .gallery button { position: relative; padding: 0; border: none; border-right: 1px solid var(--line); cursor: pointer; overflow: hidden; aspect-ratio: 3 / 2; background: var(--concrete-dark); display: block; }
-  .gallery button:last-child { border-right: none; }
+  .gallery a { position: relative; padding: 0; border: none; border-right: 1px solid var(--line); cursor: pointer; overflow: hidden; aspect-ratio: 3 / 2; background: var(--concrete-dark); display: block; }
+  .gallery a:last-child { border-right: none; }
   .gallery img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 500ms cubic-bezier(0.22,1,0.36,1), opacity 200ms ease; opacity: 0.78; }
-  .gallery button:hover img { transform: scale(1.06); opacity: 1; }
-  .gallery button.on img { opacity: 1; }
-  .gallery button.on::after { content: ''; position: absolute; inset: 0; border: 3px solid var(--orange); pointer-events: none; }
+  .gallery a:hover img { transform: scale(1.06); opacity: 1; }
+  .gallery a.on img { opacity: 1; }
+  .gallery a.on::after { content: ''; position: absolute; inset: 0; border: 3px solid var(--orange); pointer-events: none; }
   .gallery .gnum { position: absolute; left: 8px; bottom: 7px; z-index: 2; font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--cream); text-shadow: 0 1px 6px rgba(0,0,0,0.7); }
 
-  /* LIGHTBOX */
-  .lightbox { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 40px; background: rgba(16,14,11,0.94); opacity: 0; visibility: hidden; transition: opacity 220ms ease, visibility 0s linear 220ms; }
-  .lightbox.open { opacity: 1; visibility: visible; transition: opacity 220ms ease; }
-  .lightbox-img { max-width: 92vw; max-height: 84vh; object-fit: contain; border: 1px solid rgba(229,224,210,0.2); }
-  .lb-close { position: absolute; top: 22px; right: 28px; background: none; border: none; color: var(--cream); font-size: 30px; cursor: pointer; line-height: 1; }
-  .lb-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(229,224,210,0.14); color: var(--cream); border: none; width: 54px; height: 54px; font-size: 24px; cursor: pointer; transition: background 140ms ease; }
-  .lb-nav { font-family: var(--font-mono); font-weight: 700; }
-  .lb-nav:hover { background: var(--orange); color: #fff; }
-  .lb-nav.prev { left: 24px; } .lb-nav.next { right: 24px; }
-  .lb-counter { position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.16em; color: var(--cream); font-variant-numeric: tabular-nums; }
-  .lb-counter b { color: var(--orange); }
+  /* keyboard focus on a thumbnail is drawn inside its frame, never as a second ring outside
+     it: the current image keeps its one orange frame, any other shows a cream one */
+  .gallery a:focus-visible { outline: none; }
+  .gallery a:focus-visible::after { content: ''; position: absolute; inset: 0; border: 3px solid var(--cream); pointer-events: none; }
+  .gallery a.on:focus-visible::after { border-color: var(--orange); }
+
+  /* LIGHTBOX — PhotoSwipe, in the site's colours */
+  .pswp { --pswp-bg: #100e0b; --pswp-placeholder-bg: #24211b; --pswp-icon-color: #e5e0d2; --pswp-icon-color-secondary: #100e0b; --pswp-icon-stroke-color: #100e0b; }
+  .pswp__button:hover .pswp__icn, .pswp__button:focus-visible .pswp__icn { fill: var(--orange); }
+  .pswp__counter { display: none; }
+  /* the viewer's arrows are the hero's chevrons: bare mono glyphs, white with a soft shadow,
+     orange on hover, shown on touch screens too */
+  .pswp .pswp__button--arrow, .pswp.pswp--touch .pswp__button--arrow { visibility: visible; width: 74px; height: 90px; margin-top: -45px; display: flex; align-items: center; justify-content: center; }
+  .pswp .pswp__button--arrow--prev { left: 10px; } .pswp .pswp__button--arrow--next { right: 10px; }
+  .pswp__chev { font-family: var(--font-mono); font-weight: 700; font-size: 64px; line-height: 1; color: #fff; text-shadow: 0 2px 14px rgba(0,0,0,0.45); transition: color 140ms ease; }
+  .pswp__button--arrow:hover .pswp__chev, .pswp__button--arrow:focus-visible .pswp__chev { color: var(--orange); }
+  @media (max-width: 640px) { .pswp .pswp__button--arrow { width: 48px; height: 64px; margin-top: -32px; } .pswp__chev { font-size: 44px; } }
+  .pswp__cap { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); white-space: nowrap; font-family: var(--font-mono); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #e5e0d2; background: rgba(16,14,11,0.7); padding: 8px 12px; }
+  .pswp__cap b { color: var(--orange); }
+
+  /* slide bars with a full-height hit area */
+  .shero-dots { margin-top: 16px; }
+  .shero-dots button { height: 24px; background: none; position: relative; }
+  .shero-dots button::before { content: ''; position: absolute; left: 0; right: 0; top: 10px; height: 4px; background: rgba(229,224,210,0.4); transition: background 160ms ease; }
+  .shero-dots button.on { background: none; }
+  .shero-dots button.on::before { background: var(--orange); }
+
   @media (max-width: 640px) {
     .mhero { padding: 60px 22px 32px; } .mhero-body { padding: 0 44px; } .mhero-chip { padding: 12px 18px; font-size: 11px; } .shero-counter { right: 22px; }
     .shero-nav { width: 48px; height: 64px; font-size: 44px; }
@@ -293,6 +309,7 @@
   @media (max-width: 540px) { main { padding: 8px; } .mgrid { grid-template-columns: repeat(2, 1fr); } .mhero, .sec, .crumb, .cta, .foot-main { padding-left: 18px; padding-right: 18px; } .foot-main { grid-template-columns: 1fr; } }
 </style>
 <link rel="stylesheet" href="assets/concrete-background.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.4/dist/photoswipe.css" media="print" onload="this.media='all'" />
 </head>
 <body>
     <a class="skip-link" href="#top">Skip to content</a>
@@ -327,11 +344,11 @@
     </div>
 
     <!-- SLIDESHOW HERO -->
-    <section class="mhero" id="top" data-screen-label="solace-hero">
-      <div class="shero-slides" id="sheroSlides">
-        <div class="shero-slide on"><img src="assets/solace/aerial.png" alt="Solace Commons — aerial view of the full mid-rise and courtyard parking" /></div>
-        <div class="shero-slide"><img src="assets/solace/front.png" alt="Solace Commons — street-facing front elevation" loading="lazy" decoding="async" /></div>
-        <div class="shero-slide"><img src="assets/solace/side.png" alt="Solace Commons — angled side view from the corner" loading="lazy" decoding="async" /></div>
+    <section class="mhero" id="top" data-screen-label="solace-hero" aria-roledescription="carousel" aria-label="Solace Commons renders">
+      <div class="shero-slides" id="sheroSlides" aria-live="off">
+        <div class="shero-slide on" role="group" aria-roledescription="slide" aria-label="1 of 3"><picture><source type="image/avif" srcset="assets/solace/web/aerial-480.avif 480w, assets/solace/web/aerial-960.avif 960w, assets/solace/web/aerial-1690.avif 1690w" sizes="100vw" /><source type="image/webp" srcset="assets/solace/web/aerial-480.webp 480w, assets/solace/web/aerial-960.webp 960w, assets/solace/web/aerial-1690.webp 1690w" sizes="100vw" /><img src="assets/solace/web/aerial-960.webp" width="1690" height="931" alt="Solace Commons — aerial view of the full mid-rise and courtyard parking" fetchpriority="high" decoding="async" /></picture></div>
+        <div class="shero-slide" role="group" aria-roledescription="slide" aria-label="2 of 3"><picture><source type="image/avif" srcset="assets/solace/web/front-480.avif 480w, assets/solace/web/front-960.avif 960w, assets/solace/web/front-1690.avif 1690w" sizes="100vw" /><source type="image/webp" srcset="assets/solace/web/front-480.webp 480w, assets/solace/web/front-960.webp 960w, assets/solace/web/front-1690.webp 1690w" sizes="100vw" /><img src="assets/solace/web/front-960.webp" width="1690" height="931" alt="Solace Commons — street-facing front elevation" loading="lazy" decoding="async" /></picture></div>
+        <div class="shero-slide" role="group" aria-roledescription="slide" aria-label="3 of 3"><picture><source type="image/avif" srcset="assets/solace/web/side-480.avif 480w, assets/solace/web/side-960.avif 960w, assets/solace/web/side-1717.avif 1717w" sizes="100vw" /><source type="image/webp" srcset="assets/solace/web/side-480.webp 480w, assets/solace/web/side-960.webp 960w, assets/solace/web/side-1717.webp 1717w" sizes="100vw" /><img src="assets/solace/web/side-960.webp" width="1717" height="916" alt="Solace Commons — angled side view from the corner" loading="lazy" decoding="async" /></picture></div>
       </div>
 
       <div class="shero-counter"><b id="sheroNum">01</b> / 03</div>
@@ -346,14 +363,14 @@
           <button class="mhero-chip" data-model="assets/models/solace.glb" data-title="Solace Commons" data-eyebrow="Naranja, FL · Affordable Mid-Rise" type="button" aria-label="Open interactive 3D massing"><span class="play">&#9654;</span> 3D Massing</button>
         </div>
       </div>
-      <div class="shero-dots rise d3" id="sheroDots" aria-label="Slide selector"></div>
+      <div class="shero-dots rise d3" id="sheroDots" role="group" aria-label="Choose a slide"></div>
     </section>
 
     <!-- THUMBNAIL GALLERY -->
     <div class="gallery" id="gallery" aria-label="Project gallery">
-      <button type="button" data-i="0"><img src="assets/solace/aerial.png" alt="Aerial view" loading="lazy" decoding="async" /><span class="gnum">01 · Aerial</span></button>
-      <button type="button" data-i="1"><img src="assets/solace/front.png" alt="Front elevation" loading="lazy" decoding="async" /><span class="gnum">02 · Front</span></button>
-      <button type="button" data-i="2"><img src="assets/solace/side.png" alt="Side view" loading="lazy" decoding="async" /><span class="gnum">03 · Side</span></button>
+      <a href="assets/solace/web/aerial-1690.webp" data-pswp-width="1690" data-pswp-height="931" data-pswp-srcset="assets/solace/web/aerial-480.webp 480w, assets/solace/web/aerial-960.webp 960w, assets/solace/web/aerial-1690.webp 1690w" data-label="Aerial"><picture><source type="image/avif" srcset="assets/solace/web/aerial-480.avif 480w, assets/solace/web/aerial-960.avif 960w" sizes="(max-width: 640px) 34vw, 34vw" /><img src="assets/solace/web/aerial-480.webp" srcset="assets/solace/web/aerial-480.webp 480w, assets/solace/web/aerial-960.webp 960w" sizes="(max-width: 640px) 34vw, 34vw" width="1690" height="931" alt="Aerial view, open full size" loading="lazy" decoding="async" /></picture><span class="gnum">01 · Aerial</span></a>
+      <a href="assets/solace/web/front-1690.webp" data-pswp-width="1690" data-pswp-height="931" data-pswp-srcset="assets/solace/web/front-480.webp 480w, assets/solace/web/front-960.webp 960w, assets/solace/web/front-1690.webp 1690w" data-label="Front"><picture><source type="image/avif" srcset="assets/solace/web/front-480.avif 480w, assets/solace/web/front-960.avif 960w" sizes="(max-width: 640px) 34vw, 34vw" /><img src="assets/solace/web/front-480.webp" srcset="assets/solace/web/front-480.webp 480w, assets/solace/web/front-960.webp 960w" sizes="(max-width: 640px) 34vw, 34vw" width="1690" height="931" alt="Front elevation, open full size" loading="lazy" decoding="async" /></picture><span class="gnum">02 · Front</span></a>
+      <a href="assets/solace/web/side-1717.webp" data-pswp-width="1717" data-pswp-height="916" data-pswp-srcset="assets/solace/web/side-480.webp 480w, assets/solace/web/side-960.webp 960w, assets/solace/web/side-1717.webp 1717w" data-label="Side"><picture><source type="image/avif" srcset="assets/solace/web/side-480.avif 480w, assets/solace/web/side-960.avif 960w" sizes="(max-width: 640px) 34vw, 34vw" /><img src="assets/solace/web/side-480.webp" srcset="assets/solace/web/side-480.webp 480w, assets/solace/web/side-960.webp 960w" sizes="(max-width: 640px) 34vw, 34vw" width="1717" height="916" alt="Side view, open full size" loading="lazy" decoding="async" /></picture><span class="gnum">03 · Side</span></a>
     </div>
 
     <div class="spec">
@@ -452,9 +469,9 @@
       <div class="sec-eyebrow eyebrow reveal"><span class="sq"></span> Unit Mix</div>
       <h2 class="sec-title reveal">335 Units at 60% AMI</h2>
       <div class="uw reveal">
-        <div class="uw-cell"><div class="uw-use">One-Bedroom</div><div class="uw-rent">37%<span> · ~124 units</span></div><div class="uw-note">Compact units for singles and couples.</div></div>
-        <div class="uw-cell"><div class="uw-use">Two-Bedroom</div><div class="uw-rent">48%<span> · ~161 units</span></div><div class="uw-note">The plurality of the program — small families.</div></div>
-        <div class="uw-cell"><div class="uw-use">Three-Bedroom</div><div class="uw-rent">14%<span> · ~47 units</span></div><div class="uw-note">Larger family units, all at 60% AMI.</div></div>
+        <div class="uw-cell"><div class="uw-use">One-Bedroom</div><div class="uw-rent">37%<span> · 125 units</span></div><div class="uw-note">Compact units for singles and couples.</div></div>
+        <div class="uw-cell"><div class="uw-use">Two-Bedroom</div><div class="uw-rent">48%<span> · 162 units</span></div><div class="uw-note">The plurality of the program — small families.</div></div>
+        <div class="uw-cell"><div class="uw-use">Three-Bedroom</div><div class="uw-rent">14%<span> · 48 units</span></div><div class="uw-note">Larger family units, all at 60% AMI.</div></div>
       </div>
     </section>
 
@@ -479,14 +496,6 @@
       </div>
     </footer>
 
-  <!-- LIGHTBOX -->
-  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer">
-    <button class="lb-close" id="lbClose" type="button" aria-label="Close">&times;</button>
-    <button class="lb-nav prev" id="lbPrev" type="button" aria-label="Previous">&#8249;</button>
-    <img class="lightbox-img" id="lbImg" src="assets/solace/front.png" alt="" />
-    <button class="lb-nav next" id="lbNext" type="button" aria-label="Next">&#8250;</button>
-    <div class="lb-counter"><b id="lbNum">01</b> / 03</div>
-  </div>
 
 <script>
   (function () { var c = document.getElementById('coords'); if (!c) return; var raf = null, lx = 0, ly = 0;
@@ -500,76 +509,53 @@
   document.querySelectorAll('a[href^="#"]').forEach(function (a) { a.addEventListener('click', function (e) { var id = a.getAttribute('href'); if (id.length < 2) return; var t = document.querySelector(id);
     if (t) { e.preventDefault(); window.scrollTo({ top: t.getBoundingClientRect().top + window.scrollY - 70, behavior: 'smooth' }); } }); });
 
-  /* ---------- Slideshow + gallery + lightbox ---------- */
+  /* ---------- Slideshow (WAI carousel pattern) ---------- */
   (function () {
-    var SRC = [
-      'assets/solace/aerial.png',
-      'assets/solace/front.png',
-      'assets/solace/side.png'
-    ];
-    var N = SRC.length;
     var slides = [].slice.call(document.querySelectorAll('.shero-slide'));
-    var thumbs = [].slice.call(document.querySelectorAll('#gallery button'));
+    var thumbs = [].slice.call(document.querySelectorAll('#gallery a'));
+    var N = slides.length;
+    var hero = document.getElementById('top');
+    var live = document.getElementById('sheroSlides');
     var dotsWrap = document.getElementById('sheroDots');
     var numEl = document.getElementById('sheroNum');
-    var cur = 0, timer = null;
     var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var cur = 0, timer = null;
+    // the slides rotate until the visitor picks one; hover and focus only hold them for a moment
+    var playing = !reduce, held = false;
 
     var dots = [];
     for (var i = 0; i < N; i++) {
       var d = document.createElement('button');
-      d.type = 'button';
-      d.setAttribute('aria-label', 'Go to image ' + (i + 1));
-      (function (idx) { d.addEventListener('click', function () { go(idx); restart(); }); })(i);
+      d.type = 'button'; d.setAttribute('aria-label', 'Show image ' + (i + 1) + ' of ' + N);
+      (function (idx) { d.addEventListener('click', function () { go(idx); setPlaying(false); }); })(i);
       dotsWrap.appendChild(d); dots.push(d);
     }
-
     function pad(n) { return String(n).padStart(2, '0'); }
     function go(n) {
       cur = (n + N) % N;
-      slides.forEach(function (s, i) { s.classList.toggle('on', i === cur); });
-      dots.forEach(function (d, i) { d.classList.toggle('on', i === cur); });
+      slides.forEach(function (s, i) { s.classList.toggle('on', i === cur); s.setAttribute('aria-hidden', i === cur ? 'false' : 'true'); });
+      dots.forEach(function (d, i) { d.classList.toggle('on', i === cur); if (i === cur) d.setAttribute('aria-current', 'true'); else d.removeAttribute('aria-current'); });
       thumbs.forEach(function (t, i) { t.classList.toggle('on', i === cur); });
       if (numEl) numEl.textContent = pad(cur + 1);
     }
-    function next() { go(cur + 1); }
-    function prev() { go(cur - 1); }
-    var paused = false;
-    function stopTimer() { if (timer) { clearInterval(timer); timer = null; } }
-    function restart() { stopTimer(); if (!reduce && !paused) timer = setInterval(next, 5000); }
-
-    document.getElementById('sheroNext').addEventListener('click', function () { next(); restart(); });
-    document.getElementById('sheroPrev').addEventListener('click', function () { prev(); restart(); });
-
-    var heroEl = document.querySelector('.mhero');
-    if (heroEl) {
-      heroEl.addEventListener('mouseenter', function () { paused = true; stopTimer(); });
-      heroEl.addEventListener('mouseleave', function () { paused = false; restart(); });
+    function tick() {
+      clearInterval(timer); timer = null;
+      if (playing && !held && !document.hidden) timer = setInterval(function () { go(cur + 1); }, 6000);
+      // slide changes are announced only when the visitor is driving them
+      live.setAttribute('aria-live', playing ? 'off' : 'polite');
     }
+    function setPlaying(on) { playing = on; tick(); }
+    // choosing a slide by hand stops the rotation
+    document.getElementById('sheroNext').addEventListener('click', function () { go(cur + 1); setPlaying(false); });
+    document.getElementById('sheroPrev').addEventListener('click', function () { go(cur - 1); setPlaying(false); });
+    hero.addEventListener('mouseenter', function () { held = true; tick(); });
+    hero.addEventListener('mouseleave', function () { held = false; tick(); });
+    hero.addEventListener('focusin', function () { held = true; tick(); });
+    hero.addEventListener('focusout', function (e) { if (!hero.contains(e.relatedTarget)) { held = false; tick(); } });
+    document.addEventListener('visibilitychange', tick);
+    window.__slideshow = { go: go, setPlaying: setPlaying };
 
-    var lb = document.getElementById('lightbox');
-    var lbImg = document.getElementById('lbImg');
-    var lbNum = document.getElementById('lbNum');
-    var lbCur = 0;
-    function lbShow(n) { lbCur = (n + N) % N; lbImg.src = SRC[lbCur]; lbNum.textContent = pad(lbCur + 1); }
-    function lbOpen(n) { lbShow(n); lb.classList.add('open'); document.body.style.overflow = 'hidden'; stopTimer(); }
-    function lbClose() { lb.classList.remove('open'); document.body.style.overflow = ''; restart(); }
-    thumbs.forEach(function (t, i) {
-      t.addEventListener('click', function () { go(i); restart(); lbOpen(i); });
-    });
-    document.getElementById('lbClose').addEventListener('click', lbClose);
-    document.getElementById('lbNext').addEventListener('click', function () { lbShow(lbCur + 1); });
-    document.getElementById('lbPrev').addEventListener('click', function () { lbShow(lbCur - 1); });
-    lb.addEventListener('click', function (e) { if (e.target === lb) lbClose(); });
-    window.addEventListener('keydown', function (e) {
-      if (lb.classList.contains('open')) {
-        if (e.key === 'Escape') lbClose();
-        else if (e.key === 'ArrowRight') lbShow(lbCur + 1);
-        else if (e.key === 'ArrowLeft') lbShow(lbCur - 1);
-      }
-    });
-
-    go(0); restart();
+    go(0); setPlaying(playing);
   })();
 </script>
 <script type="importmap">
@@ -589,6 +575,32 @@
     document.addEventListener('click', function (e) { if (panel.classList.contains('open') && !panel.contains(e.target) && e.target !== btn) close(); });
     window.addEventListener('resize', function () { if (window.innerWidth > 720) close(); });
   })();
+</script>
+<script type="module">
+  /* ---------- Lightbox: PhotoSwipe, loaded when a thumbnail is first opened ---------- */
+  import PhotoSwipeLightbox from 'https://cdn.jsdelivr.net/npm/photoswipe@5.4.4/dist/photoswipe-lightbox.esm.min.js';
+  const lightbox = new PhotoSwipeLightbox({
+    gallery: '#gallery', children: 'a',
+    pswpModule: () => import('https://cdn.jsdelivr.net/npm/photoswipe@5.4.4/dist/photoswipe.esm.min.js'),
+    bgOpacity: 0.96, wheelToZoom: true, showHideAnimationType: 'zoom',
+    arrowPrevSVG: '<span class="pswp__chev" aria-hidden="true">&#8249;</span>',
+    arrowNextSVG: '<span class="pswp__chev" aria-hidden="true">&#8250;</span>',
+    closeTitle: 'Close (Esc)', arrowPrevTitle: 'Previous (arrow left)', arrowNextTitle: 'Next (arrow right)',
+  });
+  // the site's own caption: number, total and the view's name
+  lightbox.on('uiRegister', () => {
+    lightbox.pswp.ui.registerElement({
+      name: 'cap', appendTo: 'root', order: 9, isButton: false,
+      onInit: (el, pswp) => pswp.on('change', () => {
+        const a = pswp.currSlide.data.element, n = pswp.getNumItems();
+        el.innerHTML = `<b>${String(pswp.currIndex + 1).padStart(2, '0')}</b> / ${String(n).padStart(2, '0')} &nbsp;&middot;&nbsp; ${a ? a.dataset.label : ''}`;
+      }),
+    });
+  });
+  // the slideshow stops while the viewer is open, and lands on the last image viewed
+  lightbox.on('beforeOpen', () => window.__slideshow.setPlaying(false));
+  lightbox.on('close', () => window.__slideshow.go(lightbox.pswp.currIndex));
+  lightbox.init();
 </script>
 </body>
 </html>

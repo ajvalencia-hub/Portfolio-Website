@@ -1,0 +1,52 @@
+{
+ "aerial.png": {
+  "base": "aerial",
+  "w": 1536,
+  "h": 1024,
+  "sizes": [
+   480,
+   960,
+   1536
+  ]
+ },
+ "courtyard.png": {
+  "base": "courtyard",
+  "w": 1535,
+  "h": 1024,
+  "sizes": [
+   480,
+   960,
+   1535
+  ]
+ },
+ "courtyard2.png": {
+  "base": "courtyard2",
+  "w": 1535,
+  "h": 1024,
+  "sizes": [
+   480,
+   960,
+   1535
+  ]
+ },
+ "street.png": {
+  "base": "street",
+  "w": 1535,
+  "h": 1024,
+  "sizes": [
+   480,
+   960,
+   1535
+  ]
+ },
+ "street2.png": {
+  "base": "street2",
+  "w": 1537,
+  "h": 1023,
+  "sizes": [
+   480,
+   960,
+   1537
+  ]
+ }
+}
