@@ -441,6 +441,46 @@
   }
 
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } .js .fade { opacity: 1; transform: none; } .js .anim { opacity: 1 !important; transform: none !important; transition: none !important; } .js .card-reveal, .js .card-reveal .card-media, .js .card-reveal .card-kick, .js .card-reveal .card-name, .js .card-reveal .card-loc, .js .card-reveal .card-stats, .js .card-reveal .card-cta { opacity: 1 !important; transform: none !important; transition: none !important; } }
+
+  /* ---------- work index as a folio stack ----------
+     Each project card sits in a sticky folio. As the next folio slides up over it, the one
+     beneath shrinks a little and dims, so the stack keeps a visible lip of every earlier
+     project. Reduced motion keeps the pinning without the scale or dimming. If a card would not
+     fit under the header, the script drops the .folio class and the list stays as it was. */
+  /* the bottom padding lets the finished stack hold for a moment before the page moves on */
+  .work-grid.folio { gap: 48px; padding-bottom: 16vh; }
+  .work-grid.folio .folio-item { position: sticky; top: calc(var(--hdr) + var(--pin-gap, 28px) + var(--i) * var(--lip, 16px)); transform-origin: var(--fold-x) 0; transform: scale(var(--s, 1)); will-change: transform; }
+  /* folios recede toward the line between image and text, so that line stays in one place down
+     the whole stack: 2 px card border, then the 1.3 : 1.0 split, centred on the 2 px divider */
+  .work-grid.folio { --fold-x: calc(1px + (100% - 4px) * 0.565217); }
+  .work-grid.folio .folio-item::after { content: ''; position: absolute; inset: 0; background: var(--ink); opacity: var(--dim, 0); pointer-events: none; }
+  .work-grid.folio .folio-item:not(.front) .card { box-shadow: 6px 7px 0 rgba(31,29,24,0.11); }
+  /* the image side is the wider one, 1.3 : 1, on every card; each card grows with the screen
+     up to 700 px tall */
+  .work-grid.folio .card { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); height: clamp(520px, calc(100svh - var(--hdr) - 150px), 700px); min-height: 0; }
+  .work-grid.folio .card-name { font-size: clamp(44px, 5.4vw, 84px); }
+  /* the narrower text side: the four stats size to their figures and spread across the row,
+     so a wide figure like 12.55% never runs past the margin */
+  @media (min-width: 861px) {
+    .work-grid.folio .card-body { padding: 44px 44px; }
+    .work-grid.folio .card-stats { grid-template-columns: repeat(4, auto); justify-content: space-between; gap: 20px 14px; }
+    .work-grid.folio .card-stats .st .v { font-size: clamp(22px, 2.3vw, 32px); }
+  }
+  /* phones: one column at a fixed height that always fits under the header; the image takes
+     whatever height the text leaves, so the stack works on short and tall phones alike */
+  @media (max-width: 860px) {
+    .work-grid.folio { --pin-gap: 12px; --lip: 10px; --fold-x: 50%; gap: 28px; }
+    .work-grid.folio .card { display: flex; flex-direction: column; height: calc(100svh - var(--hdr) - 52px); min-height: 0; }
+    .work-grid.folio .card-media { flex: 1 1 auto; min-height: 120px; }
+    .work-grid.folio .card-body { flex: none; padding: 20px 20px 22px; }
+    .work-grid.folio .card-kick { margin-bottom: 10px; }
+    .work-grid.folio .card-name { font-size: clamp(30px, 9vw, 44px); }
+    .work-grid.folio .card-loc { margin-top: 8px; }
+    .work-grid.folio .card-stats { grid-template-columns: repeat(4, 1fr); margin-top: 16px; padding-top: 14px; gap: 10px; }
+    .work-grid.folio .card-stats .st .v { font-size: clamp(17px, 5.2vw, 24px); }
+    .work-grid.folio .card-stats .st .k { font-size: 10px; }
+    .work-grid.folio .card-cta { margin-top: 16px; font-size: 12.5px; }
+  }
 </style>
 <link rel="stylesheet" href="assets/concrete-background.css">
 </head>
@@ -520,8 +560,8 @@
           <h2>Selected Work</h2>
         </div>
 
-        <div class="work-grid">
-          <a class="card card-reveal" href="sunnyvale-mixed-use.html">
+        <div class="work-grid folio" id="folio">
+          <div class="folio-item" style="--i:0"><a class="card card-reveal" href="sunnyvale-mixed-use.html">
             <div class="card-media blueprint wire-cell" data-wire data-model="assets/models/sunnyvale.glb">
               <div class="wire-hud" aria-hidden="true">
                 <span class="wh wh-tl">MASSING // FIG.01</span>
@@ -541,9 +581,9 @@
               </div>
               <span class="card-cta">View project <svg class="arr" viewBox="0 0 24 16" fill="none" aria-hidden="true"><path d="M0 8h21M14.5 1.5 21 8l-6.5 6.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></svg></span>
             </div>
-          </a>
+          </a></div>
 
-          <a class="card card-reveal" href="solace-commons.html">
+          <div class="folio-item" style="--i:1"><a class="card card-reveal" href="solace-commons.html">
             <div class="card-media blueprint wire-cell wire-green" data-wire data-model="assets/models/solace.glb" data-color="green" data-az="208">
               <div class="wire-hud" aria-hidden="true">
                 <span class="wh wh-tl">MASSING // FIG.02</span>
@@ -563,9 +603,9 @@
               </div>
               <span class="card-cta">View project <svg class="arr" viewBox="0 0 24 16" fill="none" aria-hidden="true"><path d="M0 8h21M14.5 1.5 21 8l-6.5 6.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></svg></span>
             </div>
-          </a>
+          </a></div>
 
-          <a class="card card-reveal" href="mirador-manor.html">
+          <div class="folio-item" style="--i:2"><a class="card card-reveal" href="mirador-manor.html">
             <div class="card-media"><img src="assets/mirador/card-aerial.png" alt="Mirador Manor aerial render" loading="lazy" decoding="async" /></div>
             <div class="card-body">
               <div class="card-kick">Workforce &middot; LEED Gold</div>
@@ -579,7 +619,7 @@
               </div>
               <span class="card-cta">View project <svg class="arr" viewBox="0 0 24 16" fill="none" aria-hidden="true"><path d="M0 8h21M14.5 1.5 21 8l-6.5 6.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></svg></span>
             </div>
-          </a>
+          </a></div>
         </div>
       </div>
     </section>
@@ -888,6 +928,51 @@
     else { gate.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
   });
 })();
+</script>
+<script>
+  /* ---------- work index: folio stack ---------- */
+  (function () {
+    var grid = document.getElementById('folio'); if (!grid) return;
+    var items = [].slice.call(grid.querySelectorAll('.folio-item'));
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var on = true, raf = 0;
+    function stickTop(k) { return parseFloat(getComputedStyle(items[k]).top) || 0; }
+    // a folio only pins if the whole card fits under the header; otherwise the list stays as it is
+    function fits() {
+      grid.classList.add('folio');   // measure in the folio layout itself
+      return items.every(function (it, k) { return it.offsetHeight + stickTop(k) + 8 <= innerHeight; });
+    }
+    function layout() {
+      on = fits();
+      grid.classList.toggle('folio', on);
+      if (!on) items.forEach(function (it) { it.style.removeProperty('--s'); it.style.removeProperty('--dim'); });
+      update();
+    }
+    function update() {
+      raf = 0;
+      // how far each folio has slid over the one before it: 0 = not yet, 1 = fully arrived
+      var arrive = items.map(function (it, k) {
+        if (k === 0) return 1;
+        var d = it.getBoundingClientRect().top - stickTop(k), h = items[k - 1].offsetHeight;
+        return Math.max(0, Math.min(1, 1 - d / h));
+      });
+      var front = 0;
+      items.forEach(function (it, k) {
+        if (arrive[k] > 0.5) front = k;
+        if (!on || reduce) return;
+        var depth = 0;
+        for (var j = k + 1; j < items.length; j++) depth += arrive[j];
+        it.style.setProperty('--s', (1 - 0.045 * depth).toFixed(4));
+        it.style.setProperty('--dim', Math.min(0.42, 0.24 * depth).toFixed(3));
+      });
+      items.forEach(function (it, k) { it.classList.toggle('front', k === front); });
+    }
+    addEventListener('scroll', function () { if (!raf) raf = requestAnimationFrame(update); }, { passive: true });
+    addEventListener('resize', layout);
+    // cards settle their final size once fonts and the wireframes load
+    addEventListener('load', layout);
+    layout();
+  })();
 </script>
 </body>
 </html>
